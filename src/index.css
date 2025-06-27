@@ -84,6 +84,10 @@
     background: linear-gradient(135deg, rgb(16 185 129) 0%, rgb(59 130 246) 100%);
   }
 
+  .bg-aurora-gradient {
+    background: linear-gradient(135deg, rgb(16 185 129) 0%, rgb(59 130 246) 100%);
+  }
+
   .aurora-green {
     color: hsl(var(--aurora-green));
   }
