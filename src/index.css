@@ -45,6 +45,11 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Aurora custom colors */
+    --aurora-green: 142.1 76.2% 36.3%;
+    --aurora-green-light: 142.1 71.8% 45%;
+    --aurora-blue-light: 220 100% 70%;
   }
 }
 
@@ -74,9 +79,46 @@
     background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
     animation: aurora-sweep 3s infinite;
   }
+
+  .aurora-gradient {
+    background: linear-gradient(135deg, rgb(16 185 129) 0%, rgb(59 130 246) 100%);
+  }
+
+  .aurora-green {
+    color: hsl(var(--aurora-green));
+  }
+
+  .aurora-green-light {
+    color: hsl(var(--aurora-green-light));
+  }
+
+  .aurora-blue-light {
+    color: hsl(var(--aurora-blue-light));
+  }
+
+  .bg-aurora-green {
+    background-color: hsl(var(--aurora-green));
+  }
+
+  .bg-aurora-green-light {
+    background-color: hsl(var(--aurora-green-light));
+  }
+
+  .bg-aurora-blue-light {
+    background-color: hsl(var(--aurora-blue-light));
+  }
   
   @keyframes aurora-sweep {
     0% { left: -100%; }
     100% { left: 100%; }
+  }
+
+  @keyframes aurora-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .animate-aurora-pulse {
+    animation: aurora-pulse 2s ease-in-out infinite;
   }
 }

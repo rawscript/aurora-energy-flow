@@ -5,9 +5,12 @@ import EnergyDashboard from '@/components/EnergyDashboard';
 import BillCalculator from '@/components/BillCalculator';
 import EnergyInsights from '@/components/EnergyInsights';
 import Settings from '@/components/Settings';
+import UserMenu from '@/components/UserMenu';
+import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { user } = useAuth();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -42,11 +45,20 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="hidden md:flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Current Status</p>
-                <p className="text-sm font-medium text-aurora-green-light">● Online</p>
+            <div className="flex items-center space-x-4">
+              <div className="hidden md:flex items-center space-x-4">
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Welcome back</p>
+                  <p className="text-sm font-medium text-aurora-green-light">
+                    {user?.user_metadata?.full_name || user?.email || 'User'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Current Status</p>
+                  <p className="text-sm font-medium text-aurora-green-light">● Online</p>
+                </div>
               </div>
+              <UserMenu />
             </div>
           </div>
         </div>

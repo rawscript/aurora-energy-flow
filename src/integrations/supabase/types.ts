@@ -9,7 +9,183 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      ai_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          message: string
+          prediction_confidence: number | null
+          recommended_actions: Json | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          prediction_confidence?: number | null
+          recommended_actions?: Json | null
+          severity: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          prediction_confidence?: number | null
+          recommended_actions?: Json | null
+          severity?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_history: {
+        Row: {
+          billing_month: string
+          created_at: string
+          due_date: string
+          id: string
+          paid_date: string | null
+          payment_status: string
+          total_amount: number
+          total_kwh: number
+          user_id: string
+        }
+        Insert: {
+          billing_month: string
+          created_at?: string
+          due_date: string
+          id?: string
+          paid_date?: string | null
+          payment_status?: string
+          total_amount: number
+          total_kwh: number
+          user_id: string
+        }
+        Update: {
+          billing_month?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          paid_date?: string | null
+          payment_status?: string
+          total_amount?: number
+          total_kwh?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energy_readings: {
+        Row: {
+          billing_period_end: string | null
+          billing_period_start: string | null
+          cost_per_kwh: number
+          created_at: string
+          id: string
+          kwh_consumed: number
+          meter_number: string
+          off_peak_usage: number | null
+          peak_usage: number | null
+          reading_date: string
+          total_cost: number
+          user_id: string
+        }
+        Insert: {
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          cost_per_kwh: number
+          created_at?: string
+          id?: string
+          kwh_consumed: number
+          meter_number: string
+          off_peak_usage?: number | null
+          peak_usage?: number | null
+          reading_date?: string
+          total_cost: number
+          user_id: string
+        }
+        Update: {
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          cost_per_kwh?: number
+          created_at?: string
+          id?: string
+          kwh_consumed?: number
+          meter_number?: string
+          off_peak_usage?: number | null
+          peak_usage?: number | null
+          reading_date?: string
+          total_cost?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energy_readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          meter_number: string | null
+          phone_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          meter_number?: string | null
+          phone_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          meter_number?: string | null
+          phone_number?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
