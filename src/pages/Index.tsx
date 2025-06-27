@@ -6,6 +6,7 @@ import BillCalculator from '@/components/BillCalculator';
 import EnergyInsights from '@/components/EnergyInsights';
 import Settings from '@/components/Settings';
 import UserMenu from '@/components/UserMenu';
+import Chatbot from '@/components/Chatbot';
 import { useAuth } from '@/hooks/useAuth';
 
 const Index = () => {
@@ -71,6 +72,9 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8">
         {renderContent()}
       </main>
+
+      {/* Chatbot */}
+      <Chatbot />
 
       {/* Footer */}
       <footer className="bg-slate-900/50 border-t border-aurora-green/20 mt-16">
