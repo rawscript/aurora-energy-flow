@@ -50,12 +50,15 @@ class ThreeJSErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
 // Loading fallback component
 const LoadingFallback = () => (
-  <div className="w-full h-full flex items-center justify-center">
-    <Loader2 className="h-8 w-8 animate-spin text-aurora-green" />
+  <div className="w-full h-full flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+    <div className="text-center">
+      <Loader2 className="h-8 w-8 animate-spin text-aurora-green mx-auto mb-2" />
+      <p className="text-white text-sm">Loading 3D Scene...</p>
+    </div>
   </div>
 );
 
-// 3D Meter Box Component - Simplified and more stable
+// Simplified 3D Meter Box Component
 const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolean }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
@@ -89,11 +92,11 @@ const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolea
         <Sphere args={[0.05]} position={[-0.6, 0.5, 0.42]}>
           <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.3} />
         </Sphere>
-        <Sphere args={[0.05]} position={[-0.4, 0.5, 0.42]}>
+        <Sphere args={[0.05]} position={[0.4, 0.5, 0.42]}>
           <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={isActive ? 0.8 : 0.2} />
         </Sphere>
         
-        {/* Connection wires */}
+        {/* Connection wires - simplified */}
         <Box args={[0.1, 1, 0.1]} position={[0.8, 1.5, 0]}>
           <meshStandardMaterial color="#dc2626" />
         </Box>
@@ -114,14 +117,14 @@ const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolea
   );
 };
 
-// 3D Energy Particles - Simplified
+// Simplified Energy Particles
 const EnergyParticles = () => {
   const particlesRef = useRef<THREE.Points>(null);
   
   useFrame((state) => {
     if (particlesRef.current) {
       try {
-        particlesRef.current.rotation.y = state.clock.elapsedTime * 0.05;
+        particlesRef.current.rotation.y = state.clock.elapsedTime * 0.02;
       } catch (error) {
         console.log('Particles animation error:', error);
       }
@@ -129,11 +132,11 @@ const EnergyParticles = () => {
   });
 
   const particlePositions = React.useMemo(() => {
-    const positions = new Float32Array(100 * 3); // Reduced particle count
-    for (let i = 0; i < 100; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 15;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 15;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 15;
+    const positions = new Float32Array(50 * 3); // Reduced particle count for better performance
+    for (let i = 0; i < 50; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
     }
     return positions;
   }, []);
@@ -143,18 +146,19 @@ const EnergyParticles = () => {
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={100}
+          count={50}
           array={particlePositions}
           itemSize={3}
         />
       </bufferGeometry>
-      <pointsMaterial size={0.08} color="#10b981" transparent opacity={0.6} />
+      <pointsMaterial size={0.1} color="#10b981" transparent opacity={0.6} />
     </points>
   );
 };
 
 const Landing = () => {
   const [showMeterGuide, setShowMeterGuide] = useState(false);
+  const [threeDLoaded, setThreeDLoaded] = useState(false);
 
   const features = [
     {
@@ -191,26 +195,31 @@ const Landing = () => {
                 gl={{ 
                   antialias: true, 
                   alpha: true,
-                  powerPreference: "high-performance"
+                  powerPreference: "default",
+                  failIfMajorPerformanceCaveat: false
                 }}
                 onCreated={({ gl }) => {
-                  gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                  gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+                  setThreeDLoaded(true);
+                  console.log('Three.js Canvas created successfully');
                 }}
+                fallback={<LoadingFallback />}
               >
                 <ambientLight intensity={0.4} />
                 <pointLight position={[10, 10, 10]} intensity={0.8} />
-                <spotLight position={[0, 20, 0]} angle={0.15} penumbra={1} intensity={0.8} />
+                <spotLight position={[0, 15, 0]} angle={0.2} penumbra={1} intensity={0.6} />
                 
                 <EnergyParticles />
                 
-                <Environment preset="night" />
                 <OrbitControls 
                   enableZoom={false} 
                   enablePan={false} 
                   autoRotate 
-                  autoRotateSpeed={0.3}
+                  autoRotateSpeed={0.2}
                   maxPolarAngle={Math.PI}
                   minPolarAngle={0}
+                  enableDamping
+                  dampingFactor={0.05}
                 />
               </Canvas>
             </Suspense>
@@ -244,6 +253,13 @@ const Landing = () => {
               <Play className="mr-2" /> View Meter Guide
             </Button>
           </div>
+          
+          {!threeDLoaded && (
+            <div className="mt-8 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+              Loading 3D environment...
+            </div>
+          )}
         </div>
         
         {/* Scroll indicator */}
@@ -265,7 +281,7 @@ const Landing = () => {
                   gl={{ 
                     antialias: true, 
                     alpha: true,
-                    powerPreference: "high-performance"
+                    powerPreference: "default"
                   }}
                 >
                   <ambientLight intensity={0.5} />
@@ -274,7 +290,7 @@ const Landing = () => {
                   
                   <MeterBox onClick={() => {}} isActive={true} />
                   
-                  <OrbitControls enableZoom={true} enablePan={true} />
+                  <OrbitControls enableZoom={true} enablePan={true} enableDamping dampingFactor={0.05} />
                 </Canvas>
               </Suspense>
             </ThreeJSErrorBoundary>
