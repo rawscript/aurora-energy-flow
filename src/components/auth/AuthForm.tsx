@@ -26,7 +26,7 @@ const AuthForm = () => {
   // Redirect if user is already authenticated
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
 
@@ -39,7 +39,7 @@ const AuthForm = () => {
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             full_name: formData.fullName,
             phone_number: formData.phoneNumber,
