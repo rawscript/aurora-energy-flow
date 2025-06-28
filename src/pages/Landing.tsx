@@ -8,18 +8,27 @@ import { Link } from 'react-router-dom';
 import { Zap, TrendingDown, Shield, Brain, ArrowRight, Play, Loader2 } from 'lucide-react';
 import * as THREE from 'three';
 
+// Error Boundary interfaces
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
 // Error Boundary for 3D components
-class ThreeJSErrorBoundary extends React.Component {
-  constructor(props) {
+class ThreeJSErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true };
   }
 
-  componentDidCatch(error, errorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.log('Three.js Error:', error, errorInfo);
   }
 
