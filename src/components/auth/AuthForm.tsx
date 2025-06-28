@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Zap } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 const AuthForm = () => {
   const [loading, setLoading] = useState(false);
@@ -18,13 +20,22 @@ const AuthForm = () => {
     phoneNumber: '',
     meterNumber: ''
   });
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -44,10 +55,18 @@ const AuthForm = () => {
           variant: "destructive"
         });
       } else {
-        toast({
-          title: "Account Created!",
-          description: "Check your email to verify your account."
-        });
+        if (data.user && !data.session) {
+          toast({
+            title: "Account Created!",
+            description: "Check your email to verify your account."
+          });
+        } else if (data.session) {
+          toast({
+            title: "Account Created!",
+            description: "Welcome to Aurora Energy!"
+          });
+          // Navigation will be handled by the useEffect above when user state changes
+        }
       }
     } catch (error) {
       toast({
@@ -65,7 +84,7 @@ const AuthForm = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password
       });
@@ -76,11 +95,12 @@ const AuthForm = () => {
           description: error.message,
           variant: "destructive"
         });
-      } else {
+      } else if (data.session) {
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in."
         });
+        // Navigation will be handled by the useEffect above when user state changes
       }
     } catch (error) {
       toast({
