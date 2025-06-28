@@ -1,29 +1,71 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Box, Sphere, Environment, Float, Html } from '@react-three/drei';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
-import { Zap, TrendingDown, Shield, Brain, ArrowRight, Play } from 'lucide-react';
+import { Zap, TrendingDown, Shield, Brain, ArrowRight, Play, Loader2 } from 'lucide-react';
 import * as THREE from 'three';
 
-// 3D Meter Box Component
+// Error Boundary for 3D components
+class ThreeJSErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.log('Three.js Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full flex items-center justify-center bg-slate-800/20 rounded-lg">
+          <div className="text-center">
+            <Zap className="h-12 w-12 text-aurora-green mx-auto mb-4" />
+            <p className="text-white">3D Preview Loading...</p>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="w-full h-full flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-aurora-green" />
+  </div>
+);
+
+// 3D Meter Box Component - Simplified and more stable
 const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolean }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   
   useFrame((state) => {
     if (meshRef.current) {
-      meshRef.current.rotation.y = Math.sin(state.clock.elapsedTime) * 0.1;
-      if (isActive) {
-        meshRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 3) * 0.05);
+      try {
+        meshRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
+        if (isActive) {
+          meshRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 2) * 0.03);
+        }
+      } catch (error) {
+        console.log('Animation error:', error);
       }
     }
   });
 
   return (
     <group onClick={onClick}>
-      <Float speed={1.5} rotationIntensity={0.2} floatIntensity={0.5}>
+      <Float speed={1} rotationIntensity={0.1} floatIntensity={0.3}>
         {/* Main meter box */}
         <Box ref={meshRef} args={[2, 2.5, 0.8]} position={[0, 0, 0]}>
           <meshStandardMaterial color={isActive ? "#10b981" : "#374151"} />
@@ -36,10 +78,10 @@ const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolea
         
         {/* LED indicators */}
         <Sphere args={[0.05]} position={[-0.6, 0.5, 0.42]}>
-          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.5} />
+          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.3} />
         </Sphere>
         <Sphere args={[0.05]} position={[-0.4, 0.5, 0.42]}>
-          <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={isActive ? 1 : 0.2} />
+          <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={isActive ? 0.8 : 0.2} />
         </Sphere>
         
         {/* Connection wires */}
@@ -52,7 +94,7 @@ const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolea
         
         {isActive && (
           <Html position={[0, -2, 0]} center>
-            <div className="bg-slate-900/90 text-white p-4 rounded-lg max-w-xs text-center backdrop-blur-sm">
+            <div className="bg-slate-900/90 text-white p-4 rounded-lg max-w-xs text-center backdrop-blur-sm border border-aurora-green/20">
               <h3 className="font-bold text-aurora-green-light mb-2">Smart Meter Guide</h3>
               <p className="text-sm">This is your digital electricity meter. It records your energy consumption in real-time and communicates with Kenya Power.</p>
             </div>
@@ -63,22 +105,26 @@ const MeterBox = ({ onClick, isActive }: { onClick: () => void; isActive: boolea
   );
 };
 
-// 3D Energy Particles
+// 3D Energy Particles - Simplified
 const EnergyParticles = () => {
   const particlesRef = useRef<THREE.Points>(null);
   
   useFrame((state) => {
     if (particlesRef.current) {
-      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.1;
+      try {
+        particlesRef.current.rotation.y = state.clock.elapsedTime * 0.05;
+      } catch (error) {
+        console.log('Particles animation error:', error);
+      }
     }
   });
 
   const particlePositions = React.useMemo(() => {
-    const positions = new Float32Array(200 * 3);
-    for (let i = 0; i < 200; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 20;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+    const positions = new Float32Array(100 * 3); // Reduced particle count
+    for (let i = 0; i < 100; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 15;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 15;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 15;
     }
     return positions;
   }, []);
@@ -88,19 +134,18 @@ const EnergyParticles = () => {
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={200}
+          count={100}
           array={particlePositions}
           itemSize={3}
         />
       </bufferGeometry>
-      <pointsMaterial size={0.05} color="#10b981" transparent opacity={0.6} />
+      <pointsMaterial size={0.08} color="#10b981" transparent opacity={0.6} />
     </points>
   );
 };
 
 const Landing = () => {
   const [showMeterGuide, setShowMeterGuide] = useState(false);
-  const [currentSection, setCurrentSection] = useState(0);
 
   const features = [
     {
@@ -130,16 +175,37 @@ const Landing = () => {
       {/* Hero Section with 3D Animation */}
       <section className="relative h-screen flex items-center justify-center">
         <div className="absolute inset-0">
-          <Canvas camera={{ position: [0, 0, 10], fov: 60 }}>
-            <ambientLight intensity={0.3} />
-            <pointLight position={[10, 10, 10]} intensity={1} />
-            <spotLight position={[0, 20, 0]} angle={0.15} penumbra={1} intensity={1} />
-            
-            <EnergyParticles />
-            
-            <Environment preset="night" />
-            <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.5} />
-          </Canvas>
+          <ThreeJSErrorBoundary>
+            <Suspense fallback={<LoadingFallback />}>
+              <Canvas 
+                camera={{ position: [0, 0, 10], fov: 60 }}
+                gl={{ 
+                  antialias: true, 
+                  alpha: true,
+                  powerPreference: "high-performance"
+                }}
+                onCreated={({ gl }) => {
+                  gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                }}
+              >
+                <ambientLight intensity={0.4} />
+                <pointLight position={[10, 10, 10]} intensity={0.8} />
+                <spotLight position={[0, 20, 0]} angle={0.15} penumbra={1} intensity={0.8} />
+                
+                <EnergyParticles />
+                
+                <Environment preset="night" />
+                <OrbitControls 
+                  enableZoom={false} 
+                  enablePan={false} 
+                  autoRotate 
+                  autoRotateSpeed={0.3}
+                  maxPolarAngle={Math.PI}
+                  minPolarAngle={0}
+                />
+              </Canvas>
+            </Suspense>
+          </ThreeJSErrorBoundary>
         </div>
         
         <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
@@ -183,24 +249,35 @@ const Landing = () => {
       {showMeterGuide && (
         <section className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
           <div className="relative w-full h-full">
-            <Canvas camera={{ position: [0, 0, 8], fov: 50 }}>
-              <ambientLight intensity={0.4} />
-              <pointLight position={[10, 10, 10]} intensity={1} />
-              <spotLight position={[0, 10, 0]} angle={0.3} penumbra={1} intensity={1} />
-              
-              <MeterBox onClick={() => {}} isActive={true} />
-              
-              <OrbitControls enableZoom={true} enablePan={true} />
-            </Canvas>
+            <ThreeJSErrorBoundary>
+              <Suspense fallback={<LoadingFallback />}>
+                <Canvas 
+                  camera={{ position: [0, 0, 8], fov: 50 }}
+                  gl={{ 
+                    antialias: true, 
+                    alpha: true,
+                    powerPreference: "high-performance"
+                  }}
+                >
+                  <ambientLight intensity={0.5} />
+                  <pointLight position={[10, 10, 10]} intensity={1} />
+                  <spotLight position={[0, 10, 0]} angle={0.3} penumbra={1} intensity={1} />
+                  
+                  <MeterBox onClick={() => {}} isActive={true} />
+                  
+                  <OrbitControls enableZoom={true} enablePan={true} />
+                </Canvas>
+              </Suspense>
+            </ThreeJSErrorBoundary>
             
             <Button 
-              className="absolute top-6 right-6 bg-red-600 hover:bg-red-700"
+              className="absolute top-6 right-6 bg-red-600 hover:bg-red-700 z-10"
               onClick={() => setShowMeterGuide(false)}
             >
               Close Guide
             </Button>
             
-            <div className="absolute bottom-6 left-6 right-6">
+            <div className="absolute bottom-6 left-6 right-6 z-10">
               <Card className="bg-slate-900/90 border-aurora-green/20 backdrop-blur-sm">
                 <CardContent className="p-6">
                   <h3 className="text-xl font-bold text-aurora-green-light mb-4">Understanding Your Smart Meter</h3>

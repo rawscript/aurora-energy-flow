@@ -21,17 +21,20 @@ const AuthForm = () => {
     meterNumber: ''
   });
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   // Redirect if user is already authenticated
   useEffect(() => {
-    if (user) {
+    if (user && !authLoading) {
+      console.log('User authenticated, redirecting to dashboard');
       navigate('/dashboard', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    
     setLoading(true);
 
     try {
@@ -49,6 +52,7 @@ const AuthForm = () => {
       });
 
       if (error) {
+        console.error('Sign up error:', error);
         toast({
           title: "Sign Up Failed",
           description: error.message,
@@ -69,9 +73,10 @@ const AuthForm = () => {
         }
       }
     } catch (error) {
+      console.error('Unexpected sign up error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: "An unexpected error occurred during sign up.",
         variant: "destructive"
       });
     } finally {
@@ -81,6 +86,8 @@ const AuthForm = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    
     setLoading(true);
 
     try {
@@ -90,12 +97,14 @@ const AuthForm = () => {
       });
 
       if (error) {
+        console.error('Sign in error:', error);
         toast({
           title: "Sign In Failed",
           description: error.message,
           variant: "destructive"
         });
       } else if (data.session) {
+        console.log('Sign in successful');
         toast({
           title: "Welcome back!",
           description: "You have successfully signed in."
@@ -103,9 +112,10 @@ const AuthForm = () => {
         // Navigation will be handled by the useEffect above when user state changes
       }
     } catch (error) {
+      console.error('Unexpected sign in error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: "An unexpected error occurred during sign in.",
         variant: "destructive"
       });
     } finally {
@@ -119,6 +129,15 @@ const AuthForm = () => {
       [e.target.name]: e.target.value
     }));
   };
+
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-aurora-green" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -155,6 +174,7 @@ const AuthForm = () => {
                     onChange={handleChange}
                     required
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -167,6 +187,7 @@ const AuthForm = () => {
                     onChange={handleChange}
                     required
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <Button 
@@ -190,6 +211,7 @@ const AuthForm = () => {
                     onChange={handleChange}
                     required
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -202,6 +224,7 @@ const AuthForm = () => {
                     onChange={handleChange}
                     required
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -212,6 +235,7 @@ const AuthForm = () => {
                     value={formData.phoneNumber}
                     onChange={handleChange}
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -222,6 +246,7 @@ const AuthForm = () => {
                     value={formData.meterNumber}
                     onChange={handleChange}
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -234,6 +259,7 @@ const AuthForm = () => {
                     onChange={handleChange}
                     required
                     className="bg-slate-700/50 border-slate-600"
+                    disabled={loading}
                   />
                 </div>
                 <Button 
