@@ -119,7 +119,7 @@ export const useRealTimeEnergy = () => {
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqZHZha3NqdHB4eXVseHp0dG1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5OTI5OTgsImV4cCI6MjA2NjU2ODk5OH0.quAarwU4DSjaiudQw47c2I44kCoy-SEScwDQ4EJTsmY`,
           },
         }
       );

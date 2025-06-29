@@ -14,7 +14,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-aurora-dark">
-      <Navigation />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-aurora-green-light mb-2">
