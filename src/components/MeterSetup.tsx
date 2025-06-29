@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Meter, User, Phone, MapPin } from 'lucide-react';
+import { Gauge, User, Phone, MapPin } from 'lucide-react';
 
 const meterFormSchema = z.object({
   meterNumber: z.string().min(5, 'Meter number must be at least 5 characters'),
@@ -75,7 +74,7 @@ const MeterSetup = () => {
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader>
           <CardTitle className="text-xl text-aurora-green-light flex items-center gap-2">
-            <Meter className="h-6 w-6" />
+            <Gauge className="h-6 w-6" />
             Smart Meter Setup
           </CardTitle>
           <p className="text-gray-400">
@@ -93,7 +92,7 @@ const MeterSetup = () => {
                     <FormLabel className="text-aurora-green-light">Meter Number</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Meter className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Gauge className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input
                           placeholder="Enter your Kenya Power meter number"
                           className="pl-10 bg-slate-800 border-aurora-green/30"
