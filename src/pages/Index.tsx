@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navigation from "@/components/Navigation";
@@ -8,6 +7,7 @@ import BillCalculator from "@/components/BillCalculator";
 import Chatbot from "@/components/Chatbot";
 import Settings from "@/components/Settings";
 import SmartMeterStatus from "@/components/SmartMeterStatus";
+import MeterSetup from "@/components/MeterSetup";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -25,7 +25,7 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-aurora-card border border-aurora-green/20">
+          <TabsList className="grid w-full grid-cols-6 bg-aurora-card border border-aurora-green/20">
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black">
               Dashboard
             </TabsTrigger>
@@ -34,6 +34,9 @@ const Index = () => {
             </TabsTrigger>
             <TabsTrigger value="calculator" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black">
               Calculator
+            </TabsTrigger>
+            <TabsTrigger value="meter" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black">
+              Meter Setup
             </TabsTrigger>
             <TabsTrigger value="chat" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black">
               AI Assistant
@@ -60,6 +63,10 @@ const Index = () => {
 
           <TabsContent value="calculator">
             <BillCalculator />
+          </TabsContent>
+
+          <TabsContent value="meter">
+            <MeterSetup />
           </TabsContent>
 
           <TabsContent value="chat">
