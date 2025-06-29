@@ -2,17 +2,10 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Battery, House, Sun, Monitor } from 'lucide-react';
+import { Battery, House, Sun, Monitor, Zap } from 'lucide-react';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-
-const energyData = [
-  { time: '00:00', usage: 2.4, cost: 0.36 },
-  { time: '04:00', usage: 1.8, cost: 0.27 },
-  { time: '08:00', usage: 4.2, cost: 0.63 },
-  { time: '12:00', usage: 5.8, cost: 0.87 },
-  { time: '16:00', usage: 6.5, cost: 0.98 },
-  { time: '20:00', usage: 7.2, cost: 1.08 },
-];
+import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
+import { format } from 'date-fns';
 
 const deviceData = [
   { name: 'HVAC', value: 35, color: '#10b981' },
@@ -22,8 +15,45 @@ const deviceData = [
 ];
 
 const EnergyDashboard = () => {
+  const { energyData, recentReadings, loading, simulateReading } = useRealTimeEnergy();
+
+  // Transform recent readings for charts
+  const chartData = recentReadings.slice(0, 12).reverse().map(reading => ({
+    time: format(new Date(reading.reading_date), 'HH:mm'),
+    usage: Number(reading.kwh_consumed),
+    cost: Number(reading.total_cost),
+  }));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aurora-green-light"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Real-time Status Banner */}
+      <Card className="bg-aurora-card border-aurora-green/20 aurora-glow">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-aurora-green-light">Live Smart Meter Data</span>
+            </div>
+            <Button 
+              onClick={simulateReading}
+              size="sm"
+              className="bg-aurora-green hover:bg-aurora-green/80"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Simulate Reading
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-aurora-card border-aurora-green/20 aurora-glow">
@@ -32,7 +62,9 @@ const EnergyDashboard = () => {
               <Battery className="h-8 w-8 text-aurora-green-light" />
               <div>
                 <p className="text-sm text-muted-foreground">Current Usage</p>
-                <p className="text-2xl font-bold text-aurora-green-light">7.2 kW</p>
+                <p className="text-2xl font-bold text-aurora-green-light">
+                  {energyData.current_usage.toFixed(1)} kW
+                </p>
               </div>
             </div>
           </CardContent>
@@ -44,7 +76,9 @@ const EnergyDashboard = () => {
               <House className="h-8 w-8 text-aurora-blue-light" />
               <div>
                 <p className="text-sm text-muted-foreground">Daily Total</p>
-                <p className="text-2xl font-bold text-aurora-blue-light">124 kWh</p>
+                <p className="text-2xl font-bold text-aurora-blue-light">
+                  {energyData.daily_total.toFixed(1)} kWh
+                </p>
               </div>
             </div>
           </CardContent>
@@ -56,7 +90,9 @@ const EnergyDashboard = () => {
               <Sun className="h-8 w-8 text-aurora-purple-light" />
               <div>
                 <p className="text-sm text-muted-foreground">Cost Today</p>
-                <p className="text-2xl font-bold text-aurora-purple-light">$18.60</p>
+                <p className="text-2xl font-bold text-aurora-purple-light">
+                  KSh {energyData.daily_cost.toFixed(2)}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -68,7 +104,9 @@ const EnergyDashboard = () => {
               <Monitor className="h-8 w-8 text-emerald-400" />
               <div>
                 <p className="text-sm text-muted-foreground">Efficiency</p>
-                <p className="text-2xl font-bold text-emerald-400">87%</p>
+                <p className="text-2xl font-bold text-emerald-400">
+                  {energyData.efficiency_score}%
+                </p>
               </div>
             </div>
           </CardContent>
@@ -83,7 +121,7 @@ const EnergyDashboard = () => {
         <CardContent>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={energyData}>
+              <AreaChart data={chartData.length > 0 ? chartData : [{ time: 'No data', usage: 0 }]}>
                 <defs>
                   <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
@@ -166,7 +204,7 @@ const EnergyDashboard = () => {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={energyData}>
+                <LineChart data={chartData.length > 0 ? chartData : [{ time: 'No data', cost: 0 }]}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="time" stroke="#9ca3af" />
                   <YAxis stroke="#9ca3af" />

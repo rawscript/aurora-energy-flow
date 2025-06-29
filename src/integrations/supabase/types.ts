@@ -191,7 +191,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_latest_energy_data: {
+        Args: { p_user_id: string }
+        Returns: {
+          current_usage: number
+          daily_total: number
+          daily_cost: number
+          efficiency_score: number
+        }[]
+      }
+      insert_energy_reading: {
+        Args: {
+          p_user_id: string
+          p_meter_number: string
+          p_kwh_consumed: number
+          p_cost_per_kwh?: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
