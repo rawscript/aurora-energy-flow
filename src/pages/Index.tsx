@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Navigation from "@/components/Navigation";
 import EnergyDashboard from "@/components/EnergyDashboard";
 import EnergyInsights from "@/components/EnergyInsights";
 import BillCalculator from "@/components/BillCalculator";
+import ChatInterface from "@/components/ChatInterface";
 import Chatbot from "@/components/Chatbot";
 import Settings from "@/components/Settings";
 import SmartMeterStatus from "@/components/SmartMeterStatus";
@@ -70,7 +70,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="chat">
-            <Chatbot />
+            <ChatInterface />
           </TabsContent>
 
           <TabsContent value="settings">
@@ -78,6 +78,9 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Keep the floating chatbot for use outside the chat tab */}
+      {activeTab !== "chat" && <Chatbot />}
     </div>
   );
 };
