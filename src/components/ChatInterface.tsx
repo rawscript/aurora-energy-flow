@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Message {
   id: string;
@@ -24,6 +24,8 @@ interface EnergyAlert {
 }
 
 const ChatInterface = () => {
+  const isMobile = useIsMobile();
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -217,15 +219,15 @@ const ChatInterface = () => {
       {/* AI Alerts Section */}
       {alerts.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold text-aurora-green-light flex items-center gap-2">
-            <Bot className="h-5 w-5" />
+          <h3 className="text-base md:text-lg font-semibold text-aurora-green-light flex items-center gap-2">
+            <Bot className="h-4 w-4 md:h-5 md:w-5" />
             AI Energy Alerts
           </h3>
           {alerts.map((alert) => (
             <Alert key={alert.id} variant={getAlertVariant(alert.type)} className="bg-aurora-card border-aurora-green/20">
               {getAlertIcon(alert.type)}
-              <AlertTitle className="text-aurora-green-light">{alert.title}</AlertTitle>
-              <AlertDescription className="text-gray-300">
+              <AlertTitle className="text-aurora-green-light text-sm md:text-base">{alert.title}</AlertTitle>
+              <AlertDescription className="text-gray-300 text-xs md:text-sm">
                 {alert.message}
               </AlertDescription>
             </Alert>
@@ -234,28 +236,28 @@ const ChatInterface = () => {
       )}
 
       {/* Chat Interface */}
-      <Card className="h-[600px] flex flex-col bg-aurora-card border-aurora-green/20">
-        <CardHeader className="bg-aurora-gradient">
-          <CardTitle className="text-white font-medium flex items-center gap-2">
-            <Bot className="h-5 w-5" />
+      <Card className={`${isMobile ? 'h-[70vh]' : 'h-[600px]'} flex flex-col bg-aurora-card border-aurora-green/20`}>
+        <CardHeader className="bg-aurora-gradient p-3 md:p-6">
+          <CardTitle className="text-white font-medium flex items-center gap-2 text-sm md:text-base">
+            <Bot className="h-4 w-4 md:h-5 md:w-5" />
             Aurora Assistant 🇰🇪
           </CardTitle>
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col p-0">
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-2 md:p-4 space-y-3 md:space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex gap-2 ${message.isBot ? 'justify-start' : 'justify-end'}`}
               >
                 {message.isBot && (
-                  <div className="w-8 h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-4 w-4 text-white" />
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-3 w-3 md:h-4 md:w-4 text-white" />
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] p-3 rounded-lg text-sm whitespace-pre-line ${
+                  className={`max-w-[85%] md:max-w-[80%] p-2 md:p-3 rounded-lg text-xs md:text-sm whitespace-pre-line ${
                     message.isBot
                       ? 'bg-slate-800 text-gray-200'
                       : 'bg-aurora-green text-white'
@@ -264,8 +266,8 @@ const ChatInterface = () => {
                   {message.text}
                 </div>
                 {!message.isBot && (
-                  <div className="w-8 h-8 rounded-full bg-aurora-blue-light flex items-center justify-center flex-shrink-0">
-                    <User className="h-4 w-4 text-white" />
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-blue-light flex items-center justify-center flex-shrink-0">
+                    <User className="h-3 w-3 md:h-4 md:w-4 text-white" />
                   </div>
                 )}
               </div>
@@ -273,10 +275,10 @@ const ChatInterface = () => {
             
             {isTyping && (
               <div className="flex gap-2 justify-start">
-                <div className="w-8 h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-white" />
+                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-3 w-3 md:h-4 md:w-4 text-white" />
                 </div>
-                <div className="bg-slate-800 text-gray-200 p-3 rounded-lg text-sm">
+                <div className="bg-slate-800 text-gray-200 p-2 md:p-3 rounded-lg text-xs md:text-sm">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -289,10 +291,10 @@ const ChatInterface = () => {
           </div>
 
           {messages.length === 1 && (
-            <div className="p-4 border-t border-slate-700">
-              <p className="text-sm text-gray-400 mb-3">Quick actions:</p>
-              <div className="grid grid-cols-1 gap-2">
-                {quickActions.slice(0, 4).map((action, index) => (
+            <div className="p-2 md:p-4 border-t border-slate-700">
+              <p className="text-xs md:text-sm text-gray-400 mb-2 md:mb-3">Quick actions:</p>
+              <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1'} gap-2`}>
+                {quickActions.slice(0, isMobile ? 3 : 4).map((action, index) => (
                   <Button
                     key={index}
                     variant="outline"
@@ -301,29 +303,29 @@ const ChatInterface = () => {
                     className="text-xs justify-start h-8 border-slate-600 hover:bg-slate-800 gap-2"
                   >
                     <action.icon className="h-3 w-3" />
-                    {action.text}
+                    <span className={isMobile ? "truncate" : ""}>{action.text}</span>
                   </Button>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="p-4 border-t border-slate-700">
+          <div className="p-2 md:p-4 border-t border-slate-700">
             <div className="flex gap-2">
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask about energy saving, bills, Kenya Power..."
-                className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-gray-400"
+                placeholder={isMobile ? "Ask about energy..." : "Ask about energy saving, bills, Kenya Power..."}
+                className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-gray-400 text-sm"
               />
               <Button
                 onClick={sendMessage}
                 size="icon"
-                className="bg-aurora-green hover:bg-aurora-green-light"
+                className="bg-aurora-green hover:bg-aurora-green-light h-9 w-9 md:h-10 md:w-10"
                 disabled={!inputValue.trim()}
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
             </div>
           </div>

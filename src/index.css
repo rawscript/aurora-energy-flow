@@ -62,6 +62,24 @@
     @apply bg-background text-foreground min-h-screen;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
   }
+
+  /* Mobile-specific styles */
+  @media (max-width: 768px) {
+    .container {
+      @apply px-2;
+    }
+    
+    /* Ensure mobile viewport is properly handled */
+    html {
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+    
+    /* Touch-friendly sizing */
+    button, input, select, textarea {
+      @apply text-base;
+    }
+  }
 }
 
 @layer components {
@@ -124,5 +142,18 @@
 
   .animate-aurora-pulse {
     animation: aurora-pulse 2s ease-in-out infinite;
+  }
+
+  /* Mobile-optimized components */
+  @media (max-width: 768px) {
+    .bg-aurora-card {
+      @apply bg-opacity-95;
+    }
+    
+    /* Ensure proper touch targets */
+    .mobile-touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
   }
 }
