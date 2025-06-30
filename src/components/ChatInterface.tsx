@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 
@@ -11,6 +12,14 @@ interface Message {
   id: string;
   text: string;
   isBot: boolean;
+  timestamp: Date;
+}
+
+interface EnergyAlert {
+  id: string;
+  type: 'warning' | 'info' | 'success';
+  title: string;
+  message: string;
   timestamp: Date;
 }
 
@@ -25,9 +34,79 @@ const ChatInterface = () => {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [alerts, setAlerts] = useState<EnergyAlert[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { energyData } = useRealTimeEnergy();
+
+  // Generate AI alerts based on energy data
+  useEffect(() => {
+    const generateAlerts = () => {
+      const newAlerts: EnergyAlert[] = [];
+
+      // High usage alert
+      if (energyData.daily_total > 15) {
+        newAlerts.push({
+          id: 'high-usage',
+          type: 'warning',
+          title: 'High Energy Usage Detected',
+          message: `Your daily usage of ${energyData.daily_total.toFixed(2)} kWh is above average. Consider energy-saving measures to reduce costs.`,
+          timestamp: new Date()
+        });
+      }
+
+      // Low efficiency alert
+      if (energyData.efficiency_score < 80) {
+        newAlerts.push({
+          id: 'low-efficiency',
+          type: 'warning',
+          title: 'Energy Efficiency Alert',
+          message: `Your efficiency score is ${energyData.efficiency_score}%. Switch to LED bulbs and unplug unused devices to improve efficiency.`,
+          timestamp: new Date()
+        });
+      }
+
+      // Cost optimization alert
+      if (energyData.daily_cost > 500) {
+        newAlerts.push({
+          id: 'high-cost',
+          type: 'warning',
+          title: 'High Daily Cost Alert',
+          message: `Today's cost of KSh ${energyData.daily_cost.toFixed(2)} is high. Consider using appliances during off-peak hours (10 PM - 6 AM).`,
+          timestamp: new Date()
+        });
+      }
+
+      // Positive efficiency alert
+      if (energyData.efficiency_score >= 90) {
+        newAlerts.push({
+          id: 'excellent-efficiency',
+          type: 'success',
+          title: 'Excellent Energy Efficiency!',
+          message: `Your efficiency score of ${energyData.efficiency_score}% is outstanding. Keep up the great energy-saving habits!`,
+          timestamp: new Date()
+        });
+      }
+
+      // Peak usage time alert
+      const currentHour = new Date().getHours();
+      if (currentHour >= 18 && currentHour <= 22 && energyData.current_usage > 3) {
+        newAlerts.push({
+          id: 'peak-time',
+          type: 'info',
+          title: 'Peak Hours Usage',
+          message: 'You\'re using energy during peak hours (6-10 PM). Consider shifting some activities to off-peak hours to save on costs.',
+          timestamp: new Date()
+        });
+      }
+
+      setAlerts(newAlerts);
+    };
+
+    if (energyData.daily_total > 0) {
+      generateAlerts();
+    }
+  }, [energyData]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -118,102 +197,139 @@ const ChatInterface = () => {
     }
   };
 
+  const getAlertIcon = (type: string) => {
+    switch (type) {
+      case 'warning':
+        return <AlertTriangle className="h-4 w-4" />;
+      case 'success':
+        return <CheckCircle className="h-4 w-4" />;
+      default:
+        return <Info className="h-4 w-4" />;
+    }
+  };
+
+  const getAlertVariant = (type: string) => {
+    return type === 'warning' ? 'destructive' : 'default';
+  };
+
   return (
-    <Card className="h-[600px] flex flex-col bg-aurora-card border-aurora-green/20">
-      <CardHeader className="bg-aurora-gradient">
-        <CardTitle className="text-white font-medium flex items-center gap-2">
-          <Bot className="h-5 w-5" />
-          Aurora Assistant 🇰🇪
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="flex-1 flex flex-col p-0">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-2 ${message.isBot ? 'justify-start' : 'justify-end'}`}
-            >
-              {message.isBot && (
+    <div className="space-y-4">
+      {/* AI Alerts Section */}
+      {alerts.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-semibold text-aurora-green-light flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            AI Energy Alerts
+          </h3>
+          {alerts.map((alert) => (
+            <Alert key={alert.id} variant={getAlertVariant(alert.type)} className="bg-aurora-card border-aurora-green/20">
+              {getAlertIcon(alert.type)}
+              <AlertTitle className="text-aurora-green-light">{alert.title}</AlertTitle>
+              <AlertDescription className="text-gray-300">
+                {alert.message}
+              </AlertDescription>
+            </Alert>
+          ))}
+        </div>
+      )}
+
+      {/* Chat Interface */}
+      <Card className="h-[600px] flex flex-col bg-aurora-card border-aurora-green/20">
+        <CardHeader className="bg-aurora-gradient">
+          <CardTitle className="text-white font-medium flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            Aurora Assistant 🇰🇪
+          </CardTitle>
+        </CardHeader>
+        
+        <CardContent className="flex-1 flex flex-col p-0">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex gap-2 ${message.isBot ? 'justify-start' : 'justify-end'}`}
+              >
+                {message.isBot && (
+                  <div className="w-8 h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                )}
+                <div
+                  className={`max-w-[80%] p-3 rounded-lg text-sm whitespace-pre-line ${
+                    message.isBot
+                      ? 'bg-slate-800 text-gray-200'
+                      : 'bg-aurora-green text-white'
+                  }`}
+                >
+                  {message.text}
+                </div>
+                {!message.isBot && (
+                  <div className="w-8 h-8 rounded-full bg-aurora-blue-light flex items-center justify-center flex-shrink-0">
+                    <User className="h-4 w-4 text-white" />
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            {isTyping && (
+              <div className="flex gap-2 justify-start">
                 <div className="w-8 h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
                   <Bot className="h-4 w-4 text-white" />
                 </div>
-              )}
-              <div
-                className={`max-w-[80%] p-3 rounded-lg text-sm whitespace-pre-line ${
-                  message.isBot
-                    ? 'bg-slate-800 text-gray-200'
-                    : 'bg-aurora-green text-white'
-                }`}
-              >
-                {message.text}
-              </div>
-              {!message.isBot && (
-                <div className="w-8 h-8 rounded-full bg-aurora-blue-light flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-white" />
+                <div className="bg-slate-800 text-gray-200 p-3 rounded-lg text-sm">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
-          
-          {isTyping && (
-            <div className="flex gap-2 justify-start">
-              <div className="w-8 h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-white" />
               </div>
-              <div className="bg-slate-800 text-gray-200 p-3 rounded-lg text-sm">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {messages.length === 1 && (
+            <div className="p-4 border-t border-slate-700">
+              <p className="text-sm text-gray-400 mb-3">Quick actions:</p>
+              <div className="grid grid-cols-1 gap-2">
+                {quickActions.slice(0, 4).map((action, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuickAction(action.text)}
+                    className="text-xs justify-start h-8 border-slate-600 hover:bg-slate-800 gap-2"
+                  >
+                    <action.icon className="h-3 w-3" />
+                    {action.text}
+                  </Button>
+                ))}
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
-        </div>
 
-        {messages.length === 1 && (
           <div className="p-4 border-t border-slate-700">
-            <p className="text-sm text-gray-400 mb-3">Quick actions:</p>
-            <div className="grid grid-cols-1 gap-2">
-              {quickActions.slice(0, 4).map((action, index) => (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickAction(action.text)}
-                  className="text-xs justify-start h-8 border-slate-600 hover:bg-slate-800 gap-2"
-                >
-                  <action.icon className="h-3 w-3" />
-                  {action.text}
-                </Button>
-              ))}
+            <div className="flex gap-2">
+              <Input
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about energy saving, bills, Kenya Power..."
+                className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-gray-400"
+              />
+              <Button
+                onClick={sendMessage}
+                size="icon"
+                className="bg-aurora-green hover:bg-aurora-green-light"
+                disabled={!inputValue.trim()}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        )}
-
-        <div className="p-4 border-t border-slate-700">
-          <div className="flex gap-2">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about energy saving, bills, Kenya Power..."
-              className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-gray-400"
-            />
-            <Button
-              onClick={sendMessage}
-              size="icon"
-              className="bg-aurora-green hover:bg-aurora-green-light"
-              disabled={!inputValue.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
