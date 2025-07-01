@@ -65,19 +65,41 @@
 
   /* Mobile-specific styles */
   @media (max-width: 768px) {
-    .container {
-      @apply px-2;
-    }
-    
-    /* Ensure mobile viewport is properly handled */
     html {
       -webkit-text-size-adjust: 100%;
       -ms-text-size-adjust: 100%;
+      /* Prevent zoom on input focus for iOS */
+      -webkit-user-scalable: no;
+      user-scalable: no;
+    }
+    
+    body {
+      /* Fix mobile viewport issues */
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overflow-x: hidden;
+    }
+    
+    .container {
+      @apply px-2;
     }
     
     /* Touch-friendly sizing */
     button, input, select, textarea {
       @apply text-base;
+      min-height: 44px;
+    }
+    
+    /* Fix mobile keyboard spacing */
+    input:focus {
+      transform: translateZ(0);
+    }
+  }
+  
+  /* Fix iOS Safari viewport height */
+  @supports (-webkit-touch-callout: none) {
+    .min-h-screen {
+      min-height: -webkit-fill-available;
     }
   }
 }
@@ -154,6 +176,12 @@
     .mobile-touch-target {
       min-height: 44px;
       min-width: 44px;
+    }
+    
+    /* Mobile form styling */
+    .mobile-form-container {
+      padding: 1rem;
+      max-width: 100vw;
     }
   }
 }

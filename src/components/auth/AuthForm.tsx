@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, Zap } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const AuthForm = () => {
   const [loading, setLoading] = useState(false);
@@ -22,6 +23,7 @@ const AuthForm = () => {
   });
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const isMobile = useIsMobile();
 
   // Redirect if user is already authenticated
   useEffect(() => {
@@ -69,7 +71,6 @@ const AuthForm = () => {
             title: "Account Created!",
             description: "Welcome to Aurora Energy!"
           });
-          // Navigation will be handled by the useEffect above when user state changes
         }
       }
     } catch (error) {
@@ -109,7 +110,6 @@ const AuthForm = () => {
           title: "Welcome back!",
           description: "You have successfully signed in."
         });
-        // Navigation will be handled by the useEffect above when user state changes
       }
     } catch (error) {
       console.error('Unexpected sign in error:', error);
@@ -134,38 +134,41 @@ const AuthForm = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-        <Loader2 className="h-8 w-8 animate-spin text-aurora-green" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-aurora-green mx-auto mb-4" />
+          <p className="text-white">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-slate-800/50 backdrop-blur-sm border-aurora-green/20">
-        <CardHeader className="text-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-2 sm:p-4">
+      <Card className={`w-full ${isMobile ? 'max-w-sm mx-2' : 'max-w-md'} bg-slate-800/50 backdrop-blur-sm border-aurora-green/20`}>
+        <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-10 h-10 bg-aurora-gradient rounded-lg flex items-center justify-center">
-              <Zap className="h-6 w-6 text-white" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-aurora-gradient rounded-lg flex items-center justify-center">
+              <Zap className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
             </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-aurora-green-light to-aurora-blue-light bg-clip-text text-transparent">
+            <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-aurora-green-light to-aurora-blue-light bg-clip-text text-transparent">
               Aurora Energy
             </h1>
           </div>
-          <CardDescription className="text-muted-foreground">
+          <CardDescription className="text-muted-foreground text-sm">
             Smart Energy Management System
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-slate-700/50">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-slate-700/50 mb-6">
+              <TabsTrigger value="signin" className="text-sm">Sign In</TabsTrigger>
+              <TabsTrigger value="signup" className="text-sm">Sign Up</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
+                  <Label htmlFor="signin-email" className="text-sm">Email</Label>
                   <Input
                     id="signin-email"
                     name="email"
@@ -173,12 +176,13 @@ const AuthForm = () => {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="email"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
+                  <Label htmlFor="signin-password" className="text-sm">Password</Label>
                   <Input
                     id="signin-password"
                     name="password"
@@ -186,13 +190,14 @@ const AuthForm = () => {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="current-password"
                   />
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full bg-aurora-green hover:bg-aurora-green/80"
+                  className="w-full bg-aurora-green hover:bg-aurora-green/80 h-11 text-base"
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sign In"}
@@ -203,19 +208,20 @@ const AuthForm = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
+                  <Label htmlFor="fullName" className="text-sm">Full Name</Label>
                   <Input
                     id="fullName"
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
                     required
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="name"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-email" className="text-sm">Email</Label>
                   <Input
                     id="signup-email"
                     name="email"
@@ -223,34 +229,37 @@ const AuthForm = () => {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="email"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Label htmlFor="phoneNumber" className="text-sm">Phone Number</Label>
                   <Input
                     id="phoneNumber"
                     name="phoneNumber"
                     value={formData.phoneNumber}
                     onChange={handleChange}
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="tel"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="meterNumber">Meter Number</Label>
+                  <Label htmlFor="meterNumber" className="text-sm">Meter Number</Label>
                   <Input
                     id="meterNumber"
                     name="meterNumber"
                     value={formData.meterNumber}
                     onChange={handleChange}
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="off"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
+                  <Label htmlFor="signup-password" className="text-sm">Password</Label>
                   <Input
                     id="signup-password"
                     name="password"
@@ -258,13 +267,14 @@ const AuthForm = () => {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    className="bg-slate-700/50 border-slate-600"
+                    className="bg-slate-700/50 border-slate-600 h-11 text-base"
                     disabled={loading}
+                    autoComplete="new-password"
                   />
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full bg-aurora-green hover:bg-aurora-green/80"
+                  className="w-full bg-aurora-green hover:bg-aurora-green/80 h-11 text-base"
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account"}
