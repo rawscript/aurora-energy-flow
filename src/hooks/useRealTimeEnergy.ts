@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,35 +36,36 @@ export const useRealTimeEnergy = () => {
     if (!user) return;
 
     try {
-      // Get latest energy data summary
+      // Fetch summary data via RPC
       const { data: summaryData, error: summaryError } = await supabase
         .rpc('get_latest_energy_data', { p_user_id: user.id });
 
       if (summaryError) {
-        console.error('Error fetching energy summary:', summaryError);
-        return;
-      }
-
-      if (summaryData && summaryData.length > 0) {
+        console.error('Summary fetch error:', summaryError);
+      } else if (summaryData?.[0]) {
         setEnergyData(summaryData[0]);
       }
 
-      // Get recent readings for charts
+      // Fetch readings directly from Supabase
       const { data: readingsData, error: readingsError } = await supabase
         .from('energy_readings')
         .select('*')
         .eq('user_id', user.id)
         .order('reading_date', { ascending: false })
-        .limit(24); // Last 24 readings
+        .limit(24);
 
       if (readingsError) {
-        console.error('Error fetching readings:', readingsError);
-        return;
+        throw new Error(readingsError.message);
       }
 
       setRecentReadings(readingsData || []);
     } catch (error) {
-      console.error('Error in fetchLatestData:', error);
+      console.error('Fetch error:', error);
+      toast({
+        title: 'Error loading readings',
+        description: (error as Error).message,
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
@@ -76,7 +76,7 @@ export const useRealTimeEnergy = () => {
 
     fetchLatestData();
 
-    // Set up real-time subscription
+    // Set up real-time listener
     const channel = supabase
       .channel('energy-readings-changes')
       .on(
@@ -88,18 +88,13 @@ export const useRealTimeEnergy = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('New energy reading:', payload);
-          
-          // Update recent readings
-          setRecentReadings(prev => [payload.new as EnergyReading, ...prev.slice(0, 23)]);
-          
-          // Refresh summary data
-          fetchLatestData();
-          
-          // Show toast notification
+          const newReading = payload.new as EnergyReading;
+          setRecentReadings(prev => [newReading, ...prev.slice(0, 23)]);
+          fetchLatestData(); // optionally refresh summary
+
           toast({
-            title: "New Energy Reading",
-            description: `${(payload.new as EnergyReading).kwh_consumed.toFixed(2)} kWh consumed`,
+            title: 'New Energy Reading',
+            description: `${newReading.kwh_consumed.toFixed(2)} kWh consumed`,
           });
         }
       )
@@ -110,41 +105,10 @@ export const useRealTimeEnergy = () => {
     };
   }, [user, toast]);
 
-  const simulateReading = async () => {
-    if (!user) return;
-
-    try {
-      const response = await fetch(
-        `https://cjdvaksjtpxyulxzttmr.supabase.co/functions/v1/smart-meter-webhook?user_id=${user.id}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqZHZha3NqdHB4eXVseHp0dG1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA5OTI5OTgsImV4cCI6MjA2NjU2ODk5OH0.quAarwU4DSjaiudQw47c2I44kCoy-SEScwDQ4EJTsmY`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to simulate reading');
-      }
-
-      const result = await response.json();
-      console.log('Simulated reading result:', result);
-    } catch (error) {
-      console.error('Error simulating reading:', error);
-      toast({
-        title: "Error",
-        description: "Failed to simulate smart meter reading",
-        variant: "destructive"
-      });
-    }
-  };
-
   return {
     energyData,
     recentReadings,
     loading,
-    simulateReading,
     refreshData: fetchLatestData
   };
 };

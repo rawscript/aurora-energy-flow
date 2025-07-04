@@ -113,14 +113,14 @@ const MeterSetup = () => {
                 name="fullName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-aurora-blue-light">Full Name</FormLabel>
+                    <FormLabel className="text-aurora-blue-light">Full Name current ID: {user.id}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input
                           placeholder="Your full name as on the bill"
                           className="pl-10 bg-slate-800 border-aurora-blue/30"
-                          {...field}
+                          {...field} 
                         />
                       </div>
                     </FormControl>

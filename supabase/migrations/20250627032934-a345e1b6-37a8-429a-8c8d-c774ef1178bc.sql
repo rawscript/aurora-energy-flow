@@ -12,6 +12,7 @@ CREATE TABLE public.profiles (
 );
 
 -- Create energy readings table for storing Kenya Power data
+-- Create energy readings table
 CREATE TABLE public.energy_readings (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
@@ -26,6 +27,11 @@ CREATE TABLE public.energy_readings (
   billing_period_end date,
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
+
+-- Then enable real-time streaming
+ALTER TABLE public.energy_readings REPLICA IDENTITY FULL;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.energy_readings;
+
 
 -- Create AI alerts table for predictive messaging
 CREATE TABLE public.ai_alerts (
@@ -135,3 +141,34 @@ $$ language 'plpgsql';
 -- Create trigger for profiles updated_at
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.profiles
     FOR EACH ROW EXECUTE PROCEDURE public.update_updated_at_column();
+-- Create function to insert energy readings
+CREATE OR REPLACE FUNCTION public.insert_energy_reading(
+  p_user_id uuid,
+  p_meter_number text,
+  p_kwh_consumed decimal,
+  p_cost_per_kwh decimal DEFAULT 25.00
+)
+RETURNS text AS $$
+DECLARE
+  v_total_cost numeric := p_kwh_consumed * p_cost_per_kwh;
+BEGIN
+  INSERT INTO public.energy_readings (
+    user_id,
+    meter_number,
+    kwh_consumed,
+    cost_per_kwh,
+    total_cost,
+    reading_date
+  )
+  VALUES (
+    p_user_id,
+    p_meter_number,
+    p_kwh_consumed,
+    p_cost_per_kwh,
+    v_total_cost,
+    now()
+  );
+
+  RETURN 'ok';
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

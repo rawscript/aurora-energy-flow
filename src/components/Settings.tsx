@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,27 @@ const Settings = () => {
   const [rate, setRate] = useState('0.15');
   const { toast } = useToast();
 
+  useEffect(() => {
+    const saved = localStorage.getItem('smartMeterSettings');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setNotifications(parsed.notifications ?? true);
+      setAutoOptimize(parsed.autoOptimize ?? false);
+      setEnergyProvider(parsed.energyProvider ?? '');
+      setRate(parsed.rate ?? '0.15');
+    }
+  }, []);
+
   const handleSave = () => {
+    const settings = {
+      notifications,
+      autoOptimize,
+      energyProvider,
+      rate,
+    };
+
+    localStorage.setItem('smartMeterSettings', JSON.stringify(settings));
+
     toast({
       title: "Settings saved",
       description: "Your preferences have been updated successfully.",

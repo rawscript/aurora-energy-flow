@@ -1,9 +1,8 @@
-
--- Enable real-time functionality for energy_readings table
+-- Enable real-time functionality
 ALTER TABLE public.energy_readings REPLICA IDENTITY FULL;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.energy_readings;
 
--- Create a function to insert smart meter readings
+-- Create function to insert smart meter readings
 CREATE OR REPLACE FUNCTION public.insert_energy_reading(
   p_user_id uuid,
   p_meter_number text,
@@ -33,12 +32,18 @@ BEGIN
     now()
   )
   RETURNING id INTO reading_id;
-  
+
   RETURN reading_id;
 END;
 $$;
 
--- Create a function to get latest readings for a user
+-- Grant permission to call the function
+GRANT EXECUTE ON FUNCTION public.insert_energy_reading(uuid, text, numeric, numeric) TO anon, authenticated;
+
+-- Comment helps Supabase schema cache pick it up
+COMMENT ON FUNCTION public.insert_energy_reading(uuid, text, numeric, numeric) IS 'Insert new smart meter reading with cost calculation';
+
+-- Create function to fetch user’s latest energy data
 CREATE OR REPLACE FUNCTION public.get_latest_energy_data(p_user_id uuid)
 RETURNS TABLE (
   current_usage numeric,
@@ -59,19 +64,21 @@ BEGIN
       ORDER BY reading_date DESC 
       LIMIT 1
     ), 0) as current_usage,
+
     COALESCE((
       SELECT SUM(kwh_consumed) 
       FROM public.energy_readings 
       WHERE user_id = p_user_id 
       AND DATE(reading_date) = CURRENT_DATE
     ), 0) as daily_total,
+
     COALESCE((
       SELECT SUM(total_cost) 
       FROM public.energy_readings 
       WHERE user_id = p_user_id 
       AND DATE(reading_date) = CURRENT_DATE
     ), 0) as daily_cost,
-    -- Calculate efficiency score based on usage patterns
+
     CASE 
       WHEN COALESCE((
         SELECT AVG(kwh_consumed) 
@@ -90,8 +97,11 @@ BEGIN
 END;
 $$;
 
--- Create RLS policies for the new functions
-CREATE POLICY "Users can call energy functions" 
-  ON public.energy_readings 
-  FOR ALL 
+-- Grant permission to fetch energy insights
+GRANT EXECUTE ON FUNCTION public.get_latest_energy_data(uuid) TO authenticated;
+
+-- Optional: Allow users to call energy_reading-related functions
+CREATE POLICY "Allow energy insights access"
+  ON public.energy_readings
+  FOR ALL
   USING (auth.uid() = user_id);
