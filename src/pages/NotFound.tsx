@@ -13,7 +13,7 @@ const NotFound = () => {
         This page doesn’t exist — but you can still save the grid.
       </p>
       <img
-        src="https://illustrations.popsy.co/gray/error-404.svg"
+        src="https://illustrations.popsy.co/gray/error-404.svg"/*Change to an image */
         alt="404 astronaut"
         className="w-64 mt-6 mb-4"
       />

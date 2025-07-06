@@ -15,7 +15,8 @@ const deviceData = [
 ];
 
 const EnergyDashboard = () => {
-  const { energyData, recentReadings, loading, simulateReading } = useRealTimeEnergy();
+ const { energyData, recentReadings, loading, simulateReading } = useRealTimeEnergy();
+  // const { energyData, recentReadings, loading} = useRealTimeEnergy();
 
   // Transform recent readings for charts
   const chartData = recentReadings.slice(0, 12).reverse().map(reading => ({
@@ -48,7 +49,7 @@ const EnergyDashboard = () => {
               className="bg-aurora-green hover:bg-aurora-green/80"
             >
               <Zap className="h-4 w-4 mr-2" />
-              Simulate Reading
+              Live feed Reading
             </Button>
           </div>
         </CardContent>

@@ -15,7 +15,7 @@ const weeklyData = [
   { day: 'Sat', usage: 95, efficiency: 82 },
   { day: 'Sun', usage: 82, efficiency: 91 },
 ];
-
+//update to be more than hardcoded values
 const insights = [
   {
     id: 1,
