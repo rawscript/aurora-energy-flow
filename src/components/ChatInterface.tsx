@@ -162,32 +162,57 @@ const ChatInterface = () => {
   };
 
   const sendMessage = async () => {
-    if (!inputValue.trim()) return;
+  if (!inputValue.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      isBot: false,
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    text: inputValue,
+    isBot: false,
+    timestamp: new Date()
+  };
+
+  setMessages(prev => [...prev, userMessage]);
+  setInputValue('');
+  setIsTyping(true);
+
+  try {
+    const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'sk-default-pOdtybko4izSvpfeXN7qV2rtuyRhpEhp'
+      },
+      body: JSON.stringify({
+        user_id: 'jasemwaura@gmail.com',
+        agent_id: '686ce3c9868e419e65c9eece',
+        session_id: '686ce3c9868e419e65c9eece-75witjhudno',
+        message: inputValue
+      })
+    });
+
+    const data = await response.json();
+    
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: data.response || 'Sorry, I couldn’t understand that.',
+      isBot: true,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsTyping(true);
+    setMessages(prev => [...prev, botMessage]);
+  } catch (error) {
+    const errorMessage: Message = {
+      id: (Date.now() + 2).toString(),
+      text: '⚠️ There was a problem talking to the AI agent. Please try again.',
+      isBot: true,
+      timestamp: new Date()
+    };
 
-    // Simulate typing delay
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: getBotResponse(inputValue),
-        isBot: true,
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
-    }, 1500);
-  };
+    setMessages(prev => [...prev, errorMessage]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   const handleQuickAction = (action: string) => {
     setInputValue(action);

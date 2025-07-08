@@ -62,10 +62,10 @@ const Settings = () => {
                   <SelectValue placeholder="Select your provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pacific-gas">Pacific Gas & Electric</SelectItem>
-                  <SelectItem value="southern-california">Southern California Edison</SelectItem>
-                  <SelectItem value="sdge">San Diego Gas & Electric</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="pacific-gas">Solar</SelectItem>
+                  <SelectItem value="southern-california">Kenya Power</SelectItem>
+                  <SelectItem value="sdge">KenGEn</SelectItem>
+                  <SelectItem value="other">Independent Power Producers (IPPs):</SelectItem>
                 </SelectContent>
               </Select>
             </div>
