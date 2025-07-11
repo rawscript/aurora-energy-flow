@@ -100,53 +100,39 @@ const Chatbot = () => {
   setIsTyping(true);
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
+    const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
+      method: 'POST',
       headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json',
+        'x-api-key': 'sk-default-pOdtybko4izSvpfeXN7qV2rtuyRhpEhp'
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are Aurora, a friendly Kenyan energy assistant. Offer accurate and localized advice about electricity usage, Kenya Power services, energy efficiency, and cost-saving tips. Use Swahili slang sparingly to sound local and helpful."
-          },
-          { role: "user", content: inputValue }
-        ],
-        temperature: 0.7,
-        max_tokens: 500
+        user_id: 'jasemwaura@gmail.com',
+        agent_id: '686ce3c9868e419e65c9eece',
+        session_id: '686ce3c9868e419e65c9eece-75witjhudno',
+        message: inputValue
       })
     });
 
     const data = await response.json();
-    console.log("OpenAI API Response:", data);
-
-    if (!response.ok || !data.choices?.[0]?.message?.content) {
-      throw new Error(data.error?.message || "Failed to get reply from OpenAI");
-    }
-
+    
     const botMessage: Message = {
       id: (Date.now() + 1).toString(),
-      text: data.choices[0].message.content.trim(),
+      text: data.response || 'Sorry, I couldn’t understand that.',
       isBot: true,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, botMessage]);
   } catch (error) {
-    console.error("OpenAI Error:", error);
-    setMessages(prev => [
-      ...prev,
-      {
-        id: (Date.now() + 2).toString(),
-        text: "⚠️ Aurora had a hiccup. Try again shortly or check your connection.",
-        isBot: true,
-        timestamp: new Date()
-      }
-    ]);
+    const errorMessage: Message = {
+      id: (Date.now() + 2).toString(),
+      text: '⚠️ There was a problem talking to the AI agent. Please try again.',
+      isBot: true,
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, errorMessage]);
   } finally {
     setIsTyping(false);
   }
