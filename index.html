@@ -2,13 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aurora</title>
-    <meta name="description" content="Aurora energy management system" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Aurora Energy">
+    <meta name="theme-color" content="#10b981">
+    <meta name="msapplication-TileColor" content="#0f172a">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+    
+    <title>Aurora Energy Monitor - KPLC Token Tracking</title>
+    <meta name="description" content="Real-time KPLC energy monitoring with smart token tracking and notifications" />
     <meta name="author" content="James Mwaura" />
 
-    <meta property="og:title" content="aurora-energy-flow" />
-    <meta property="og:description" content="Aurora energy management system" />
+    <meta property="og:title" content="Aurora Energy Monitor" />
+    <meta property="og:description" content="Real-time KPLC energy monitoring with smart token tracking" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://jamesmwauraprofile.s3.eu-north-1.amazonaws.com/aurora.png" />
 
@@ -20,5 +31,19 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Register service worker for PWA functionality
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

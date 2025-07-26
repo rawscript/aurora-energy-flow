@@ -3,6 +3,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mobile Performance Optimizations */
+@media (max-width: 768px) {
+  /* Reduce animations on mobile for better performance */
+  .animate-fade-in {
+    animation-duration: 0.3s;
+  }
+  
+  .animate-aurora-pulse {
+    animation-duration: 1s;
+  }
+  
+  /* Optimize scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Touch-friendly tap targets */
+  button, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Reduce blur effects on mobile */
+  .backdrop-blur-sm {
+    backdrop-filter: blur(2px);
+  }
+  
+  /* Optimize card shadows */
+  .aurora-glow {
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+  }
+}
+
+/* Improved mobile viewport handling */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* Better mobile chart rendering */
+@media (max-width: 640px) {
+  .recharts-wrapper {
+    font-size: 12px;
+  }
+  
+  .recharts-cartesian-axis-tick-value {
+    font-size: 10px;
+  }
+  
+  .recharts-tooltip-wrapper {
+    font-size: 12px;
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. */
 
 @layer base {

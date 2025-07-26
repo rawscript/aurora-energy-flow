@@ -8,6 +8,7 @@ import Chatbot from "@/components/Chatbot";
 import Settings from "@/components/Settings";
 import SmartMeterStatus from "@/components/SmartMeterStatus";
 import MeterSetup from "@/components/MeterSetup";
+import KPLCTokenDashboard from "@/components/KPLCTokenDashboard";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Index = () => {
@@ -27,9 +28,12 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3' : 'grid-cols-6'} bg-aurora-card border border-aurora-green/20`}>
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4' : 'grid-cols-7'} bg-aurora-card border border-aurora-green/20`}>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               {isMobile ? "Home" : "Dashboard"}
+            </TabsTrigger>
+            <TabsTrigger value="tokens" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
+              {isMobile ? "Tokens" : "KPLC Tokens"}
             </TabsTrigger>
             <TabsTrigger value="insights" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               Insights
@@ -78,6 +82,10 @@ const Index = () => {
                 <SmartMeterStatus />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="tokens" className={isMobile ? "pb-20" : ""}>
+            <KPLCTokenDashboard />
           </TabsContent>
 
           <TabsContent value="insights" className={isMobile ? "pb-20" : ""}>

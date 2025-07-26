@@ -24,5 +24,30 @@ export default defineConfig(({ mode }) => {
     define: {
       __OPENAI_API_KEY__: JSON.stringify(env.VITE_OPENAI_API_KEY),
     },
+    build: {
+      // Mobile optimization
+      target: 'es2015',
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+      },
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-toast'],
+            charts: ['recharts'],
+            supabase: ['@supabase/supabase-js'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000,
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom', '@supabase/supabase-js'],
+    },
   };
 });
