@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EnergyDashboard from "@/components/EnergyDashboard";
 import EnergyInsights from "@/components/EnergyInsights";
@@ -19,6 +19,17 @@ const Index = () => {
   const isMobile = useIsMobile();
   const { unreadCount } = useNotifications();
 
+  // Handle mobile tab navigation safely
+  const handleTabChange = (value: string) => {
+    try {
+      setActiveTab(value);
+    } catch (error) {
+      console.error('Error changing tab:', error);
+      // Fallback to dashboard if there's an error
+      setActiveTab("dashboard");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-aurora-dark">
       <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
@@ -31,7 +42,7 @@ const Index = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 md:space-y-6">
           <TabsList className={`grid w-full ${isMobile ? 'grid-cols-5' : 'grid-cols-8'} bg-aurora-card border border-aurora-green/20`}>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               {isMobile ? "Home" : "Dashboard"}
@@ -72,15 +83,36 @@ const Index = () => {
           {isMobile && (
             <div className="fixed bottom-0 left-0 right-0 bg-aurora-card border-t border-aurora-green/20 px-2 py-2 z-50">
               <div className="grid grid-cols-3 gap-2">
-                <TabsTrigger value="meter" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs p-2">
+                <button
+                  onClick={() => handleTabChange("meter")}
+                  className={`text-xs p-2 rounded transition-colors ${
+                    activeTab === "meter" 
+                      ? "bg-aurora-green text-black" 
+                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
                   Meter
-                </TabsTrigger>
-                <TabsTrigger value="chat" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs p-2">
+                </button>
+                <button
+                  onClick={() => handleTabChange("chat")}
+                  className={`text-xs p-2 rounded transition-colors ${
+                    activeTab === "chat" 
+                      ? "bg-aurora-green text-black" 
+                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
                   AI Chat
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs p-2">
+                </button>
+                <button
+                  onClick={() => handleTabChange("settings")}
+                  className={`text-xs p-2 rounded transition-colors ${
+                    activeTab === "settings" 
+                      ? "bg-aurora-green text-black" 
+                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
                   Settings
-                </TabsTrigger>
+                </button>
               </div>
             </div>
           )}

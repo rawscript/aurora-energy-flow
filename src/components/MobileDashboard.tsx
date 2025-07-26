@@ -28,6 +28,14 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
   const { energyData, recentReadings, loading, simulateReading } = useRealTimeEnergy();
   const { unreadCount } = useNotifications();
 
+  const handleNavigation = (tab: string) => {
+    try {
+      onNavigate(tab);
+    } catch (error) {
+      console.error('Navigation error:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -120,7 +128,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Button
-          onClick={() => onNavigate('tokens')}
+          onClick={() => handleNavigation('tokens')}
           className="h-16 bg-aurora-green hover:bg-aurora-green/80 flex flex-col items-center justify-center space-y-1"
         >
           <CreditCard className="h-5 w-5" />
@@ -128,7 +136,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
         </Button>
 
         <Button
-          onClick={() => onNavigate('notifications')}
+          onClick={() => handleNavigation('notifications')}
           variant="outline"
           className="h-16 border-aurora-blue/30 hover:bg-aurora-blue/10 flex flex-col items-center justify-center space-y-1 relative"
         >
@@ -148,7 +156,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg text-aurora-blue-light">Recent Usage</CardTitle>
             <Button
-              onClick={() => onNavigate('insights')}
+              onClick={() => handleNavigation('insights')}
               variant="ghost"
               size="sm"
               className="text-xs"
