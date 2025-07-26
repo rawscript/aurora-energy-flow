@@ -10,6 +10,7 @@ import SmartMeterStatus from "@/components/SmartMeterStatus";
 import MeterSetup from "@/components/MeterSetup";
 import KPLCTokenDashboard from "@/components/KPLCTokenDashboard";
 import NotificationCenter from "@/components/NotificationCenter";
+import MobileDashboard from "@/components/MobileDashboard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -85,14 +86,18 @@ const Index = () => {
           )}
 
           <TabsContent value="dashboard" className="space-y-4 md:space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
-              <div className="lg:col-span-3">
-                <EnergyDashboard />
+            {isMobile ? (
+              <MobileDashboard onNavigate={setActiveTab} />
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
+                <div className="lg:col-span-3">
+                  <EnergyDashboard />
+                </div>
+                <div className="lg:col-span-1">
+                  <SmartMeterStatus />
+                </div>
               </div>
-              <div className="lg:col-span-1">
-                <SmartMeterStatus />
-              </div>
-            </div>
+            )}
           </TabsContent>
 
           <TabsContent value="tokens" className={isMobile ? "pb-20" : ""}>
