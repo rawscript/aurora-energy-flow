@@ -9,11 +9,14 @@ import Settings from "@/components/Settings";
 import SmartMeterStatus from "@/components/SmartMeterStatus";
 import MeterSetup from "@/components/MeterSetup";
 import KPLCTokenDashboard from "@/components/KPLCTokenDashboard";
+import NotificationCenter from "@/components/NotificationCenter";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const isMobile = useIsMobile();
+  const { unreadCount } = useNotifications();
 
   return (
     <div className="min-h-screen bg-aurora-dark">
@@ -28,12 +31,20 @@ const Index = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4' : 'grid-cols-7'} bg-aurora-card border border-aurora-green/20`}>
+          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-5' : 'grid-cols-8'} bg-aurora-card border border-aurora-green/20`}>
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               {isMobile ? "Home" : "Dashboard"}
             </TabsTrigger>
             <TabsTrigger value="tokens" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               {isMobile ? "Tokens" : "KPLC Tokens"}
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm relative">
+              {isMobile ? "Alerts" : "Notifications"}
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </div>
+              )}
             </TabsTrigger>
             <TabsTrigger value="insights" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               Insights
@@ -86,6 +97,10 @@ const Index = () => {
 
           <TabsContent value="tokens" className={isMobile ? "pb-20" : ""}>
             <KPLCTokenDashboard />
+          </TabsContent>
+
+          <TabsContent value="notifications" className={isMobile ? "pb-20" : ""}>
+            <NotificationCenter />
           </TabsContent>
 
           <TabsContent value="insights" className={isMobile ? "pb-20" : ""}>

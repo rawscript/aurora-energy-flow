@@ -152,28 +152,76 @@ const KPLCTokenDashboard: React.FC = () => {
     if (!user) return;
 
     try {
-      const amount = 200 + Math.random() * 300; // Random amount between 200-500
+      // Get user's meter number from profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('meter_number, phone_number')
+        .eq('id', user.id)
+        .single();
 
-      // Since we don't have a token transactions table, we'll create a billing record
-      // to simulate a token purchase
+      if (profileError) throw profileError;
+
+      if (!profile?.meter_number) {
+        toast({
+          title: 'Meter Setup Required',
+          description: 'Please set up your meter number in Settings before purchasing tokens.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const amount = 200 + Math.random() * 300; // Random amount between 200-500
+      const tokenUnits = amount; // 1:1 ratio for simplicity
+      
+      // Create a more realistic token purchase simulation
+      // In a real implementation, this would integrate with KPLC's API or M-Pesa
+      const tokenCode = `${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 90000) + 10000}`;
+      
+      // Create billing record to track the purchase
       const { error } = await supabase
         .from('billing_history')
         .insert({
           user_id: user.id,
           billing_month: new Date().toISOString().slice(0, 7), // YYYY-MM format
           total_amount: amount,
-          total_kwh: amount / 25, // Simulate kWh equivalent (assuming 25 KSh per kWh)
+          total_kwh: tokenUnits / 25, // Simulate kWh equivalent (assuming 25 KSh per kWh)
           payment_status: 'paid',
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           paid_date: new Date().toISOString()
         });
 
       if (error) throw error;
 
+      // Create a notification for successful purchase
+      await supabase
+        .from('ai_alerts')
+        .insert({
+          user_id: user.id,
+          alert_type: 'token_purchase',
+          title: 'Token Purchase Successful',
+          message: `Successfully purchased KSh ${amount.toFixed(2)} worth of tokens for meter ${profile.meter_number}. Token code: ${tokenCode}`,
+          severity: 'low',
+          recommended_actions: {
+            tokenCode,
+            meterNumber: profile.meter_number,
+            amount,
+            tokenUnits
+          }
+        });
+
       toast({
         title: 'Token Purchase Successful',
-        description: `KSh ${amount.toFixed(2)} tokens purchased successfully`,
+        description: `KSh ${amount.toFixed(2)} tokens purchased for meter ${profile.meter_number}`,
       });
+
+      // Show token code in a separate toast
+      setTimeout(() => {
+        toast({
+          title: 'Token Code',
+          description: `Enter this code in your meter: ${tokenCode}`,
+          duration: 10000, // Show for 10 seconds
+        });
+      }, 1000);
 
       fetchTokenData(); // Refresh data
     } catch (error) {
@@ -203,6 +251,12 @@ const KPLCTokenDashboard: React.FC = () => {
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
         <p className="text-muted-foreground">No token data available</p>
+        <Button 
+          onClick={fetchTokenData}
+          className="mt-4 bg-aurora-green hover:bg-aurora-green/80"
+        >
+          Retry Loading
+        </Button>
       </div>
     );
   }
