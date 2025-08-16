@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 build/
+next/*
 
 # Environment variables
 .env
@@ -14,6 +15,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 *.log
+.vscode/
+.vscode/*
 
 # System files
 .DS_Store
@@ -38,3 +41,5 @@ aurora-energy-flow/
 
 #brain dump
 .rhezusport
+#ide
+.vscode/*
