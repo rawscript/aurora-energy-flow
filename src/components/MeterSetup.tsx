@@ -10,19 +10,36 @@ import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock } from 'lucide-react';
+import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const meterFormSchema = z.object({
   meterNumber: z.string().min(5, 'Meter number must be at least 5 characters'),
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
   phoneNumber: z.string().min(10, 'Phone number must be at least 10 digits'),
   location: z.string().min(3, 'Location must be at least 3 characters'),
+  meterCategory: z.enum(['household', 'SME', 'industry']),
+  industryType: z.enum(['heavyduty', 'medium', 'light']).optional(),
 });
 
 type MeterFormValues = z.infer<typeof meterFormSchema>;
+
+// Meter category options
+const METER_CATEGORIES = [
+  { value: 'household', label: 'Household' },
+  { value: 'SME', label: 'Small & Medium Enterprise (SME)' },
+  { value: 'industry', label: 'Industry' },
+];
+
+// Industry type options
+const INDUSTRY_TYPES = [
+  { value: 'heavyduty', label: 'Heavy Duty Usage' },
+  { value: 'medium', label: 'Medium Duty Usage' },
+  { value: 'light', label: 'Light Duty Usage' },
+];
 
 interface MeterHistory {
   id: string;
@@ -31,6 +48,8 @@ interface MeterHistory {
   phone_number: string;
   created_at: string;
   is_current: boolean;
+  meter_category?: string;
+  industry_type?: string;
 }
 
 const MeterSetup = () => {
@@ -38,6 +57,7 @@ const MeterSetup = () => {
   const [meterHistory, setMeterHistory] = useState<MeterHistory[]>([]);
   const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('current');
+  const [showIndustryType, setShowIndustryType] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -49,8 +69,24 @@ const MeterSetup = () => {
       fullName: user?.user_metadata?.full_name || '',
       phoneNumber: '',
       location: '',
+      meterCategory: 'household',
     },
   });
+  
+  // Handle meter category change to show/hide industry type field
+  const handleMeterCategoryChange = (value: string) => {
+    form.setValue('meterCategory', value as 'household' | 'SME' | 'industry');
+    
+    if (value === 'industry') {
+      setShowIndustryType(true);
+      // Set a default value for industry type
+      form.setValue('industryType', 'medium');
+    } else {
+      setShowIndustryType(false);
+      // Clear industry type when not needed
+      form.setValue('industryType', undefined);
+    }
+  };
 
   // Fetch current profile and meter history
   useEffect(() => {
@@ -72,11 +108,19 @@ const MeterSetup = () => {
       
       if (data) {
         setCurrentProfile(data);
+        
+        // Set the meter category and update UI state
+        const meterCategory = data.meter_category || 'household';
+        const showIndustry = meterCategory === 'industry';
+        setShowIndustryType(showIndustry);
+        
         form.reset({
           meterNumber: data.meter_number || '',
           fullName: data.full_name || '',
           phoneNumber: data.phone_number || '',
           location: '', // We don't store location in profiles yet
+          meterCategory: meterCategory as 'household' | 'SME' | 'industry',
+          industryType: showIndustry ? (data.industry_type as 'heavyduty' | 'medium' | 'light' || 'medium') : undefined,
         });
       }
     } catch (error) {
@@ -95,7 +139,8 @@ const MeterSetup = () => {
           full_name: 'John Doe',
           phone_number: '+254700000001',
           created_at: '2024-01-15T10:00:00Z',
-          is_current: false
+          is_current: false,
+          meter_category: 'household'
         },
         {
           id: '2',
@@ -103,7 +148,18 @@ const MeterSetup = () => {
           full_name: 'John Doe',
           phone_number: '+254700000002',
           created_at: '2024-06-20T14:30:00Z',
-          is_current: false
+          is_current: false,
+          meter_category: 'SME'
+        },
+        {
+          id: '3',
+          meter_number: '56789012345',
+          full_name: 'John Doe',
+          phone_number: '+254700000003',
+          created_at: '2024-07-10T09:15:00Z',
+          is_current: false,
+          meter_category: 'industry',
+          industry_type: 'heavyduty'
         }
       ];
       //add meter history logic to supabase to ensure that users can get readings from history
@@ -116,15 +172,46 @@ const MeterSetup = () => {
   const selectFromHistory = async (historyItem: MeterHistory) => {
     setIsLoading(true);
     try {
+      // Prepare the profile data
+      const profileData: any = {
+        id: user?.id,
+        email: user?.email,
+        full_name: historyItem.full_name,
+        phone_number: historyItem.phone_number,
+        meter_number: historyItem.meter_number,
+      };
+      
+      // Use the meter category from history if available, otherwise use current or default
+      if (historyItem.meter_category) {
+        profileData.meter_category = historyItem.meter_category;
+        
+        // If it's an industry meter, include the industry type
+        if (historyItem.meter_category === 'industry' && historyItem.industry_type) {
+          profileData.industry_type = historyItem.industry_type;
+        } else if (historyItem.meter_category === 'industry') {
+          // Default industry type if not specified
+          profileData.industry_type = 'medium';
+        } else {
+          // Clear industry type for non-industry meters
+          profileData.industry_type = null;
+        }
+      } else {
+        // If no category in history, get from current profile or use default
+        const { data: currentData } = await supabase
+          .from('profiles')
+          .select('meter_category, industry_type')
+          .eq('id', user?.id)
+          .single();
+          
+        profileData.meter_category = currentData?.meter_category || 'household';
+        profileData.industry_type = 
+          (profileData.meter_category === 'industry') ? 
+          (currentData?.industry_type || 'medium') : null;
+      }
+        
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user?.id,
-          email: user?.email,
-          full_name: historyItem.full_name,
-          phone_number: historyItem.phone_number,
-          meter_number: historyItem.meter_number,
-        });
+        .upsert(profileData);
 
       if (error) throw error;
 
@@ -152,15 +239,27 @@ const MeterSetup = () => {
 
     setIsLoading(true);
     try {
+      // Prepare the profile data
+      const profileData: any = {
+        id: user.id,
+        email: user.email,
+        full_name: data.fullName,
+        phone_number: data.phoneNumber,
+        meter_number: data.meterNumber,
+        meter_category: data.meterCategory,
+      };
+      
+      // Only include industry_type if meter category is 'industry'
+      if (data.meterCategory === 'industry' && data.industryType) {
+        profileData.industry_type = data.industryType;
+      } else {
+        // Set to null if not industry
+        profileData.industry_type = null;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          full_name: data.fullName,
-          phone_number: data.phoneNumber,
-          meter_number: data.meterNumber,
-        });
+        .upsert(profileData);
 
       if (error) throw error;
 
@@ -168,6 +267,9 @@ const MeterSetup = () => {
         title: "Meter Details Updated",
         description: "Your smart meter has been successfully connected to Aurora Energy.",
       });
+      
+      // Refresh the current profile
+      fetchCurrentProfile();
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -218,7 +320,24 @@ const MeterSetup = () => {
             <Card className="bg-aurora-card border-aurora-green/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg text-aurora-green-light">Connected Meter</CardTitle>
+                  <div>
+                    <CardTitle className="text-lg text-aurora-green-light">Connected Meter</CardTitle>
+                    <div className="flex mt-1 space-x-2">
+                      {currentProfile?.meter_category && (
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                          <Building className="h-3 w-3 mr-1" />
+                          {currentProfile.meter_category === 'SME' ? 'SME' : 
+                           currentProfile.meter_category.charAt(0).toUpperCase() + currentProfile.meter_category.slice(1)}
+                        </Badge>
+                      )}
+                      {currentProfile?.meter_category === 'industry' && currentProfile?.industry_type && (
+                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
+                          <Factory className="h-3 w-3 mr-1" />
+                          {currentProfile.industry_type.charAt(0).toUpperCase() + currentProfile.industry_type.slice(1)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
                     <Check className="h-3 w-3 mr-1" />
                     Active
@@ -248,6 +367,30 @@ const MeterSetup = () => {
                       <span className="text-green-400">Connected</span>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Meter Category</Label>
+                    <div className="flex items-center space-x-2">
+                      <Building className="h-4 w-4 text-amber-400" />
+                      <span className="text-lg">
+                        {currentProfile.meter_category ? 
+                          METER_CATEGORIES.find(c => c.value === currentProfile.meter_category)?.label || 
+                          currentProfile.meter_category : 
+                          'Household'}
+                      </span>
+                    </div>
+                  </div>
+                  {currentProfile.meter_category === 'industry' && currentProfile.industry_type && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Industry Type</Label>
+                      <div className="flex items-center space-x-2">
+                        <Factory className="h-4 w-4 text-orange-400" />
+                        <span className="text-lg">
+                          {INDUSTRY_TYPES.find(t => t.value === currentProfile.industry_type)?.label || 
+                           currentProfile.industry_type}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <Button
                   onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
@@ -265,7 +408,7 @@ const MeterSetup = () => {
                 <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
                 <h3 className="text-lg font-medium mb-2">No Meter Connected</h3>
                 <p className="text-muted-foreground mb-4">
-                  Connect your smart meter to start monitoring your energy usage
+                  Connect your smart meter to start monitoring your energy usage based on your category
                 </p>
                 <Button
                   onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
@@ -309,6 +452,19 @@ const MeterSetup = () => {
                             <p className="text-xs text-muted-foreground">
                               Used: {new Date(meter.created_at).toLocaleDateString()}
                             </p>
+                            <div className="flex items-center mt-1">
+                              {meter.meter_category && (
+                                <Badge className="mr-2 bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
+                                  {meter.meter_category === 'SME' ? 'SME' : 
+                                   meter.meter_category.charAt(0).toUpperCase() + meter.meter_category.slice(1)}
+                                </Badge>
+                              )}
+                              {meter.meter_category === 'industry' && meter.industry_type && (
+                                <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">
+                                  {meter.industry_type.charAt(0).toUpperCase() + meter.industry_type.slice(1)}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -454,6 +610,78 @@ const MeterSetup = () => {
                       </FormItem>
                     )}
                   />
+                  
+                  {/* Meter Category Dropdown */}
+                  <FormField
+                    control={form.control}
+                    name="meterCategory"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-amber-400">Meter Category</FormLabel>
+                        <div className="relative">
+                          <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
+                          <Select 
+                            defaultValue={field.value} 
+                            onValueChange={(value) => handleMeterCategoryChange(value)}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="pl-10 bg-slate-800 border-amber-500/30 h-11">
+                                <SelectValue placeholder="Select meter category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-slate-800 border-amber-500/30">
+                              {METER_CATEGORIES.map((category) => (
+                                <SelectItem key={category.value} value={category.value}>
+                                  {category.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <FormDescription className="text-xs">
+                          Select the category that best describes your meter usage
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Industry Type Dropdown - Only shown when meter category is 'industry' */}
+                  {showIndustryType && (
+                    <FormField
+                      control={form.control}
+                      name="industryType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-orange-400">Industry Type</FormLabel>
+                          <div className="relative">
+                            <Factory className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
+                            <Select 
+                              defaultValue={field.value} 
+                              onValueChange={field.onChange}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="pl-10 bg-slate-800 border-orange-500/30 h-11">
+                                  <SelectValue placeholder="Select industry type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="bg-slate-800 border-orange-500/30">
+                                {INDUSTRY_TYPES.map((type) => (
+                                  <SelectItem key={type.value} value={type.value}>
+                                    {type.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <FormDescription className="text-xs">
+                            Specify your industry's energy consumption level
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
                   <Button
                     type="submit"
@@ -492,6 +720,18 @@ const MeterSetup = () => {
               <li>• Check your latest Kenya Power bill</li>
               <li>• Look on the digital display of your smart meter</li>
               <li>• Call Kenya Power at 95551 for assistance</li>
+            </ul>
+          </div>
+          
+          <div className="space-y-2">
+            <h4 className="font-medium text-sm">Meter Categories:</h4>
+            <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
+              <li>• <span className="text-amber-400">Household:</span> For residential homes and apartments</li>
+              <li>• <span className="text-amber-400">SME:</span> For small and medium businesses</li>
+              <li>• <span className="text-amber-400">Industry:</span> For manufacturing and large operations</li>
+              <li className="pl-4">- <span className="text-orange-400">Heavy Duty:</span> High energy consumption facilities</li>
+              <li className="pl-4">- <span className="text-orange-400">Medium Duty:</span> Standard industrial usage</li>
+              <li className="pl-4">- <span className="text-orange-400">Light Duty:</span> Lower energy industrial operations</li>
             </ul>
           </div>
           

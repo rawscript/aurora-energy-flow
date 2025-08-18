@@ -165,6 +165,8 @@ export type Database = {
           meter_number: string | null
           phone_number: string | null
           updated_at: string
+          meter_category: string | null
+          industry_type: string | null
         }
         Insert: {
           created_at?: string
@@ -174,6 +176,8 @@ export type Database = {
           meter_number?: string | null
           phone_number?: string | null
           updated_at?: string
+          meter_category?: string | null
+          industry_type?: string | null
         }
         Update: {
           created_at?: string
@@ -183,6 +187,8 @@ export type Database = {
           meter_number?: string | null
           phone_number?: string | null
           updated_at?: string
+          meter_category?: string | null
+          industry_type?: string | null
         }
         Relationships: []
       }
