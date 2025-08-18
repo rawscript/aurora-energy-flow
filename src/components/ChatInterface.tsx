@@ -176,7 +176,7 @@ const ChatInterface = () => {
   setIsTyping(true);
 
   try {
-    const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
+     const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -188,43 +188,43 @@ const ChatInterface = () => {
         session_id: '686ce3c9868e419e65c9eece-75witjhudno',
         message: inputValue
       })
-    });
+     });
 
-    const data = await response.json();
+     const data = await response.json();
     
-    const botMessage: Message = {
+     const botMessage: Message = {
       id: (Date.now() + 1).toString(),
       text: data.response || 'Sorry, I couldn’t understand that.',
       isBot: true,
       timestamp: new Date()
-    };
+     };
 
-    setMessages(prev => [...prev, botMessage]);
-  } catch (error) {
+     setMessages(prev => [...prev, botMessage]);
+   } catch (error) {
     const errorMessage: Message = {
       id: (Date.now() + 2).toString(),
-      text: '⚠️ There was a problem talking to the AI agent. Please try again.',
+      text: '⚠️ There was a problem Reaching Aurora\'s agent. Please try again.',
       isBot: true,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, errorMessage]);
-  } finally {
+   } finally {
     setIsTyping(false);
-  }
-};
+   }
+   };
 
-  const handleQuickAction = (action: string) => {
+   const handleQuickAction = (action: string) => {
     setInputValue(action);
-  };
+   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       sendMessage();
     }
-  };
+   };
 
-  const getAlertIcon = (type: string) => {
+   const getAlertIcon = (type: string) => {
     switch (type) {
       case 'warning':
         return <AlertTriangle className="h-4 w-4" />;
@@ -233,13 +233,13 @@ const ChatInterface = () => {
       default:
         return <Info className="h-4 w-4" />;
     }
-  };
+   };
 
-  const getAlertVariant = (type: string) => {
+   const getAlertVariant = (type: string) => {
     return type === 'warning' ? 'destructive' : 'default';
-  };
+   };
 
-  return (
+   return (
     <div className="space-y-4">
       {/* AI Alerts Section */}
       {alerts.length > 0 && (
@@ -357,7 +357,7 @@ const ChatInterface = () => {
         </CardContent>
       </Card>
     </div>
-  );
-};
+   );
+  };
 
 export default ChatInterface;

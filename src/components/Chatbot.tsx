@@ -100,44 +100,49 @@ const Chatbot = () => {
   setIsTyping(true);
 
   try {
-    const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': 'sk-default-pOdtybko4izSvpfeXN7qV2rtuyRhpEhp'
+        'X-goog-api-key': 'AIzaSyCTDMfBeEvuliA3CtIjmZV5IBHVM8bkgHk' // 🔐 Secure this in env for production
       },
       body: JSON.stringify({
-        user_id: 'jasemwaura@gmail.com',
-        agent_id: '686ce3c9868e419e65c9eece',
-        session_id: '686ce3c9868e419e65c9eece-75witjhudno',
-        message: inputValue
+        contents: [
+          {
+            parts: [
+              {
+                text: `Aurora user query: ${inputValue}. Please respond with clear, actionable insights related to energy management, sustainability, or dashboard optimization.` 
+              }
+            ]
+          }
+        ]
       })
     });
-
+  
     const data = await response.json();
-    
+  
     const botMessage: Message = {
       id: (Date.now() + 1).toString(),
-      text: data.response || 'Sorry, I couldn’t understand that.',
+      text: data?.candidates?.[0]?.content?.parts?.[0]?.text || '⚡ Sorry, Aurora couldn’t retrieve insights at the moment.',
       isBot: true,
       timestamp: new Date()
     };
-
+  
     setMessages(prev => [...prev, botMessage]);
   } catch (error) {
     const errorMessage: Message = {
       id: (Date.now() + 2).toString(),
-      text: '⚠️ There was a problem talking to the AI agent. Please try again.',
+      text: '⚠️ There was a problem connecting to Aurora’s AI assistant. Please try again.',
       isBot: true,
       timestamp: new Date()
     };
-
+  
     setMessages(prev => [...prev, errorMessage]);
   } finally {
     setIsTyping(false);
   }
-};
-
+ }  
+  
 
 
   const handleQuickAction = (action: string) => {
