@@ -169,7 +169,7 @@ const KPLCTokenDashboard: React.FC = () => {
         });
         return;
       }
-
+        //Use real API calls
       const amount = 200 + Math.random() * 300; // Random amount between 200-500
       const tokenUnits = amount; // 1:1 ratio for simplicity
       

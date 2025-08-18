@@ -17,6 +17,7 @@ yarn-error.log*
 *.log
 .vscode/
 .vscode/*
+.temp/*
 
 # System files
 .DS_Store

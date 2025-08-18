@@ -106,7 +106,7 @@ const MeterSetup = () => {
           is_current: false
         }
       ];
-      
+      //add meter history logic to supabase to ensure that users can get readings from history
       setMeterHistory(mockHistory);
     } catch (error) {
       console.error('Error fetching meter history:', error);

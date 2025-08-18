@@ -38,6 +38,7 @@ export const useNotifications = () => {
 
             if (latestReading) {
                 // Simulate token balance calculation (in real app, this would come from KPLC API)
+                //swap simulating KPLC to using KPLC API
                 const dailyUsage = latestReading.kwh_consumed;
                 const costPerKwh = latestReading.cost_per_kwh;
                 const estimatedTokenBalance = Math.max(0, 500 - (dailyUsage * costPerKwh * 7)); // Simulate weekly consumption

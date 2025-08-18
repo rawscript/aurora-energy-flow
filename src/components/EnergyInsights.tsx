@@ -36,7 +36,7 @@ const EnergyInsights = () => {
         id: 2,
         type: 'efficiency',
         title: 'Efficiency Improvement Needed',
-        description: `Your current efficiency score is ${energyData.efficiency_score}%. Focus on reducing standby power consumption and optimizing high-usage devices.`,
+        description: `Your estimated efficiency score is ${energyData.efficiency_score}%. Focus on reducing standby power consumption and optimizing high-usage devices.`,
         impact: 'Medium',
         icon: House,
         color: 'text-aurora-blue-light'
@@ -86,7 +86,7 @@ const EnergyInsights = () => {
       {/* Efficiency Score */}
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader>
-          <CardTitle className="text-xl text-aurora-green-light">Energy Efficiency Score</CardTitle>
+          <CardTitle className="text-xl text-aurora-green-light">Estimated Energy Efficiency Score</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-6">
@@ -116,7 +116,9 @@ const EnergyInsights = () => {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-bold text-aurora-green-light">87%</span>
+                {/* <span className="text-2xl font-bold text-aurora-green-light"> 
+                  {}
+                </span>estimated  **/}
               </div>
             </div>
           </div>
@@ -127,11 +129,17 @@ const EnergyInsights = () => {
               <p className="text-sm text-muted-foreground">vs last month</p>
             </div>
             <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-              <div className="text-2xl font-bold text-aurora-purple-light">3rd</div>
+              <div className="text-2xl font-bold text-aurora-purple-light">
+                {/*
+                implement logic to show position in neighbourhood
+                */}
+              </div>
               <p className="text-sm text-muted-foreground">in neighborhood</p>
             </div>
             <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-              <div className="text-2xl font-bold text-emerald-400">$24</div>
+              <div className="text-2xl font-bold text-emerald-400">
+                {/*update call to show what has been saved */}
+              </div>
               <p className="text-sm text-muted-foreground">saved this month</p>
             </div>
           </div>
@@ -174,7 +182,9 @@ const EnergyInsights = () => {
               <span className="text-sm">Usage (kWh)</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-aurora-green-light rounded"></div>
+              <div className="w-3 h-3 bg-aurora-green-light rounded">
+                {/*potentially redudant */}
+              </div>
               <span className="text-sm">Efficiency %</span>
             </div>
           </div>
@@ -249,8 +259,8 @@ const EnergyInsights = () => {
         <CardContent className="space-y-6">
           <div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium">Reduce Usage by 10%</span>
-              <span className="text-sm text-emerald-400">7.2% achieved</span>
+              <span className="text-sm font-medium">{/*Reduce Usage by X add logic to track this*/}</span>
+              <span className="text-sm text-emerald-400">{/* X% achieved logic to show what percent of goals has been achieved*/}</span>
             </div>
             <Progress value={72} className="h-2 bg-slate-800" />
           </div>
@@ -258,7 +268,7 @@ const EnergyInsights = () => {
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium">Peak Hour Reduction</span>
-              <span className="text-sm text-aurora-blue-light">45% achieved</span>
+              <span className="text-sm text-aurora-blue-light">{/*X% achieved of performance reduction logic */}</span>
             </div>
             <Progress value={45} className="h-2 bg-slate-800" />
           </div>
@@ -266,7 +276,7 @@ const EnergyInsights = () => {
           <div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium">Cost Savings Target</span>
-              <span className="text-sm text-aurora-purple-light">62% achieved</span>
+              <span className="text-sm text-aurora-purple-light">{/*X% achieved logic to calculate*/}</span>
             </div>
             <Progress value={62} className="h-2 bg-slate-800" />
           </div>
@@ -277,3 +287,5 @@ const EnergyInsights = () => {
 };
 
 export default EnergyInsights;
+{/*Add logic to calculate percentage of goals achieved with a differenciated parameter to ensure that the function is reuseable in Bill calculator
+  Update logic to calculate savings */}

@@ -169,3 +169,4 @@ const BillCalculator = () => {
 };
 
 export default BillCalculator;
+//used dedicated API to give customised recommedndations rather than suggestions
