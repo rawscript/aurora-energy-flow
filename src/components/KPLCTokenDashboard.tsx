@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,12 @@ import {
   Clock,
   Wallet,
   Phone,
-  CheckCircle
+  CheckCircle,
+  RefreshCw,
+  Wifi,
+  WifiOff,
+  Database,
+  Cloud
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useKPLCTokens } from '@/hooks/useKPLCTokens';
@@ -26,11 +31,25 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const KPLCTokenDashboard: React.FC = () => {
-  const { analytics, transactions, loading, purchasing, purchaseTokens } = useKPLCTokens();
+  const { 
+    analytics, 
+    transactions, 
+    kplcBalance,
+    loading, 
+    purchasing, 
+    error,
+    purchaseTokens,
+    checkKPLCBalance,
+    fetchTokenAnalytics,
+    hasValidSession
+  } = useKPLCTokens();
+  
   const isMobile = useIsMobile();
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState('200');
   const [paymentMethod, setPaymentMethod] = useState('M-PESA');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   // Handle token purchase
   const handlePurchaseTokens = useCallback(async () => {
@@ -40,26 +59,99 @@ const KPLCTokenDashboard: React.FC = () => {
       return;
     }
 
-    const result = await purchaseTokens(amount, paymentMethod);
+    const result = await purchaseTokens(amount, paymentMethod, phoneNumber);
     
     if (result) {
       setPurchaseDialogOpen(false);
       setPurchaseAmount('200'); // Reset to default
+      setPhoneNumber('');
     }
-  }, [purchaseAmount, paymentMethod, purchaseTokens]);
+  }, [purchaseAmount, paymentMethod, phoneNumber, purchaseTokens]);
+
+  // Handle manual refresh
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchTokenAnalytics(),
+        checkKPLCBalance()
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshing, fetchTokenAnalytics, checkKPLCBalance]);
 
   // Quick purchase amounts
   const quickAmounts = [100, 200, 500, 1000];
 
-  if (loading) {
+  // Get data source icon
+  const getDataSourceIcon = (source?: string) => {
+    switch (source) {
+      case 'cache':
+        return <Database className="h-4 w-4 text-blue-400" />;
+      case 'kplc_api':
+        return <Cloud className="h-4 w-4 text-green-400" />;
+      case 'database':
+        return <Wifi className="h-4 w-4 text-purple-400" />;
+      case 'no_meter':
+        return <WifiOff className="h-4 w-4 text-gray-400" />;
+      default:
+        return <Database className="h-4 w-4 text-gray-400" />;
+    }
+  };
+
+  const getDataSourceText = (source?: string, cacheHit?: boolean) => {
+    if (cacheHit) return 'Cached data';
+    
+    switch (source) {
+      case 'cache':
+        return 'Cached data';
+      case 'kplc_api':
+        return 'Live KPLC data';
+      case 'database':
+        return 'Database';
+      case 'no_meter':
+        return 'No meter connected';
+      default:
+        return 'Loading...';
+    }
+  };
+
+  // Auto-refresh every 5 minutes (much less frequent)
+  useEffect(() => {
+    if (!hasValidSession || !analytics) return;
+
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing token data...');
+      fetchTokenAnalytics();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [hasValidSession, analytics, fetchTokenAnalytics]);
+
+  if (loading && !analytics) {
     return (
       <div className="flex items-center justify-center h-32 sm:h-64">
-        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-aurora-green-light"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-aurora-green-light mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Loading token data...</p>
+        </div>
       </div>
     );
   }
 
-  if (!analytics) {
+  if (!hasValidSession) {
+    return (
+      <div className="text-center py-8">
+        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+        <p className="text-muted-foreground">Please sign in to view token data</p>
+      </div>
+    );
+  }
+
+  if (!analytics || analytics.data_source === 'no_meter') {
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
@@ -67,6 +159,24 @@ const KPLCTokenDashboard: React.FC = () => {
         <p className="text-sm text-muted-foreground mt-2">
           Set up your meter to start tracking token usage
         </p>
+        <Button 
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="mt-4"
+          variant="outline"
+        >
+          {refreshing ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Checking...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check Again
+            </>
+          )}
+        </Button>
       </div>
     );
   }
@@ -100,6 +210,47 @@ const KPLCTokenDashboard: React.FC = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      {/* Data Source and Refresh Header */}
+      <Card className="bg-aurora-card border-aurora-green/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              {getDataSourceIcon(analytics.data_source)}
+              <div>
+                <p className="text-sm font-medium">
+                  {getDataSourceText(analytics.data_source, analytics.cache_hit)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {analytics.last_updated ? 
+                    `Updated ${formatDistanceToNow(new Date(analytics.last_updated), { addSuffix: true })}` :
+                    'No recent updates'
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              {error && (
+                <Badge variant="destructive" className="text-xs">
+                  {error}
+                </Badge>
+              )}
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                size="sm"
+                variant="outline"
+              >
+                {refreshing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Token Balance Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card className="bg-aurora-card border-aurora-green/20 aurora-glow">
@@ -168,6 +319,31 @@ const KPLCTokenDashboard: React.FC = () => {
         </Card>
       </div>
 
+      {/* KPLC Live Balance */}
+      {kplcBalance && (
+        <Card className="bg-aurora-card border-green-500/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Cloud className="h-6 w-6 text-green-400" />
+                <div>
+                  <p className="text-sm font-medium">Live KPLC Balance</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    KSh {kplcBalance.balance.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    From {kplcBalance.source} • {formatDistanceToNow(new Date(kplcBalance.last_updated), { addSuffix: true })}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-green-400 border-green-400/50">
+                Live Data
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Quick Actions */}
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardContent className="p-4">
@@ -179,6 +355,15 @@ const KPLCTokenDashboard: React.FC = () => {
               </span>
             </div>
             <div className="flex space-x-2">
+              <Button
+                onClick={checkKPLCBalance}
+                size="sm"
+                variant="outline"
+                disabled={refreshing}
+              >
+                <Cloud className="h-4 w-4 mr-2" />
+                Check KPLC
+              </Button>
               <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
                 <DialogTrigger asChild>
                   <Button
@@ -194,7 +379,7 @@ const KPLCTokenDashboard: React.FC = () => {
                   <DialogHeader>
                     <DialogTitle className="text-aurora-green-light">Purchase KPLC Tokens</DialogTitle>
                     <DialogDescription>
-                      Buy electricity tokens for your meter. You'll receive a token code to enter in your meter.
+                      Buy electricity tokens directly from KPLC. You'll receive a token code to enter in your meter.
                     </DialogDescription>
                   </DialogHeader>
                   
@@ -261,6 +446,21 @@ const KPLCTokenDashboard: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Phone Number for Mobile Money */}
+                    {(paymentMethod === 'M-PESA' || paymentMethod === 'Airtel Money') && (
+                      <div>
+                        <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
+                        <Input
+                          id="phone"
+                          type="tel"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="mt-1 bg-slate-800 border-aurora-green/30"
+                          placeholder="254712345678"
+                        />
+                      </div>
+                    )}
 
                     {/* Purchase Summary */}
                     <div className="p-3 bg-slate-800/50 rounded-lg border border-aurora-green/20">

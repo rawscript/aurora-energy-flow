@@ -11,6 +11,8 @@ interface TokenAnalytics {
   last_purchase_date: string | null;
   consumption_trend: 'increasing' | 'decreasing' | 'stable';
   last_updated: string | null;
+  data_source: 'cache' | 'database' | 'kplc_api' | 'no_meter';
+  cache_hit: boolean;
 }
 
 interface TokenTransaction {
@@ -29,37 +31,44 @@ interface TokenTransaction {
   metadata?: any;
 }
 
-interface TokenBalance {
-  id: string;
-  user_id: string;
+interface KPLCBalance {
+  success: boolean;
+  balance: number;
   meter_number: string;
-  current_balance: number;
-  daily_consumption_avg: number;
-  estimated_days_remaining: number;
-  low_balance_threshold: number;
   last_updated: string;
+  source: 'cache' | 'kplc_api' | 'mock';
 }
 
 export const useKPLCTokens = () => {
   const [analytics, setAnalytics] = useState<TokenAnalytics | null>(null);
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
-  const [balance, setBalance] = useState<TokenBalance | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [kplcBalance, setKplcBalance] = useState<KPLCBalance | null>(null);
+  const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const { user, session } = useAuth();
   const { toast } = useToast();
+  
   const isInitialized = useRef(false);
+  const lastFetchTime = useRef<number>(0);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const subscriptionRef = useRef<any>(null);
 
-  // Get user's meter number from profile
+  // Safe session check without triggering auth issues
+  const hasValidSession = useCallback(() => {
+    return user && session && !loading;
+  }, [user, session, loading]);
+
+  // Get user's meter number safely
   const getMeterNumber = useCallback(async (): Promise<string | null> => {
-    if (!user) return null;
+    if (!hasValidSession()) return null;
 
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('meter_number')
-        .eq('id', user.id)
+        .eq('id', user!.id)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -72,28 +81,54 @@ export const useKPLCTokens = () => {
       console.error('Exception fetching meter number:', error);
       return null;
     }
-  }, [user]);
+  }, [hasValidSession, user]);
 
-  // Fetch token analytics
-  const fetchTokenAnalytics = useCallback(async () => {
-    if (!user || !session) {
+  // Fetch token analytics with caching
+  const fetchTokenAnalytics = useCallback(async (forceRefresh = false) => {
+    if (!hasValidSession()) {
       setAnalytics(null);
-      setLoading(false);
+      return;
+    }
+
+    // Prevent too frequent requests
+    const now = Date.now();
+    if (!forceRefresh && (now - lastFetchTime.current) < 30000) { // 30 seconds cooldown
+      console.log('Skipping analytics fetch - too soon since last request');
       return;
     }
 
     try {
-      setLoading(true);
+      setError(null);
+      lastFetchTime.current = now;
 
-      // Try to get analytics from the database function
-      const { data, error } = await supabase.rpc('get_token_analytics', {
-        p_user_id: user.id
+      // Clear any existing timeout
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+
+      // Set timeout to prevent hanging
+      fetchTimeoutRef.current = setTimeout(() => {
+        console.log('Analytics fetch timeout');
+        setError('Request timeout - using cached data');
+      }, 8000);
+
+      console.log('Fetching token analytics...');
+
+      // Use the cached analytics function
+      const { data, error } = await supabase.rpc('get_token_analytics_cached', {
+        p_user_id: user!.id,
+        p_force_refresh: forceRefresh
       });
+
+      // Clear timeout on response
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+        fetchTimeoutRef.current = null;
+      }
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching token analytics:', error);
-        // Fall back to manual calculation
-        await fetchTokenAnalyticsManual();
+        setError('Failed to load token data');
         return;
       }
 
@@ -106,10 +141,14 @@ export const useKPLCTokens = () => {
           monthly_spending: analyticsData.monthly_spending || 0,
           last_purchase_date: analyticsData.last_purchase_date,
           consumption_trend: analyticsData.consumption_trend || 'stable',
-          last_updated: analyticsData.last_updated
+          last_updated: analyticsData.last_updated,
+          data_source: analyticsData.data_source || 'database',
+          cache_hit: analyticsData.cache_hit || false
         });
+
+        console.log(`Analytics loaded from ${analyticsData.data_source} (cache hit: ${analyticsData.cache_hit})`);
       } else {
-        // No data available, set empty analytics
+        // No data available
         setAnalytics({
           current_balance: 0,
           daily_consumption_avg: 0,
@@ -117,117 +156,38 @@ export const useKPLCTokens = () => {
           monthly_spending: 0,
           last_purchase_date: null,
           consumption_trend: 'stable',
-          last_updated: null
+          last_updated: null,
+          data_source: 'no_meter',
+          cache_hit: false
         });
       }
     } catch (error) {
-      console.error('Error fetching token analytics:', error);
-      await fetchTokenAnalyticsManual();
-    } finally {
-      setLoading(false);
+      console.error('Exception fetching token analytics:', error);
+      setError('Connection error loading token data');
+      
+      // Clear timeout
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+        fetchTimeoutRef.current = null;
+      }
     }
-  }, [user, session]);
+  }, [hasValidSession, user]);
 
-  // Manual fallback for analytics calculation
-  const fetchTokenAnalyticsManual = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const meterNumber = await getMeterNumber();
-      if (!meterNumber) {
-        setAnalytics({
-          current_balance: 0,
-          daily_consumption_avg: 0,
-          estimated_days_remaining: 0,
-          monthly_spending: 0,
-          last_purchase_date: null,
-          consumption_trend: 'stable',
-          last_updated: null
-        });
-        return;
-      }
-
-      // Get token balance
-      const { data: balanceData, error: balanceError } = await supabase
-        .from('token_balances')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('meter_number', meterNumber)
-        .maybeSingle();
-
-      if (balanceError && balanceError.code !== 'PGRST116') {
-        console.error('Error fetching token balance:', balanceError);
-      }
-
-      // Get monthly spending
-      const { data: transactionData, error: transactionError } = await supabase
-        .from('kplc_token_transactions')
-        .select('amount')
-        .eq('user_id', user.id)
-        .eq('transaction_type', 'purchase')
-        .gte('transaction_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-
-      if (transactionError && transactionError.code !== 'PGRST116') {
-        console.error('Error fetching monthly spending:', transactionError);
-      }
-
-      // Get last purchase date
-      const { data: lastPurchaseData, error: lastPurchaseError } = await supabase
-        .from('kplc_token_transactions')
-        .select('transaction_date')
-        .eq('user_id', user.id)
-        .eq('transaction_type', 'purchase')
-        .order('transaction_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (lastPurchaseError && lastPurchaseError.code !== 'PGRST116') {
-        console.error('Error fetching last purchase:', lastPurchaseError);
-      }
-
-      const monthlySpending = (transactionData || []).reduce((sum, t) => sum + t.amount, 0);
-
-      setAnalytics({
-        current_balance: balanceData?.current_balance || 0,
-        daily_consumption_avg: balanceData?.daily_consumption_avg || 0,
-        estimated_days_remaining: balanceData?.estimated_days_remaining || 0,
-        monthly_spending: monthlySpending,
-        last_purchase_date: lastPurchaseData?.transaction_date || null,
-        consumption_trend: 'stable', // Simplified for manual calculation
-        last_updated: balanceData?.last_updated || null
-      });
-
-      if (balanceData) {
-        setBalance(balanceData);
-      }
-    } catch (error) {
-      console.error('Error in manual analytics calculation:', error);
-      setAnalytics({
-        current_balance: 0,
-        daily_consumption_avg: 0,
-        estimated_days_remaining: 0,
-        monthly_spending: 0,
-        last_purchase_date: null,
-        consumption_trend: 'stable',
-        last_updated: null
-      });
-    }
-  }, [user, getMeterNumber]);
-
-  // Fetch token transactions
-  const fetchTransactions = useCallback(async () => {
-    if (!user || !session) {
+  // Fetch token transactions with pagination
+  const fetchTransactions = useCallback(async (limit = 20, offset = 0) => {
+    if (!hasValidSession()) {
       setTransactions([]);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('kplc_token_transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('transaction_date', { ascending: false })
-        .limit(20);
+      console.log('Fetching token transactions...');
+
+      const { data, error } = await supabase.rpc('get_token_transactions_cached', {
+        p_user_id: user!.id,
+        p_limit: limit,
+        p_offset: offset
+      });
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching transactions:', error);
@@ -235,17 +195,64 @@ export const useKPLCTokens = () => {
       }
 
       setTransactions(data || []);
+      console.log(`Loaded ${(data || []).length} transactions`);
     } catch (error) {
-      console.error('Error fetching transactions:', error);
+      console.error('Exception fetching transactions:', error);
     }
-  }, [user, session]);
+  }, [hasValidSession, user]);
 
-  // Purchase tokens
-  const purchaseTokens = useCallback(async (amount: number, paymentMethod: string = 'M-PESA') => {
-    if (!user || !session || purchasing) return null;
+  // Check KPLC balance via API
+  const checkKPLCBalance = useCallback(async () => {
+    if (!hasValidSession()) return null;
+
+    try {
+      const meterNumber = await getMeterNumber();
+      if (!meterNumber) {
+        console.log('No meter number available for balance check');
+        return null;
+      }
+
+      console.log('Checking KPLC balance...');
+
+      const { data, error } = await supabase.rpc('check_kplc_balance', {
+        p_user_id: user!.id,
+        p_meter_number: meterNumber
+      });
+
+      if (error) {
+        console.error('Error checking KPLC balance:', error);
+        return null;
+      }
+
+      const balanceData: KPLCBalance = {
+        success: data.success,
+        balance: data.balance,
+        meter_number: data.meter_number,
+        last_updated: data.last_updated,
+        source: data.source
+      };
+
+      setKplcBalance(balanceData);
+      console.log(`KPLC balance loaded from ${data.source}: KSh ${data.balance}`);
+
+      return balanceData;
+    } catch (error) {
+      console.error('Exception checking KPLC balance:', error);
+      return null;
+    }
+  }, [hasValidSession, user, getMeterNumber]);
+
+  // Purchase tokens via KPLC API
+  const purchaseTokens = useCallback(async (
+    amount: number, 
+    paymentMethod: string = 'M-PESA',
+    phoneNumber?: string
+  ) => {
+    if (!hasValidSession() || purchasing) return null;
 
     try {
       setPurchasing(true);
+      setError(null);
 
       const meterNumber = await getMeterNumber();
       if (!meterNumber) {
@@ -257,174 +264,185 @@ export const useKPLCTokens = () => {
         return null;
       }
 
-      // Call the purchase function
-      const { data, error } = await supabase.rpc('purchase_tokens', {
-        p_user_id: user.id,
+      console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber}`);
+
+      // Call the enhanced purchase function
+      const { data, error } = await supabase.rpc('purchase_tokens_kplc', {
+        p_user_id: user!.id,
         p_meter_number: meterNumber,
         p_amount: amount,
         p_payment_method: paymentMethod,
-        p_vendor: paymentMethod
+        p_phone_number: phoneNumber
       });
 
       if (error) {
         console.error('Error purchasing tokens:', error);
-        throw error;
+        throw new Error(error.message || 'Token purchase failed');
       }
 
-      const result = data;
+      if (!data.success) {
+        throw new Error(data.error || 'Token purchase failed');
+      }
+
+      console.log('Token purchase successful:', data);
 
       toast({
-        title: 'Token Purchase Successful',
+        title: 'Token Purchase Successful! 🎉',
         description: `Successfully purchased KSh ${amount} worth of tokens.`,
       });
 
       // Show token code in a separate toast
       setTimeout(() => {
         toast({
-          title: 'Token Code',
-          description: `Enter this code in your meter: ${result.token_code}`,
+          title: 'Token Code Ready',
+          description: `Enter this code in your meter: ${data.token_code}`,
           duration: 15000, // Show for 15 seconds
         });
       }, 1000);
 
-      // Refresh data
-      await Promise.all([
-        fetchTokenAnalytics(),
-        fetchTransactions()
-      ]);
+      // Refresh data after successful purchase
+      setTimeout(() => {
+        fetchTokenAnalytics(true); // Force refresh
+        fetchTransactions();
+        checkKPLCBalance();
+      }, 2000);
 
-      return result;
+      return data;
     } catch (error) {
       console.error('Error purchasing tokens:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to purchase tokens. Please try again.';
+      
       toast({
         title: 'Purchase Failed',
-        description: error instanceof Error ? error.message : 'Failed to purchase tokens. Please try again.',
+        description: errorMessage,
         variant: 'destructive'
       });
+      
+      setError(errorMessage);
       return null;
     } finally {
       setPurchasing(false);
     }
-  }, [user, session, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions]);
+  }, [hasValidSession, user, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions, checkKPLCBalance]);
 
-  // Record token consumption
+  // Record token consumption (for meter readings)
   const recordConsumption = useCallback(async (amount: number) => {
-    if (!user || !session) return;
+    if (!hasValidSession()) return;
 
     try {
       const meterNumber = await getMeterNumber();
       if (!meterNumber) return;
 
-      // Get current balance
-      const { data: balanceData } = await supabase
-        .from('token_balances')
-        .select('current_balance')
-        .eq('user_id', user.id)
-        .eq('meter_number', meterNumber)
-        .maybeSingle();
+      console.log(`Recording consumption: KSh ${amount}`);
 
-      const balanceBefore = balanceData?.current_balance || 0;
-      const balanceAfter = Math.max(0, balanceBefore - amount);
-
-      // Record consumption transaction
-      await supabase
-        .from('kplc_token_transactions')
-        .insert({
-          user_id: user.id,
-          meter_number: meterNumber,
-          transaction_type: 'consumption',
-          amount: amount,
-          token_units: amount, // Simplified 1:1 ratio
-          balance_before: balanceBefore,
-          balance_after: balanceAfter,
-          status: 'completed'
-        });
-
-      // Update balance
+      // Update token balance
       await supabase.rpc('update_token_balance', {
-        p_user_id: user.id,
+        p_user_id: user!.id,
         p_meter_number: meterNumber,
         p_amount: amount,
         p_transaction_type: 'consumption'
       });
 
-      // Refresh data
-      await Promise.all([
-        fetchTokenAnalytics(),
-        fetchTransactions()
-      ]);
+      // Refresh analytics after consumption
+      setTimeout(() => {
+        fetchTokenAnalytics(true);
+      }, 1000);
     } catch (error) {
       console.error('Error recording consumption:', error);
     }
-  }, [user, session, getMeterNumber, fetchTokenAnalytics, fetchTransactions]);
+  }, [hasValidSession, user, getMeterNumber, fetchTokenAnalytics]);
 
-  // Initialize data
+  // Initialize data on mount
   useEffect(() => {
-    if (!isInitialized.current && user && session) {
+    if (!isInitialized.current && hasValidSession()) {
       isInitialized.current = true;
+      setLoading(true);
+      
+      console.log('Initializing KPLC tokens data...');
+      
       Promise.all([
         fetchTokenAnalytics(),
         fetchTransactions()
-      ]);
+      ]).finally(() => {
+        setLoading(false);
+      });
     } else if (!user) {
+      // Reset state when user logs out
       setAnalytics(null);
       setTransactions([]);
-      setBalance(null);
+      setKplcBalance(null);
+      setError(null);
       setLoading(false);
       isInitialized.current = false;
+      lastFetchTime.current = 0;
     }
-  }, [user, session, fetchTokenAnalytics, fetchTransactions]);
+  }, [hasValidSession, user, fetchTokenAnalytics, fetchTransactions]);
 
-  // Set up real-time subscription
+  // Set up minimal real-time subscription (only for critical updates)
   useEffect(() => {
-    if (!user || !session) return;
+    if (!hasValidSession()) return;
 
     // Clean up existing subscription
     if (subscriptionRef.current) {
       supabase.removeChannel(subscriptionRef.current);
+      subscriptionRef.current = null;
     }
 
-    // Subscribe to token-related changes
+    // Only subscribe to purchase transactions (not all changes)
     subscriptionRef.current = supabase
-      .channel('token_changes')
+      .channel('token_purchases')
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'kplc_token_transactions',
-        filter: `user_id=eq.${user.id}`
+        filter: `user_id=eq.${user!.id} AND transaction_type=eq.purchase`
       }, (payload) => {
-        console.log('Token transaction change received:', payload);
-        fetchTransactions();
-        fetchTokenAnalytics();
-      })
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'token_balances',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        console.log('Token balance change received:', payload);
-        fetchTokenAnalytics();
+        console.log('New token purchase detected:', payload);
+        
+        // Only refresh if it's a recent transaction (within last 5 minutes)
+        const transactionDate = new Date(payload.new.transaction_date);
+        const now = new Date();
+        const diffMinutes = (now.getTime() - transactionDate.getTime()) / (1000 * 60);
+        
+        if (diffMinutes <= 5) {
+          setTimeout(() => {
+            fetchTokenAnalytics(true);
+            fetchTransactions();
+          }, 2000);
+        }
       })
       .subscribe();
 
     return () => {
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
       }
     };
-  }, [user, session, fetchTokenAnalytics, fetchTransactions]);
+  }, [hasValidSession, user, fetchTokenAnalytics, fetchTransactions]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     analytics,
     transactions,
-    balance,
+    kplcBalance,
     loading,
     purchasing,
+    error,
     purchaseTokens,
     recordConsumption,
-    fetchTokenAnalytics,
+    checkKPLCBalance,
+    fetchTokenAnalytics: () => fetchTokenAnalytics(true),
     fetchTransactions,
-    getMeterNumber
+    getMeterNumber,
+    hasValidSession: hasValidSession()
   };
 };
