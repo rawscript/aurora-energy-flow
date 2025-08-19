@@ -22,6 +22,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const isInitialized = useRef(false);
   const lastSessionCheck = useRef<number>(0);
   const sessionRefreshInProgress = useRef(false);
+  const profileCreationInProgress = useRef(false);
 
   // Refresh session function - only when really needed
   const refreshSession = async () => {
@@ -84,6 +85,59 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Create or ensure profile exists (safer approach)
+  const ensureProfileExists = async (user: User) => {
+    if (profileCreationInProgress.current) {
+      console.log('Profile creation already in progress, skipping');
+      return;
+    }
+
+    try {
+      profileCreationInProgress.current = true;
+      console.log('Ensuring profile exists for user:', user.id);
+
+      // First check if profile already exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!checkError && existingProfile) {
+        console.log('Profile already exists, no need to create');
+        return;
+      }
+
+      // Profile doesn't exist, create it
+      console.log('Creating profile for new user');
+      const { error: createError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || null,
+          phone_number: user.user_metadata?.phone_number || null,
+          meter_number: user.user_metadata?.meter_number || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id',
+          ignoreDuplicates: true // Ignore if profile already exists
+        });
+
+      if (createError && createError.code !== '23505') {
+        // Only log error if it's not a duplicate key error
+        console.error('Error ensuring profile exists:', createError);
+      } else {
+        console.log('Profile ensured successfully');
+      }
+    } catch (error) {
+      console.error('Exception ensuring profile exists:', error);
+    } finally {
+      profileCreationInProgress.current = false;
+    }
+  };
+
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
@@ -105,8 +159,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               clearInterval(sessionCheckInterval.current);
             }
             
-            // Check session every 10 minutes (less frequent to reduce load)
-            sessionCheckInterval.current = setInterval(checkSessionValidity, 10 * 60 * 1000);
+            // Check session every 15 minutes (increased interval to reduce load)
+            sessionCheckInterval.current = setInterval(checkSessionValidity, 15 * 60 * 1000);
+            
+            // Ensure profile exists for authenticated user (with delay to avoid conflicts)
+            setTimeout(() => {
+              ensureProfileExists(session.user);
+            }, 2000);
           }
         }
       } catch (error) {
@@ -140,31 +199,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (sessionCheckInterval.current) {
             clearInterval(sessionCheckInterval.current);
           }
-          sessionCheckInterval.current = setInterval(checkSessionValidity, 10 * 60 * 1000);
+          sessionCheckInterval.current = setInterval(checkSessionValidity, 15 * 60 * 1000);
           
-          // Create or update profile with sign up data (with better error handling)
-          try {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: session.user.id,
-                email: session.user.email,
-                full_name: session.user.user_metadata?.full_name || null,
-                phone_number: session.user.user_metadata?.phone_number || null,
-                meter_number: session.user.user_metadata?.meter_number || null,
-                updated_at: new Date().toISOString()
-              }, {
-                onConflict: 'id'
-              });
-
-            if (profileError && profileError.code !== 'PGRST116') {
-              console.error('Error creating/updating profile:', profileError);
-            } else {
-              console.log('Profile created/updated successfully');
-            }
-          } catch (error) {
-            console.error('Error in profile upsert:', error);
-          }
+          // Ensure profile exists (with delay to avoid conflicts with useProfile hook)
+          setTimeout(() => {
+            ensureProfileExists(session.user);
+          }, 3000);
         }
 
         // Handle sign out
@@ -182,6 +222,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           // Reset session refresh tracking
           lastSessionCheck.current = 0;
           sessionRefreshInProgress.current = false;
+          profileCreationInProgress.current = false;
         }
 
         // Handle token refresh
@@ -214,6 +255,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Reset session refresh tracking
       lastSessionCheck.current = 0;
       sessionRefreshInProgress.current = false;
+      profileCreationInProgress.current = false;
 
       const { error } = await supabase.auth.signOut();
       if (error) {

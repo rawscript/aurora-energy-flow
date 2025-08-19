@@ -344,6 +344,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_notifications_status: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      check_profile_status: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      check_user_notification_initialization: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       cleanup_expired_notifications: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -379,6 +397,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      ensure_user_profile: {
+        Args: {
+          p_user_id: string
+          p_email?: string
+          p_full_name?: string
+          p_phone_number?: string
+          p_meter_number?: string
+        }
+        Returns: Json
+      }
       get_latest_energy_data: {
         Args: { p_user_id: string }
         Returns: {
@@ -388,11 +416,37 @@ export type Database = {
           efficiency_score: number
         }[]
       }
+      get_notification_preferences: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
       get_notification_stats: {
         Args: {
           p_user_id: string
         }
         Returns: Json
+      }
+      get_or_create_profile: {
+        Args: {
+          p_user_id: string
+          p_email?: string
+          p_full_name?: string
+          p_phone_number?: string
+          p_meter_number?: string
+        }
+        Returns: {
+          id: string
+          email: string | null
+          full_name: string | null
+          phone_number: string | null
+          meter_number: string | null
+          meter_category: string | null
+          industry_type: string | null
+          created_at: string
+          updated_at: string
+        }[]
       }
       get_token_analytics: {
         Args: { p_user_id: string }
@@ -418,6 +472,34 @@ export type Database = {
           updated_at: string
           expires_at: string | null
         }[]
+      }
+      get_user_notifications_safe: {
+        Args: {
+          p_user_id: string
+          p_limit?: number
+          p_unread_only?: boolean
+        }
+        Returns: {
+          id: string
+          title: string
+          message: string
+          type: string
+          severity: string
+          is_read: boolean
+          token_balance: number | null
+          estimated_days: number | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+          expires_at: string | null
+          source_table: string
+        }[]
+      }
+      initialize_user_notifications: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
       }
       insert_energy_reading: {
         Args: {
@@ -450,6 +532,23 @@ export type Database = {
           p_vendor?: string
         }
         Returns: Json
+      }
+      safe_update_profile: {
+        Args: {
+          p_user_id: string
+          p_updates: Json
+        }
+        Returns: {
+          id: string
+          email: string | null
+          full_name: string | null
+          phone_number: string | null
+          meter_number: string | null
+          meter_category: string | null
+          industry_type: string | null
+          created_at: string
+          updated_at: string
+        }[]
       }
       update_token_balance: {
         Args: {
