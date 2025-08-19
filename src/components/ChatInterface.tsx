@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
+import { useProfile } from '@/hooks/useProfile';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Message {
@@ -38,85 +39,113 @@ const ChatInterface = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [alerts, setAlerts] = useState<EnergyAlert[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+  const sessionKeepAliveRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const { user, refreshSession } = useAuth();
   const { energyData } = useRealTimeEnergy();
+  const { profile } = useProfile(); // Add profile hook
 
-  // Generate AI alerts based on energy data
+  // Keep session alive during chat to prevent logout
   useEffect(() => {
-    const generateAlerts = () => {
-      const newAlerts: EnergyAlert[] = [];
-
-      // High usage alert
-      if (energyData.daily_total > 15) {
-        newAlerts.push({
-          id: 'high-usage',
-          type: 'warning',
-          title: 'High Energy Usage Detected',
-          message: `Your daily usage of ${energyData.daily_total.toFixed(2)} kWh is above average. Consider energy-saving measures to reduce costs.`,
-          timestamp: new Date()
-        });
+    // Set up session keep-alive when chat is active
+    const keepSessionAlive = () => {
+      if (user) {
+        refreshSession();
       }
-
-      // Low efficiency alert
-      if (energyData.efficiency_score < 76) {
-        newAlerts.push({
-          id: 'low-efficiency',
-          type: 'warning',
-          title: 'Energy Efficiency Alert',
-          message: `Your efficiency score is ${energyData.efficiency_score}%. Switch to LED bulbs and unplug unused devices to improve efficiency.`,
-          timestamp: new Date()
-        });
-      }
-
-      // Cost optimization alert
-      if (energyData.daily_cost > 500) {
-        newAlerts.push({
-          id: 'high-cost',
-          type: 'warning',
-          title: 'High Daily Cost Alert',
-          message: `Today's cost of KSh ${energyData.daily_cost.toFixed(2)} is high. Consider using appliances during off-peak hours (10 PM - 6 AM).`,
-          timestamp: new Date()
-        });
-      }
-
-      // Positive efficiency alert
-      if (energyData.efficiency_score >= 90) {
-        newAlerts.push({
-          id: 'excellent-efficiency',
-          type: 'success',
-          title: 'Excellent Energy Efficiency!',
-          message: `Your efficiency score of ${energyData.efficiency_score}% is outstanding. Keep up the great energy-saving habits!`,
-          timestamp: new Date()
-        });
-      }
-
-      // Peak usage time alert
-      const currentHour = new Date().getHours();
-      if (currentHour >= 18 && currentHour <= 22 && energyData.current_usage > 3) {
-        newAlerts.push({
-          id: 'peak-time',
-          type: 'info',
-          title: 'Peak Hours Usage',
-          message: 'You\'re using energy during peak hours (6-10 PM). Consider shifting some activities to off-peak hours to save on costs.',
-          timestamp: new Date()
-        });
-      }
-
-      setAlerts(newAlerts);
     };
 
-    if (energyData.daily_total > 0) {
-      generateAlerts();
+    // Refresh session every 3 minutes while chat is active
+    sessionKeepAliveRef.current = setInterval(keepSessionAlive, 3 * 60 * 1000);
+
+    // Cleanup on unmount
+    return () => {
+      if (sessionKeepAliveRef.current) {
+        clearInterval(sessionKeepAliveRef.current);
+      }
+    };
+  }, [user, refreshSession]);
+
+  // Generate AI alerts based on energy data
+  const generateAlerts = useCallback(() => {
+    const newAlerts: EnergyAlert[] = [];
+
+    // Only generate alerts if we have valid energy data
+    if (!energyData || typeof energyData.daily_total !== 'number') {
+      return;
     }
+
+    // High usage alert
+    if (energyData.daily_total > 15) {
+      newAlerts.push({
+        id: 'high-usage',
+        type: 'warning',
+        title: 'High Energy Usage Detected',
+        message: `Your daily usage of ${energyData.daily_total.toFixed(2)} kWh is above average. Consider energy-saving measures to reduce costs.`,
+        timestamp: new Date()
+      });
+    }
+
+    // Low efficiency alert
+    if (energyData.efficiency_score < 76) {
+      newAlerts.push({
+        id: 'low-efficiency',
+        type: 'warning',
+        title: 'Energy Efficiency Alert',
+        message: `Your efficiency score is ${energyData.efficiency_score}%. Switch to LED bulbs and unplug unused devices to improve efficiency.`,
+        timestamp: new Date()
+      });
+    }
+
+    // Cost optimization alert
+    if (energyData.daily_cost > 500) {
+      newAlerts.push({
+        id: 'high-cost',
+        type: 'warning',
+        title: 'High Daily Cost Alert',
+        message: `Today's cost of KSh ${energyData.daily_cost.toFixed(2)} is high. Consider using appliances during off-peak hours (10 PM - 6 AM).`,
+        timestamp: new Date()
+      });
+    }
+
+    // Positive efficiency alert
+    if (energyData.efficiency_score >= 90) {
+      newAlerts.push({
+        id: 'excellent-efficiency',
+        type: 'success',
+        title: 'Excellent Energy Efficiency!',
+        message: `Your efficiency score of ${energyData.efficiency_score}% is outstanding. Keep up the great energy-saving habits!`,
+        timestamp: new Date()
+      });
+    }
+
+    // Peak usage time alert
+    const currentHour = new Date().getHours();
+    if (currentHour >= 18 && currentHour <= 22 && energyData.current_usage > 3) {
+      newAlerts.push({
+        id: 'peak-time',
+        type: 'info',
+        title: 'Peak Hours Usage',
+        message: 'You\'re using energy during peak hours (6-10 PM). Consider shifting some activities to off-peak hours to save on costs.',
+        timestamp: new Date()
+      });
+    }
+
+    setAlerts(newAlerts);
   }, [energyData]);
 
-  const scrollToBottom = () => {
+  useEffect(() => {
+    if (energyData && energyData.daily_total > 0) {
+      generateAlerts();
+    }
+  }, [generateAlerts]);
+
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   const quickActions = [
     { text: "How can I reduce my electricity bill?", icon: Calculator },
@@ -127,15 +156,30 @@ const ChatInterface = () => {
     { text: "Contact Kenya Power customer service", icon: MessageCircle }
   ];
 
-  const getBotResponse = (userMessage: string): string => {
+  const getBotResponse = useCallback((userMessage: string): string => {
     const message = userMessage.toLowerCase();
     
+    // Get user name safely
+    const userName = profile?.full_name || user?.user_metadata?.full_name || 'rafiki';
+    
+    // Safely get energy data with fallbacks
+    const safeEnergyData = {
+      daily_total: energyData?.daily_total || 0,
+      daily_cost: energyData?.daily_cost || 0,
+      current_usage: energyData?.current_usage || 0,
+      efficiency_score: energyData?.efficiency_score || 87,
+      weekly_average: energyData?.weekly_average || 0,
+      monthly_total: energyData?.monthly_total || 0,
+      peak_usage_time: energyData?.peak_usage_time || '18:00',
+      cost_trend: energyData?.cost_trend || 'stable'
+    };
+    
     if (message.includes('reduce') || message.includes('save') || message.includes('lower') || message.includes('bill')) {
-      return `Here are proven ways to reduce your electricity bill in Kenya:\n\n💡 Immediate Actions:\n• Switch to LED bulbs (save up to 80% on lighting)\n• Unplug devices when not in use\n• Use natural light during the day\n• Set water heater to 60°C maximum\n\n🏠 Home Efficiency:\n• Use fans instead of AC when possible\n• Iron clothes in batches\n• Use pressure cookers for faster cooking\n• Maintain your fridge at 4°C\n\n📊 Your Current Usage: ${energyData.daily_total.toFixed(2)} kWh today (KSh ${energyData.daily_cost.toFixed(2)})\nWith these tips, you could save 20-30% monthly!`;
+      return `Here are proven ways to reduce your electricity bill in Kenya:\n\n💡 Immediate Actions:\n• Switch to LED bulbs (save up to 80% on lighting)\n• Unplug devices when not in use\n• Use natural light during the day\n• Set water heater to 60°C maximum\n\n🏠 Home Efficiency:\n• Use fans instead of AC when possible\n• Iron clothes in batches\n• Use pressure cookers for faster cooking\n• Maintain your fridge at 4°C\n\n📊 Your Current Usage: ${safeEnergyData.daily_total.toFixed(2)} kWh today (KSh ${safeEnergyData.daily_cost.toFixed(2)})\nWith these tips, you could save 20-30% monthly!`;
     }
     
     if (message.includes('usage') || message.includes('consumption') || message.includes('current')) {
-      return `📈 Your Energy Usage Summary:\n\n🔋 Today's Consumption: ${energyData.daily_total.toFixed(2)} kWh\n💰 Today's Cost: KSh ${energyData.daily_cost.toFixed(2)}\n⚡ Current Usage: ${energyData.current_usage.toFixed(2)} kWh\n🎯 Efficiency Score: ${energyData.efficiency_score}%\n\nAnalysis:\n${energyData.efficiency_score >= 90 ? '✅ Excellent! You\'re using energy very efficiently.' : energyData.efficiency_score >= 80 ? '👍 Good usage patterns. Small improvements possible.' : '⚠️ High usage detected. Consider energy-saving measures.'}\n\nKenya Power Average: 150-300 kWh/month for typical households`;
+      return `📈 Your Energy Usage Summary:\n\n🔋 Today's Consumption: ${safeEnergyData.daily_total.toFixed(2)} kWh\n💰 Today's Cost: KSh ${safeEnergyData.daily_cost.toFixed(2)}\n⚡ Current Usage: ${safeEnergyData.current_usage.toFixed(2)} kWh\n🎯 Efficiency Score: ${safeEnergyData.efficiency_score}%\n\nAnalysis:\n${safeEnergyData.efficiency_score >= 90 ? '✅ Excellent! You\'re using energy very efficiently.' : safeEnergyData.efficiency_score >= 80 ? '👍 Good usage patterns. Small improvements possible.' : '⚠️ High usage detected. Consider energy-saving measures.'}\n\nKenya Power Average: 150-300 kWh/month for typical households`;
     }
     
     if (message.includes('alert') || message.includes('notification') || message.includes('setup')) {
@@ -143,7 +187,8 @@ const ChatInterface = () => {
     }
     
     if (message.includes('tariff') || message.includes('rate') || message.includes('cost') || message.includes('price')) {
-      return `💰 Kenya Power Tariff Rates (2024):\n\n🏠 Domestic Tariff (D1):\n• 0-50 kWh: KSh 12.00/kWh\n• 51-1500 kWh: KSh 25.00/kWh\n• Above 1500 kWh: KSh 30.00/kWh\n\n📋 Additional Charges:\n• Fixed Charge: KSh 300/month\n• Fuel Cost Charge: Variable\n• VAT: 16% on total bill\n• Electricity Levy: KSh 5.08/kWh\n\n⏰ Time of Use (Optional):\n• Peak (6-10 PM): Higher rates\n• Off-peak (10 PM-6 AM): Lower rates\n\nYour Rate: Currently paying ~KSh ${(energyData.daily_cost / energyData.daily_total || 25).toFixed(2)}/kWh`;
+      const currentRate = safeEnergyData.daily_total > 0 ? (safeEnergyData.daily_cost / safeEnergyData.daily_total) : 25;
+      return `💰 Kenya Power Tariff Rates (2024):\n\n🏠 Domestic Tariff (D1):\n• 0-50 kWh: KSh 12.00/kWh\n• 51-1500 kWh: KSh 25.00/kWh\n• Above 1500 kWh: KSh 30.00/kWh\n\n📋 Additional Charges:\n• Fixed Charge: KSh 300/month\n• Fuel Cost Charge: Variable\n• VAT: 16% on total bill\n• Electricity Levy: KSh 5.08/kWh\n\n⏰ Time of Use (Optional):\n• Peak (6-10 PM): Higher rates\n• Off-peak (10 PM-6 AM): Lower rates\n\nYour Rate: Currently paying ~KSh ${currentRate.toFixed(2)}/kWh`;
     }
     
     if (message.includes('tips') || message.includes('advice') || message.includes('kenya')) {
@@ -155,76 +200,93 @@ const ChatInterface = () => {
     }
     
     if (message.includes('hello') || message.includes('hi') || message.includes('jambo') || message.includes('habari')) {
-      return `Jambo ${user?.user_metadata?.full_name || 'rafiki'}! 🇰🇪\n\nI'm Aurora, your personal energy assistant. I can help you with:\n\n⚡ Energy Management:\n• Understanding your electricity usage\n• Bill calculation and estimation\n• Energy-saving strategies\n\n📊 Smart Features:\n• Real-time usage monitoring\n• Custom alerts and notifications\n• Efficiency recommendations\n\n🏠 Kenya-Specific Help:\n• Kenya Power services and contacts\n• Local energy-saving tips\n• Tariff information and updates\n\nWhat would you like to explore today?`;
+      return `Jambo ${userName}! 🇰🇪\n\nI'm Aurora, your personal energy assistant. I can help you with:\n\n⚡ Energy Management:\n• Understanding your electricity usage\n• Bill calculation and estimation\n• Energy-saving strategies\n\n📊 Smart Features:\n• Real-time usage monitoring\n• Custom alerts and notifications\n• Efficiency recommendations\n\n🏠 Kenya-Specific Help:\n• Kenya Power services and contacts\n• Local energy-saving tips\n• Tariff information and updates\n\nWhat would you like to explore today?`;
     }
     
     return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "Explain my current energy usage"\n• "What are Kenya Power tariff rates?"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
-  };
+  }, [energyData, user, profile]);
 
-  const sendMessage = async () => {
-  if (!inputValue.trim()) return;
+  const sendMessage = useCallback(async () => {
+    if (!inputValue.trim()) return;
 
-  const userMessage: Message = {
-    id: Date.now().toString(),
-    text: inputValue,
-    isBot: false,
-    timestamp: new Date()
-  };
-
-  setMessages(prev => [...prev, userMessage]);
-  setInputValue('');
-  setIsTyping(true);
-
-  try {
-     const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': 'sk-default-pOdtybko4izSvpfeXN7qV2rtuyRhpEhp'
-      },
-      body: JSON.stringify({
-        user_id: 'jasemwaura@gmail.com',
-        agent_id: '686ce3c9868e419e65c9eece',
-        session_id: '686ce3c9868e419e65c9eece-75witjhudno',
-        message: inputValue
-      })
-     });
-
-     const data = await response.json();
-    
-     const botMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: data.response || 'Sorry, I couldn’t understand that.',
-      isBot: true,
-      timestamp: new Date()
-     };
-
-     setMessages(prev => [...prev, botMessage]);
-   } catch (error) {
-    const errorMessage: Message = {
-      id: (Date.now() + 2).toString(),
-      text: '⚠️ There was a problem Reaching Aurora\'s agent. Please try again.',
-      isBot: true,
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue,
+      isBot: false,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, errorMessage]);
-   } finally {
-    setIsTyping(false);
-   }
-   };
+    setMessages(prev => [...prev, userMessage]);
+    setInputValue('');
+    setIsTyping(true);
 
-   const handleQuickAction = (action: string) => {
+    try {
+      // Keep session alive during API call
+      if (user) {
+        refreshSession();
+      }
+
+      // Try external API first
+      const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'sk-default-pOdtybko4izSvpfeXN7qV2rtuyRhpEhp'
+        },
+        body: JSON.stringify({
+          user_id: user?.email || 'anonymous',
+          agent_id: '686ce3c9868e419e65c9eece',
+          session_id: `${user?.id || 'anonymous'}-${Date.now()}`,
+          message: inputValue
+        })
+      });
+
+      let botResponseText = '';
+
+      if (response.ok) {
+        const data = await response.json();
+        botResponseText = data.response || getBotResponse(inputValue);
+      } else {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: botResponseText,
+        isBot: true,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Chat API error:', error);
+      
+      // Fallback to local response
+      const fallbackMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        text: getBotResponse(inputValue),
+        isBot: true,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, fallbackMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [inputValue, user, refreshSession, getBotResponse]);
+
+  const handleQuickAction = useCallback((action: string) => {
     setInputValue(action);
-   };
+  }, []);
 
-   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       sendMessage();
     }
-   };
+  }, [sendMessage]);
 
-   const getAlertIcon = (type: string) => {
+  const getAlertIcon = (type: string) => {
     switch (type) {
       case 'warning':
         return <AlertTriangle className="h-4 w-4" />;
@@ -233,13 +295,13 @@ const ChatInterface = () => {
       default:
         return <Info className="h-4 w-4" />;
     }
-   };
+  };
 
-   const getAlertVariant = (type: string) => {
+  const getAlertVariant = (type: string) => {
     return type === 'warning' ? 'destructive' : 'default';
-   };
+  };
 
-   return (
+  return (
     <div className="space-y-4">
       {/* AI Alerts Section */}
       {alerts.length > 0 && (
@@ -340,7 +402,7 @@ const ChatInterface = () => {
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDownCapture={handleKeyPress}//used update of depricated onkeyPress method
+                onKeyDown={handleKeyPress}
                 placeholder={isMobile ? "Ask about energy..." : "Ask about energy saving, bills, Kenya Power..."}
                 className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-gray-400 text-sm"
               />
@@ -348,7 +410,7 @@ const ChatInterface = () => {
                 onClick={sendMessage}
                 size="icon"
                 className="bg-aurora-green hover:bg-aurora-green-light h-9 w-9 md:h-10 md:w-10"
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isTyping}
               >
                 <Send className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
@@ -357,7 +419,7 @@ const ChatInterface = () => {
         </CardContent>
       </Card>
     </div>
-   );
-  };
+  );
+};
 
 export default ChatInterface;

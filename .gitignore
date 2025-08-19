@@ -45,3 +45,4 @@ aurora-energy-flow/
 #ide
 .vscode/*
 .zencoder/*
+.qodo/*

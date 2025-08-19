@@ -4,10 +4,8 @@ import type { Database } from './types';
 
 const SUPABASE_URL = "https://rcthtxwzsqvwivritzln.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM";
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
 
-// Create the Supabase client with proper headers configuration
+// Create the Supabase client with optimized configuration
 export const supabase = createClient<Database>(
   SUPABASE_URL, 
   SUPABASE_PUBLISHABLE_KEY,
@@ -15,18 +13,22 @@ export const supabase = createClient<Database>(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true
+      detectSessionInUrl: true,
+      flowType: 'pkce'
     },
     global: {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       }
+    },
+    db: {
+      schema: 'public'
     }
   }
 );
 
-// Add error handling for Supabase requests
+// Add enhanced error handling for Supabase requests
 const originalFrom = supabase.from;
 supabase.from = function(table) {
   const query = originalFrom.call(this, table);
@@ -43,7 +45,10 @@ supabase.from = function(table) {
         this,
         (result) => {
           if (result.error) {
-            console.error(`Supabase query error for ${table}:`, result.error);
+            // Only log non-PGRST116 errors (PGRST116 is "no rows found" which is expected)
+            if (result.error.code !== 'PGRST116') {
+              console.error(`Supabase query error for ${table}:`, result.error);
+            }
           }
           return onFulfilled ? onFulfilled(result) : result;
         },
@@ -54,6 +59,49 @@ supabase.from = function(table) {
     return selectQuery;
   };
   
+  // Add error handling to insert queries
+  const originalInsert = query.insert;
+  query.insert = function(...args) {
+    const insertQuery = originalInsert.apply(this, args);
+    
+    const originalThen = insertQuery.then;
+    insertQuery.then = function(onFulfilled, onRejected) {
+      return originalThen.call(
+        this,
+        (result) => {
+          if (result.error) {
+            console.error(`Supabase insert error for ${table}:`, result.error);
+          }
+          return onFulfilled ? onFulfilled(result) : result;
+        },
+        onRejected
+      );
+    };
+    
+    return insertQuery;
+  };
+  
+  // Add error handling to update queries
+  const originalUpdate = query.update;
+  query.update = function(...args) {
+    const updateQuery = originalUpdate.apply(this, args);
+    
+    const originalThen = updateQuery.then;
+    updateQuery.then = function(onFulfilled, onRejected) {
+      return originalThen.call(
+        this,
+        (result) => {
+          if (result.error) {
+            console.error(`Supabase update error for ${table}:`, result.error);
+          }
+          return onFulfilled ? onFulfilled(result) : result;
+        },
+        onRejected
+      );
+    };
+    
+    return updateQuery;
+  };
+  
   return query;
 };
-
