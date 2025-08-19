@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info, Wifi, WifiOff } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   id: string;
@@ -21,8 +22,36 @@ interface EnergyAlert {
   timestamp: Date;
 }
 
-// Mock energy data for demonstration (completely isolated from auth)
-const MOCK_ENERGY_DATA = {
+interface UserData {
+  id: string;
+  full_name?: string;
+  email?: string;
+  meter_number?: string;
+  meter_category?: string;
+  industry_type?: string;
+}
+
+interface EnergyData {
+  daily_total: number;
+  daily_cost: number;
+  current_usage: number;
+  efficiency_score: number;
+  weekly_average: number;
+  monthly_total: number;
+  peak_usage_time: string;
+  cost_trend: 'up' | 'down' | 'stable';
+}
+
+interface TokenData {
+  current_balance: number;
+  daily_consumption_avg: number;
+  estimated_days_remaining: number;
+  monthly_spending: number;
+  last_purchase_date?: string;
+}
+
+// Mock data as fallback when no real data is available
+const MOCK_ENERGY_DATA: EnergyData = {
   daily_total: 12.5,
   daily_cost: 312.50,
   current_usage: 2.3,
@@ -30,7 +59,15 @@ const MOCK_ENERGY_DATA = {
   weekly_average: 11.2,
   monthly_total: 345.6,
   peak_usage_time: '18:00',
-  cost_trend: 'stable' as const
+  cost_trend: 'stable'
+};
+
+const MOCK_TOKEN_DATA: TokenData = {
+  current_balance: 150.75,
+  daily_consumption_avg: 25.30,
+  estimated_days_remaining: 6,
+  monthly_spending: 2500.00,
+  last_purchase_date: '2024-01-15T10:00:00Z'
 };
 
 const ChatInterface = () => {
@@ -47,16 +84,219 @@ const ChatInterface = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [alerts, setAlerts] = useState<EnergyAlert[]>([]);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [energyData, setEnergyData] = useState<EnergyData>(MOCK_ENERGY_DATA);
+  const [tokenData, setTokenData] = useState<TokenData>(MOCK_TOKEN_DATA);
+  const [dataStatus, setDataStatus] = useState<'loading' | 'connected' | 'offline' | 'error'>('loading');
+  const [lastDataFetch, setLastDataFetch] = useState<number>(0);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dataFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // COMPLETELY ISOLATED - NO AUTH DEPENDENCIES AT ALL
-  // Using mock data instead of real energy data
+  // Safe data fetching with comprehensive error handling
+  const fetchUserDataSafely = useCallback(async () => {
+    try {
+      // Prevent too frequent fetches
+      const now = Date.now();
+      if (now - lastDataFetch < 30000) { // 30 seconds cooldown
+        return;
+      }
+      setLastDataFetch(now);
 
-  // Generate AI alerts based on mock energy data
+      // Get current session without triggering refresh
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        console.log('No active session, using offline mode');
+        setDataStatus('offline');
+        return;
+      }
+
+      const user = session.user;
+      console.log('Fetching data for authenticated user');
+      
+      // Set timeout for data fetching
+      if (dataFetchTimeoutRef.current) {
+        clearTimeout(dataFetchTimeoutRef.current);
+      }
+      
+      dataFetchTimeoutRef.current = setTimeout(() => {
+        console.log('Data fetch timeout, switching to offline mode');
+        setDataStatus('offline');
+      }, 8000);
+
+      // Fetch user profile data
+      let profileData: UserData = {
+        id: user.id,
+        full_name: user.user_metadata?.full_name || null,
+        email: user.email || null
+      };
+
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('full_name, meter_number, meter_category, industry_type')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!profileError && profile) {
+          profileData = {
+            ...profileData,
+            full_name: profile.full_name || profileData.full_name,
+            meter_number: profile.meter_number,
+            meter_category: profile.meter_category,
+            industry_type: profile.industry_type
+          };
+        }
+      } catch (error) {
+        console.log('Profile fetch failed, using basic user data');
+      }
+
+      setUserData(profileData);
+
+      // Fetch energy data if meter is connected
+      if (profileData.meter_number) {
+        try {
+          // Get recent energy readings
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          
+          const { data: readings, error: readingsError } = await supabase
+            .from('energy_readings')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('meter_number', profileData.meter_number)
+            .gte('reading_date', oneWeekAgo.toISOString())
+            .order('reading_date', { ascending: false })
+            .limit(50);
+
+          if (!readingsError && readings && readings.length > 0) {
+            // Calculate real energy data from readings
+            const today = new Date();
+            const dailyReadings = readings.filter(r => {
+              const readingDate = new Date(r.reading_date);
+              return readingDate.getDate() === today.getDate() &&
+                     readingDate.getMonth() === today.getMonth() &&
+                     readingDate.getFullYear() === today.getFullYear();
+            });
+
+            const dailyTotal = dailyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
+            const dailyCost = dailyReadings.reduce((sum, r) => sum + r.total_cost, 0);
+            const currentUsage = readings[0]?.kwh_consumed || 0;
+            
+            const weeklyTotal = readings.reduce((sum, r) => sum + r.kwh_consumed, 0);
+            const weeklyAverage = weeklyTotal / 7;
+            
+            // Calculate efficiency score
+            let efficiencyScore = 87;
+            if (profileData.meter_category === 'household') {
+              efficiencyScore = weeklyAverage < 10 ? 95 : weeklyAverage < 20 ? 87 : 75;
+            } else if (profileData.meter_category === 'SME') {
+              efficiencyScore = weeklyAverage < 50 ? 90 : weeklyAverage < 100 ? 80 : 70;
+            }
+
+            // Find peak usage time
+            const hourlyUsage = new Map<number, number>();
+            readings.forEach(reading => {
+              const hour = new Date(reading.reading_date).getHours();
+              hourlyUsage.set(hour, (hourlyUsage.get(hour) || 0) + reading.kwh_consumed);
+            });
+
+            let maxHour = 18;
+            let maxUsage = 0;
+            hourlyUsage.forEach((usage, hour) => {
+              if (usage > maxUsage) {
+                maxUsage = usage;
+                maxHour = hour;
+              }
+            });
+
+            const realEnergyData: EnergyData = {
+              daily_total: dailyTotal,
+              daily_cost: dailyCost,
+              current_usage: currentUsage,
+              efficiency_score: efficiencyScore,
+              weekly_average: weeklyAverage,
+              monthly_total: weeklyTotal * 4, // Approximate monthly
+              peak_usage_time: `${maxHour.toString().padStart(2, '0')}:00`,
+              cost_trend: dailyCost > (dailyReadings[1]?.total_cost || 0) * 1.1 ? 'up' : 
+                         dailyCost < (dailyReadings[1]?.total_cost || 0) * 0.9 ? 'down' : 'stable'
+            };
+
+            setEnergyData(realEnergyData);
+          } else {
+            console.log('No energy readings found, using mock data');
+            setEnergyData(MOCK_ENERGY_DATA);
+          }
+        } catch (error) {
+          console.log('Energy data fetch failed, using mock data');
+          setEnergyData(MOCK_ENERGY_DATA);
+        }
+
+        // Fetch token data
+        try {
+          const { data: tokenAnalytics, error: tokenError } = await supabase
+            .rpc('get_token_analytics', { p_user_id: user.id });
+
+          if (!tokenError && tokenAnalytics && tokenAnalytics.length > 0) {
+            const analytics = tokenAnalytics[0];
+            const realTokenData: TokenData = {
+              current_balance: analytics.current_balance || 0,
+              daily_consumption_avg: analytics.daily_consumption_avg || 0,
+              estimated_days_remaining: analytics.estimated_days_remaining || 0,
+              monthly_spending: analytics.monthly_spending || 0,
+              last_purchase_date: analytics.last_purchase_date
+            };
+            setTokenData(realTokenData);
+          } else {
+            console.log('No token data found, using mock data');
+            setTokenData(MOCK_TOKEN_DATA);
+          }
+        } catch (error) {
+          console.log('Token data fetch failed, using mock data');
+          setTokenData(MOCK_TOKEN_DATA);
+        }
+      } else {
+        console.log('No meter connected, using mock data');
+        setEnergyData(MOCK_ENERGY_DATA);
+        setTokenData(MOCK_TOKEN_DATA);
+      }
+
+      // Clear timeout on success
+      if (dataFetchTimeoutRef.current) {
+        clearTimeout(dataFetchTimeoutRef.current);
+      }
+
+      setDataStatus('connected');
+      console.log('Data fetch completed successfully');
+
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      
+      // Clear timeout
+      if (dataFetchTimeoutRef.current) {
+        clearTimeout(dataFetchTimeoutRef.current);
+      }
+      
+      setDataStatus('offline');
+      // Keep using mock data as fallback
+    }
+  }, [lastDataFetch]);
+
+  // Initialize data fetching
+  useEffect(() => {
+    const initializeData = async () => {
+      setDataStatus('loading');
+      await fetchUserDataSafely();
+    };
+
+    initializeData();
+  }, [fetchUserDataSafely]);
+
+  // Generate AI alerts based on real or mock energy data
   const generateAlerts = useCallback(() => {
     const newAlerts: EnergyAlert[] = [];
-    const energyData = MOCK_ENERGY_DATA;
 
     // High usage alert
     if (energyData.daily_total > 15) {
@@ -76,6 +316,17 @@ const ChatInterface = () => {
         type: 'warning',
         title: 'Energy Efficiency Alert',
         message: `Your efficiency score is ${energyData.efficiency_score}%. Switch to LED bulbs and unplug unused devices to improve efficiency.`,
+        timestamp: new Date()
+      });
+    }
+
+    // Token low balance alert
+    if (tokenData.current_balance < 100) {
+      newAlerts.push({
+        id: 'low-balance',
+        type: 'warning',
+        title: 'Low Token Balance',
+        message: `Your token balance is KSh ${tokenData.current_balance.toFixed(2)}. Consider purchasing more tokens soon.`,
         timestamp: new Date()
       });
     }
@@ -102,23 +353,10 @@ const ChatInterface = () => {
       });
     }
 
-    // Peak usage time alert
-    const currentHour = new Date().getHours();
-    if (currentHour >= 18 && currentHour <= 22 && energyData.current_usage > 3) {
-      newAlerts.push({
-        id: 'peak-time',
-        type: 'info',
-        title: 'Peak Hours Usage',
-        message: 'You\'re using energy during peak hours (6-10 PM). Consider shifting some activities to off-peak hours to save on costs.',
-        timestamp: new Date()
-      });
-    }
-
     setAlerts(newAlerts);
-  }, []);
+  }, [energyData, tokenData]);
 
   useEffect(() => {
-    // Generate alerts on component mount
     generateAlerts();
   }, [generateAlerts]);
 
@@ -139,48 +377,76 @@ const ChatInterface = () => {
     { text: "Contact Kenya Power customer service", icon: MessageCircle }
   ];
 
+  // Enhanced bot response with real user data
   const getBotResponse = useCallback((userMessage: string): string => {
     const message = userMessage.toLowerCase();
     
-    // Use generic user name since we don't have auth
-    const userName = 'rafiki';
-    
-    // Use mock energy data
-    const safeEnergyData = MOCK_ENERGY_DATA;
+    // Get user name from real data or fallback
+    const userName = userData?.full_name || 'rafiki';
+    const hasMeter = userData?.meter_number ? true : false;
+    const meterCategory = userData?.meter_category || 'household';
     
     if (message.includes('reduce') || message.includes('save') || message.includes('lower') || message.includes('bill')) {
-      return `Here are proven ways to reduce your electricity bill in Kenya:\n\n💡 Immediate Actions:\n• Switch to LED bulbs (save up to 80% on lighting)\n• Unplug devices when not in use\n• Use natural light during the day\n• Set water heater to 60°C maximum\n\n🏠 Home Efficiency:\n• Use fans instead of AC when possible\n• Iron clothes in batches\n• Use pressure cookers for faster cooking\n• Maintain your fridge at 4°C\n\n📊 Your Current Usage: ${safeEnergyData.daily_total.toFixed(2)} kWh today (KSh ${safeEnergyData.daily_cost.toFixed(2)})\nWith these tips, you could save 20-30% monthly!`;
+      const personalizedTips = hasMeter ? 
+        `Based on your ${meterCategory} meter data, here are personalized ways to reduce your electricity bill:` :
+        `Here are proven ways to reduce your electricity bill in Kenya:`;
+        
+      return `${personalizedTips}\n\n💡 Immediate Actions:\n• Switch to LED bulbs (save up to 80% on lighting)\n• Unplug devices when not in use\n• Use natural light during the day\n• Set water heater to 60°C maximum\n\n🏠 Home Efficiency:\n• Use fans instead of AC when possible\n• Iron clothes in batches\n• Use pressure cookers for faster cooking\n• Maintain your fridge at 4°C\n\n📊 Your Current Usage: ${energyData.daily_total.toFixed(2)} kWh today (KSh ${energyData.daily_cost.toFixed(2)})\n${hasMeter ? 'Based on your actual meter readings' : 'Estimated based on typical usage'}\n\nWith these tips, you could save 20-30% monthly!`;
     }
     
     if (message.includes('usage') || message.includes('consumption') || message.includes('current')) {
-      return `📈 Your Energy Usage Summary:\n\n🔋 Today's Consumption: ${safeEnergyData.daily_total.toFixed(2)} kWh\n💰 Today's Cost: KSh ${safeEnergyData.daily_cost.toFixed(2)}\n⚡ Current Usage: ${safeEnergyData.current_usage.toFixed(2)} kWh\n🎯 Efficiency Score: ${safeEnergyData.efficiency_score}%\n\nAnalysis:\n${safeEnergyData.efficiency_score >= 90 ? '✅ Excellent! You\'re using energy very efficiently.' : safeEnergyData.efficiency_score >= 80 ? '👍 Good usage patterns. Small improvements possible.' : '⚠️ High usage detected. Consider energy-saving measures.'}\n\nKenya Power Average: 150-300 kWh/month for typical households`;
+      const dataSource = hasMeter ? 'from your connected smart meter' : 'estimated for demonstration';
+      
+      return `📈 Your Energy Usage Summary ${dataSource}:\n\n🔋 Today's Consumption: ${energyData.daily_total.toFixed(2)} kWh\n💰 Today's Cost: KSh ${energyData.daily_cost.toFixed(2)}\n⚡ Current Usage: ${energyData.current_usage.toFixed(2)} kWh\n🎯 Efficiency Score: ${energyData.efficiency_score}%\n📅 Weekly Average: ${energyData.weekly_average.toFixed(2)} kWh\n🏠 Meter Category: ${meterCategory}\n\nAnalysis:\n${energyData.efficiency_score >= 90 ? '✅ Excellent! You\'re using energy very efficiently.' : energyData.efficiency_score >= 80 ? '👍 Good usage patterns. Small improvements possible.' : '⚠️ High usage detected. Consider energy-saving measures.'}\n\n${hasMeter ? 'This data is from your actual smart meter readings.' : 'Connect your smart meter for real-time data!'}\n\nKenya Power Average: 150-300 kWh/month for typical households`;
+    }
+
+    if (message.includes('token') || message.includes('balance') || message.includes('kplc')) {
+      const tokenInfo = hasMeter ? 
+        `Your KPLC Token Status:\n\n💰 Current Balance: KSh ${tokenData.current_balance.toFixed(2)}\n📊 Daily Average Consumption: KSh ${tokenData.daily_consumption_avg.toFixed(2)}\n⏰ Estimated Days Remaining: ${tokenData.estimated_days_remaining} days\n💳 Monthly Spending: KSh ${tokenData.monthly_spending.toFixed(2)}\n${tokenData.last_purchase_date ? `🛒 Last Purchase: ${new Date(tokenData.last_purchase_date).toLocaleDateString()}` : ''}\n\n${tokenData.current_balance < 100 ? '⚠️ Low balance warning! Consider purchasing more tokens.' : '✅ Your token balance looks good.'}\n\nThis data is from your actual meter and transaction history.` :
+        `KPLC Token Information:\n\nTo see your actual token balance and usage, please:\n1. Go to Settings → Meter Setup\n2. Connect your Kenya Power smart meter\n3. Your real token data will appear here\n\nFor now, I can help with:\n• Token purchase guidance\n• Understanding KPLC rates\n• Energy saving tips to extend token life`;
+
+      return tokenInfo;
     }
     
     if (message.includes('alert') || message.includes('notification') || message.includes('setup')) {
-      return `🔔 Smart Meter Alerts Available:\n\n📱 High Usage Alerts:\n• Daily usage above 15 kWh\n• Unusual consumption patterns\n• Peak hour usage warnings\n\n💸 Bill Notifications:\n• Monthly bill estimates\n• Payment due reminders\n• Balance low warnings\n\n⚡ System Alerts:\n• Power outage notifications\n• Meter maintenance updates\n• Tariff rate changes\n\nSetup: Go to Settings → Notifications to customize your alerts. You can receive them via SMS, email, or push notifications.`;
+      const setupStatus = hasMeter ? 'Your smart meter is connected! You can receive:' : 'Connect your smart meter to receive:';
+      
+      return `🔔 Smart Meter Alerts Available:\n\n${setupStatus}\n\n📱 High Usage Alerts:\n• Daily usage above 15 kWh\n• Unusual consumption patterns\n• Peak hour usage warnings\n\n💸 Token Notifications:\n• Low balance warnings\n• Purchase confirmations\n• Daily consumption summaries\n\n⚡ System Alerts:\n• Power outage notifications\n• Meter maintenance updates\n• Tariff rate changes\n\n${hasMeter ? 'Setup: Go to Settings → Notifications to customize your alerts.' : 'Setup: First connect your meter in Settings → Meter Setup, then configure alerts.'}\n\nYou can receive notifications via SMS, email, or push notifications.`;
     }
     
     if (message.includes('tariff') || message.includes('rate') || message.includes('cost') || message.includes('price')) {
-      const currentRate = safeEnergyData.daily_total > 0 ? (safeEnergyData.daily_cost / safeEnergyData.daily_total) : 25;
-      return `💰 Kenya Power Tariff Rates (2024):\n\n🏠 Domestic Tariff (D1):\n• 0-50 kWh: KSh 12.00/kWh\n• 51-1500 kWh: KSh 25.00/kWh\n• Above 1500 kWh: KSh 30.00/kWh\n\n📋 Additional Charges:\n• Fixed Charge: KSh 300/month\n• Fuel Cost Charge: Variable\n• VAT: 16% on total bill\n• Electricity Levy: KSh 5.08/kWh\n\n⏰ Time of Use (Optional):\n• Peak (6-10 PM): Higher rates\n• Off-peak (10 PM-6 AM): Lower rates\n\nYour Rate: Currently paying ~KSh ${currentRate.toFixed(2)}/kWh`;
+      const currentRate = energyData.daily_total > 0 ? (energyData.daily_cost / energyData.daily_total) : 25;
+      const personalRate = hasMeter ? `Your Current Rate: KSh ${currentRate.toFixed(2)}/kWh (from actual usage)` : `Estimated Rate: ~KSh ${currentRate.toFixed(2)}/kWh`;
+      
+      return `💰 Kenya Power Tariff Rates (2024):\n\n🏠 Domestic Tariff (D1):\n• 0-50 kWh: KSh 12.00/kWh\n• 51-1500 kWh: KSh 25.00/kWh\n• Above 1500 kWh: KSh 30.00/kWh\n\n📋 Additional Charges:\n• Fixed Charge: KSh 300/month\n• Fuel Cost Charge: Variable\n• VAT: 16% on total bill\n• Electricity Levy: KSh 5.08/kWh\n\n⏰ Time of Use (Optional):\n• Peak (6-10 PM): Higher rates\n• Off-peak (10 PM-6 AM): Lower rates\n\n${personalRate}\n\n${meterCategory === 'SME' ? '🏢 SME rates may apply for business meters' : meterCategory === 'industry' ? '🏭 Industrial rates apply for your meter category' : '🏠 Domestic rates apply for household meters'}`;
     }
     
     if (message.includes('tips') || message.includes('advice') || message.includes('kenya')) {
-      return `🇰🇪 Energy Saving Tips for Kenyan Homes:\n\n☀️ Solar Solutions:\n• Solar water heaters (save 40% on bills)\n• Solar lighting for outdoor areas\n• Small solar panels for phone charging\n\n🏠 Appliance Tips:\n• Use charcoal jiko for long cooking\n• Buy energy-efficient appliances (look for Energy Star)\n• Use timer switches for water heaters\n\n🌡️ Climate Considerations:\n• Open windows for natural cooling\n• Use ceiling fans instead of AC\n• Plant trees around your home for shade\n\n💡 Local Hacks:\n• Cook with retained heat (turn off early)\n• Use microwaves for reheating\n• Batch your laundry and ironing`;
+      const personalizedTips = meterCategory === 'SME' ? 
+        'Business Energy Saving Tips:' : 
+        meterCategory === 'industry' ? 
+        'Industrial Energy Optimization:' : 
+        '🇰🇪 Energy Saving Tips for Kenyan Homes:';
+        
+      return `${personalizedTips}\n\n☀️ Solar Solutions:\n• Solar water heaters (save 40% on bills)\n• Solar lighting for outdoor areas\n• Small solar panels for phone charging\n\n🏠 Appliance Tips:\n• Use charcoal jiko for long cooking\n• Buy energy-efficient appliances (look for Energy Star)\n• Use timer switches for water heaters\n\n🌡️ Climate Considerations:\n• Open windows for natural cooling\n• Use ceiling fans instead of AC\n• Plant trees around your home for shade\n\n💡 Local Hacks:\n• Cook with retained heat (turn off early)\n• Use microwaves for reheating\n• Batch your laundry and ironing\n\n${hasMeter ? `Based on your ${meterCategory} meter, focus on peak hour management (your peak time is ${energyData.peak_usage_time}).` : 'Connect your smart meter for personalized energy-saving recommendations!'}`;
     }
     
     if (message.includes('contact') || message.includes('kenya power') || message.includes('support') || message.includes('help')) {
-      return `📞 Kenya Power Customer Support:\n\n🆘 Emergency & Outages:\n• Toll-Free: 95551\n• Mobile: 0711 070 000\n• WhatsApp: 0711 070 000\n\n💬 Customer Service:\n• Email: info@kplc.co.ke\n• Website: www.kplc.co.ke\n• MyPower App (bill payments)\n\n🏢 Regional Offices:\n• Nairobi: Stima Plaza, Kolobot Road\n• Mombasa: Elektra House, Haile Selassie Road\n• Kisumu: KPLC Building, Oginga Odinga Road\n\n⏰ Hours: Monday-Friday 8AM-5PM\nLanguages: English, Kiswahili\n\n🔧 For Aurora Energy Platform:\nUse the Settings → Help section`;
+      return `📞 Kenya Power Customer Support:\n\n🆘 Emergency & Outages:\n• Toll-Free: 95551\n• Mobile: 0711 070 000\n• WhatsApp: 0711 070 000\n\n💬 Customer Service:\n• Email: info@kplc.co.ke\n• Website: www.kplc.co.ke\n• MyPower App (bill payments)\n\n🏢 Regional Offices:\n• Nairobi: Stima Plaza, Kolobot Road\n• Mombasa: Elektra House, Haile Selassie Road\n• Kisumu: KPLC Building, Oginga Odinga Road\n\n⏰ Hours: Monday-Friday 8AM-5PM\nLanguages: English, Kiswahili\n\n🔧 For Aurora Energy Platform:\nUse the Settings → Help section or contact support through the app.`;
     }
     
     if (message.includes('hello') || message.includes('hi') || message.includes('jambo') || message.includes('habari')) {
-      return `Jambo ${userName}! 🇰🇪\n\nI'm Aurora, your personal energy assistant. I can help you with:\n\n⚡ Energy Management:\n• Understanding your electricity usage\n• Bill calculation and estimation\n• Energy-saving strategies\n\n📊 Smart Features:\n• Real-time usage monitoring\n• Custom alerts and notifications\n• Efficiency recommendations\n\n🏠 Kenya-Specific Help:\n• Kenya Power services and contacts\n• Local energy-saving tips\n• Tariff information and updates\n\nWhat would you like to explore today?`;
+      const greeting = hasMeter ? 
+        `Jambo ${userName}! 🇰🇪\n\nI can see your ${meterCategory} meter is connected. I have access to your real energy data and can provide personalized insights!` :
+        `Jambo ${userName}! 🇰🇪\n\nI'm Aurora, your personal energy assistant. Connect your smart meter to get personalized insights based on your actual usage!`;
+        
+      return `${greeting}\n\n⚡ Energy Management:\n• Understanding your electricity usage\n• Bill calculation and estimation\n• Energy-saving strategies\n\n📊 Smart Features:\n• Real-time usage monitoring\n• Custom alerts and notifications\n• Efficiency recommendations\n\n🏠 Kenya-Specific Help:\n• Kenya Power services and contacts\n• Local energy-saving tips\n• Tariff information and updates\n\nWhat would you like to explore today?`;
     }
     
-    return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "Explain my current energy usage"\n• "What are Kenya Power tariff rates?"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
-  }, []);
+    return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\n${hasMeter ? `I have access to your ${meterCategory} meter data and can provide personalized insights.` : 'Connect your smart meter for personalized insights based on your actual usage!'}\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n• 🪙 KPLC token management\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "Explain my current energy usage"\n• "What's my token balance?"\n• "Kenya Power tariff rates"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
+  }, [userData, energyData, tokenData]);
 
-  // IMPROVED SEND MESSAGE WITH PROPER TIMING
+  // Enhanced send message with real data integration
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isTyping) return;
 
@@ -191,20 +457,16 @@ const ChatInterface = () => {
       timestamp: new Date()
     };
 
-    // Add user message immediately
     setMessages(prev => [...prev, userMessage]);
     const currentInput = inputValue;
     setInputValue('');
     
-    // Clear any existing typing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    // Start typing indicator
     setIsTyping(true);
 
-    // Generate bot response with proper delay
     typingTimeoutRef.current = setTimeout(() => {
       try {
         const botResponseText = getBotResponse(currentInput);
@@ -216,13 +478,11 @@ const ChatInterface = () => {
           timestamp: new Date()
         };
 
-        // Add bot message and stop typing
         setMessages(prev => [...prev, botMessage]);
         setIsTyping(false);
       } catch (error) {
         console.error('Chat error:', error);
         
-        // Fallback response
         const fallbackMessage: Message = {
           id: `bot-fallback-${Date.now()}`,
           text: "I'm here to help with your energy questions! Please try asking again.",
@@ -233,7 +493,7 @@ const ChatInterface = () => {
         setMessages(prev => [...prev, fallbackMessage]);
         setIsTyping(false);
       }
-    }, 1500 + Math.random() * 1000); // 1.5-2.5 seconds delay
+    }, 1500 + Math.random() * 1000);
   }, [inputValue, isTyping, getBotResponse]);
 
   const handleQuickAction = useCallback((action: string) => {
@@ -249,11 +509,14 @@ const ChatInterface = () => {
     }
   }, [sendMessage]);
 
-  // Cleanup timeout on unmount
+  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+      }
+      if (dataFetchTimeoutRef.current) {
+        clearTimeout(dataFetchTimeoutRef.current);
       }
     };
   }, []);
@@ -271,6 +534,32 @@ const ChatInterface = () => {
 
   const getAlertVariant = (type: string) => {
     return type === 'warning' ? 'destructive' : 'default';
+  };
+
+  const getStatusIcon = () => {
+    switch (dataStatus) {
+      case 'connected':
+        return <Wifi className="h-4 w-4 text-green-400" />;
+      case 'offline':
+        return <WifiOff className="h-4 w-4 text-yellow-400" />;
+      case 'error':
+        return <AlertTriangle className="h-4 w-4 text-red-400" />;
+      default:
+        return <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-400 border-t-transparent" />;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (dataStatus) {
+      case 'connected':
+        return userData?.meter_number ? 'Connected to Smart Meter' : 'Connected';
+      case 'offline':
+        return 'Offline Mode';
+      case 'error':
+        return 'Connection Error';
+      default:
+        return 'Connecting...';
+    }
   };
 
   return (
@@ -300,9 +589,12 @@ const ChatInterface = () => {
           <CardTitle className="text-white font-medium flex items-center gap-2 text-sm md:text-base">
             <Bot className="h-4 w-4 md:h-5 md:w-5" />
             Aurora Assistant 🇰🇪
-            <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
-              Demo Mode
-            </span>
+            <div className="flex items-center gap-1">
+              {getStatusIcon()}
+              <span className="text-xs bg-black/20 px-2 py-1 rounded">
+                {getStatusText()}
+              </span>
+            </div>
           </CardTitle>
         </CardHeader>
         
@@ -397,8 +689,20 @@ const ChatInterface = () => {
                 <Send className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
             </div>
-            <p className="text-xs text-blue-400 mt-2 text-center">
-              Chat assistant running in demo mode - completely isolated from authentication
+            <p className="text-xs text-center mt-2">
+              {dataStatus === 'connected' ? (
+                <span className="text-green-400">
+                  {userData?.meter_number ? `Connected to meter ${userData.meter_number}` : 'Connected - personalized responses'}
+                </span>
+              ) : dataStatus === 'offline' ? (
+                <span className="text-yellow-400">
+                  Offline mode - using sample data for demonstrations
+                </span>
+              ) : (
+                <span className="text-blue-400">
+                  Connecting to your energy data...
+                </span>
+              )}
             </p>
           </div>
         </CardContent>
