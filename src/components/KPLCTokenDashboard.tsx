@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Zap,
   CreditCard,
@@ -11,232 +15,41 @@ import {
   Calendar,
   AlertTriangle,
   ShoppingCart,
-  Clock
+  Clock,
+  Wallet,
+  Phone,
+  CheckCircle
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { useKPLCTokens } from '@/hooks/useKPLCTokens';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-interface TokenAnalytics {
-  current_balance: number;
-  daily_consumption_avg: number;
-  estimated_days_remaining: number;
-  monthly_spending: number;
-  last_purchase_date: string;
-  consumption_trend: 'increasing' | 'decreasing' | 'stable';
-}
-
-interface TokenTransaction {
-  id: string;
-  transaction_type: 'purchase' | 'consumption' | 'refund';
-  amount: number;
-  token_units?: number;
-  transaction_date: string;
-  reference_number?: string;
-  vendor?: string;
-  balance_after: number;
-}
-
 const KPLCTokenDashboard: React.FC = () => {
-  const [analytics, setAnalytics] = useState<TokenAnalytics | null>(null);
-  const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
-  const { toast } = useToast();
+  const { analytics, transactions, loading, purchasing, purchaseTokens } = useKPLCTokens();
   const isMobile = useIsMobile();
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [purchaseAmount, setPurchaseAmount] = useState('200');
+  const [paymentMethod, setPaymentMethod] = useState('M-PESA');
 
-  const fetchTokenData = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      // Since kplc_token_transactions table doesn't exist, we'll use energy_readings and billing_history
-      // to simulate token analytics based on energy consumption and billing data
-
-      // Fetch energy readings to calculate consumption patterns
-      const { data: energyData, error: energyError } = await supabase
-        .from('energy_readings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('reading_date', { ascending: false })
-        .limit(30);
-
-      if (energyError) throw energyError;
-
-      // Fetch billing history to simulate token purchases
-      const { data: billingData, error: billingError } = await supabase
-        .from('billing_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (billingError) throw billingError;
-
-      // Calculate mock analytics based on available data
-      const recentReadings = energyData || [];
-      const recentBills = billingData || [];
-
-      // Simulate current token balance (mock calculation)
-      const totalSpent = recentBills.reduce((sum, bill) => sum + bill.total_amount, 0);
-      const avgDailyCost = recentReadings.length > 0
-        ? recentReadings.reduce((sum, reading) => sum + reading.total_cost, 0) / recentReadings.length
-        : 50;
-
-      const simulatedBalance = Math.max(0, 500 - (avgDailyCost * 7)); // Simulate weekly depletion
-
-      const dailyConsumptionAvg = avgDailyCost;
-      const estimatedDaysRemaining = simulatedBalance > 0 ? Math.floor(simulatedBalance / avgDailyCost) : 0;
-      const monthlySpending = totalSpent;
-      const lastPurchaseDate = recentBills.length > 0 ? recentBills[0].created_at : new Date().toISOString();
-
-      // Simple trend calculation based on recent vs older readings
-      const recentAvg = recentReadings.slice(0, 7).reduce((sum, r) => sum + r.total_cost, 0) / Math.max(7, 1);
-      const olderAvg = recentReadings.slice(7, 14).reduce((sum, r) => sum + r.total_cost, 0) / Math.max(7, 1);
-
-      let consumptionTrend: 'increasing' | 'decreasing' | 'stable' = 'stable';
-      if (recentAvg > olderAvg * 1.1) consumptionTrend = 'increasing';
-      else if (recentAvg < olderAvg * 0.9) consumptionTrend = 'decreasing';
-
-      setAnalytics({
-        current_balance: simulatedBalance,
-        daily_consumption_avg: dailyConsumptionAvg,
-        estimated_days_remaining: estimatedDaysRemaining,
-        monthly_spending: monthlySpending,
-        last_purchase_date: lastPurchaseDate,
-        consumption_trend: consumptionTrend
-      });
-
-      // Create mock transactions from billing history and energy readings
-      const mockTransactions: TokenTransaction[] = [
-        // Add billing history as token purchases
-        ...recentBills.map((bill, index) => ({
-          id: bill.id,
-          transaction_type: 'purchase' as const,
-          amount: bill.total_amount,
-          token_units: bill.total_amount,
-          transaction_date: bill.created_at,
-          reference_number: `BILL-${bill.id.slice(0, 8)}`,
-          vendor: 'M-PESA',
-          balance_after: simulatedBalance + (bill.total_amount * (index + 1))
-        })),
-        // Add energy readings as consumption
-        ...recentReadings.slice(0, 10).map((reading, index) => ({
-          id: reading.id,
-          transaction_type: 'consumption' as const,
-          amount: reading.total_cost,
-          token_units: reading.kwh_consumed,
-          transaction_date: reading.reading_date,
-          reference_number: `USAGE-${reading.id.slice(0, 8)}`,
-          vendor: 'KPLC',
-          balance_after: Math.max(0, simulatedBalance - (reading.total_cost * (index + 1)))
-        }))
-      ].sort((a, b) => new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime());
-
-      setTransactions(mockTransactions);
-    } catch (error) {
-      console.error('Error fetching token data:', error);
-      toast({
-        title: 'Error loading token data',
-        description: (error as Error).message,
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+  // Handle token purchase
+  const handlePurchaseTokens = useCallback(async () => {
+    const amount = parseFloat(purchaseAmount);
+    
+    if (isNaN(amount) || amount < 10) {
+      return;
     }
-  }, [user, toast]);
 
-  const simulateTokenPurchase = async () => {
-    if (!user) return;
-
-    try {
-      // Get user's meter number from profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('meter_number, phone_number')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) throw profileError;
-
-      if (!profile?.meter_number) {
-        toast({
-          title: 'Meter Setup Required',
-          description: 'Please set up your meter number in Settings before purchasing tokens.',
-          variant: 'destructive'
-        });
-        return;
-      }
-        //Use real API calls
-      const amount = 200 + Math.random() * 300; // Random amount between 200-500
-      const tokenUnits = amount; // 1:1 ratio for simplicity
-      
-      // Create a more realistic token purchase simulation
-      // In a real implementation, this would integrate with KPLC's API or M-Pesa
-      const tokenCode = `${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 90000) + 10000}-${Math.floor(Math.random() * 90000) + 10000}`;
-      
-      // Create billing record to track the purchase
-      const { error } = await supabase
-        .from('billing_history')
-        .insert({
-          user_id: user.id,
-          billing_month: new Date().toISOString().slice(0, 7), // YYYY-MM format
-          total_amount: amount,
-          total_kwh: tokenUnits / 25, // Simulate kWh equivalent (assuming 25 KSh per kWh)
-          payment_status: 'paid',
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          paid_date: new Date().toISOString()
-        });
-
-      if (error) throw error;
-
-      // Create a notification for successful purchase
-      await supabase
-        .from('ai_alerts')
-        .insert({
-          user_id: user.id,
-          alert_type: 'token_purchase',
-          title: 'Token Purchase Successful',
-          message: `Successfully purchased KSh ${amount.toFixed(2)} worth of tokens for meter ${profile.meter_number}. Token code: ${tokenCode}`,
-          severity: 'low',
-          recommended_actions: {
-            tokenCode,
-            meterNumber: profile.meter_number,
-            amount,
-            tokenUnits
-          }
-        });
-
-      toast({
-        title: 'Token Purchase Successful',
-        description: `KSh ${amount.toFixed(2)} tokens purchased for meter ${profile.meter_number}`,
-      });
-
-      // Show token code in a separate toast
-      setTimeout(() => {
-        toast({
-          title: 'Token Code',
-          description: `Enter this code in your meter: ${tokenCode}`,
-          duration: 10000, // Show for 10 seconds
-        });
-      }, 1000);
-
-      fetchTokenData(); // Refresh data
-    } catch (error) {
-      console.error('Error purchasing tokens:', error);
-      toast({
-        title: 'Purchase failed',
-        description: (error as Error).message,
-        variant: 'destructive'
-      });
+    const result = await purchaseTokens(amount, paymentMethod);
+    
+    if (result) {
+      setPurchaseDialogOpen(false);
+      setPurchaseAmount('200'); // Reset to default
     }
-  };
+  }, [purchaseAmount, paymentMethod, purchaseTokens]);
 
-  useEffect(() => {
-    fetchTokenData();
-  }, [fetchTokenData]);
+  // Quick purchase amounts
+  const quickAmounts = [100, 200, 500, 1000];
 
   if (loading) {
     return (
@@ -251,17 +64,15 @@ const KPLCTokenDashboard: React.FC = () => {
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
         <p className="text-muted-foreground">No token data available</p>
-        <Button 
-          onClick={fetchTokenData}
-          className="mt-4 bg-aurora-green hover:bg-aurora-green/80"
-        >
-          Retry Loading
-        </Button>
+        <p className="text-sm text-muted-foreground mt-2">
+          Set up your meter to start tracking token usage
+        </p>
       </div>
     );
   }
 
   const balancePercentage = Math.min(100, (analytics.current_balance / 500) * 100);
+  
   const getTrendIcon = (trend: string) => {
     switch (trend) {
       case 'increasing': return <TrendingUp className="h-4 w-4 text-red-500" />;
@@ -278,7 +89,7 @@ const KPLCTokenDashboard: React.FC = () => {
 
   // Prepare chart data from transactions
   const chartData = transactions
-    .filter(t => t.transaction_type !== 'consumption')
+    .filter(t => t.transaction_type === 'purchase')
     .slice(0, 10)
     .reverse()
     .map(t => ({
@@ -368,21 +179,134 @@ const KPLCTokenDashboard: React.FC = () => {
               </span>
             </div>
             <div className="flex space-x-2">
-              <Button
-                onClick={simulateTokenPurchase}
-                size="sm"
-                className="bg-aurora-green hover:bg-aurora-green/80"
-              >
-                <CreditCard className="h-4 w-4 mr-2" />
-                Buy Tokens
-              </Button>
-              <Button
-                onClick={fetchTokenData}
-                variant="outline"
-                size="sm"
-              >
-                Refresh
-              </Button>
+              <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    className="bg-aurora-green hover:bg-aurora-green/80"
+                    disabled={purchasing}
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    {purchasing ? 'Processing...' : 'Buy Tokens'}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md bg-aurora-card border-aurora-green/20">
+                  <DialogHeader>
+                    <DialogTitle className="text-aurora-green-light">Purchase KPLC Tokens</DialogTitle>
+                    <DialogDescription>
+                      Buy electricity tokens for your meter. You'll receive a token code to enter in your meter.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    {/* Quick Amount Buttons */}
+                    <div>
+                      <Label className="text-sm font-medium">Quick Amounts</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {quickAmounts.map((amount) => (
+                          <Button
+                            key={amount}
+                            variant={purchaseAmount === amount.toString() ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPurchaseAmount(amount.toString())}
+                            className="text-sm"
+                          >
+                            KSh {amount}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Custom Amount */}
+                    <div>
+                      <Label htmlFor="amount" className="text-sm font-medium">Custom Amount (KSh)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        min="10"
+                        max="10000"
+                        value={purchaseAmount}
+                        onChange={(e) => setPurchaseAmount(e.target.value)}
+                        className="mt-1 bg-slate-800 border-aurora-green/30"
+                        placeholder="Enter amount"
+                      />
+                    </div>
+
+                    {/* Payment Method */}
+                    <div>
+                      <Label className="text-sm font-medium">Payment Method</Label>
+                      <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                        <SelectTrigger className="mt-1 bg-slate-800 border-aurora-green/30">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-aurora-green/30">
+                          <SelectItem value="M-PESA">
+                            <div className="flex items-center space-x-2">
+                              <Phone className="h-4 w-4 text-green-500" />
+                              <span>M-PESA</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Airtel Money">
+                            <div className="flex items-center space-x-2">
+                              <Phone className="h-4 w-4 text-red-500" />
+                              <span>Airtel Money</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Bank Transfer">
+                            <div className="flex items-center space-x-2">
+                              <Wallet className="h-4 w-4 text-blue-500" />
+                              <span>Bank Transfer</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Purchase Summary */}
+                    <div className="p-3 bg-slate-800/50 rounded-lg border border-aurora-green/20">
+                      <div className="flex justify-between items-center text-sm">
+                        <span>Amount:</span>
+                        <span className="font-medium">KSh {parseFloat(purchaseAmount || '0').toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span>Token Units:</span>
+                        <span className="font-medium">{parseFloat(purchaseAmount || '0').toFixed(2)} units</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span>Payment Method:</span>
+                        <span className="font-medium">{paymentMethod}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setPurchaseDialogOpen(false)}
+                      disabled={purchasing}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handlePurchaseTokens}
+                      disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10}
+                      className="bg-aurora-green hover:bg-aurora-green/80"
+                    >
+                      {purchasing ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Purchase Tokens
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardContent>
@@ -445,10 +369,11 @@ const KPLCTokenDashboard: React.FC = () => {
             {transactions.slice(0, isMobile ? 5 : 8).map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-full ${transaction.transaction_type === 'purchase' ? 'bg-green-500/20' :
+                  <div className={`p-2 rounded-full ${
+                    transaction.transaction_type === 'purchase' ? 'bg-green-500/20' :
                     transaction.transaction_type === 'consumption' ? 'bg-red-500/20' :
-                      'bg-blue-500/20'
-                    }`}>
+                    'bg-blue-500/20'
+                  }`}>
                     {transaction.transaction_type === 'purchase' ? (
                       <CreditCard className="h-4 w-4 text-green-500" />
                     ) : transaction.transaction_type === 'consumption' ? (
@@ -461,7 +386,7 @@ const KPLCTokenDashboard: React.FC = () => {
                     <p className="font-medium text-sm">
                       {transaction.transaction_type === 'purchase' ? 'Token Purchase' :
                         transaction.transaction_type === 'consumption' ? 'Energy Consumption' :
-                          'Refund'}
+                        transaction.transaction_type === 'refund' ? 'Refund' : 'Adjustment'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(transaction.transaction_date), { addSuffix: true })}
@@ -469,16 +394,26 @@ const KPLCTokenDashboard: React.FC = () => {
                     {transaction.reference_number && (
                       <p className="text-xs text-muted-foreground">Ref: {transaction.reference_number}</p>
                     )}
+                    {transaction.token_code && (
+                      <p className="text-xs text-aurora-green-light font-mono">Code: {transaction.token_code}</p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-medium text-sm ${transaction.transaction_type === 'purchase' ? 'text-green-500' : 'text-red-500'
-                    }`}>
+                  <p className={`font-medium text-sm ${
+                    transaction.transaction_type === 'purchase' ? 'text-green-500' : 'text-red-500'
+                  }`}>
                     {transaction.transaction_type === 'purchase' ? '+' : '-'}KSh {transaction.amount.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Balance: KSh {transaction.balance_after.toFixed(2)}
                   </p>
+                  <Badge 
+                    variant={transaction.status === 'completed' ? 'default' : 'secondary'}
+                    className="text-xs mt-1"
+                  >
+                    {transaction.status}
+                  </Badge>
                 </div>
               </div>
             ))}
@@ -488,6 +423,7 @@ const KPLCTokenDashboard: React.FC = () => {
             <div className="text-center py-8 text-muted-foreground">
               <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No transactions yet</p>
+              <p className="text-sm mt-2">Purchase your first tokens to get started</p>
             </div>
           )}
         </CardContent>

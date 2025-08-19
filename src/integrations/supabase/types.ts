@@ -156,39 +156,186 @@ export type Database = {
           },
         ]
       }
+      kplc_token_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          balance_before: number
+          created_at: string
+          id: string
+          metadata: Json | null
+          meter_number: string
+          payment_method: string | null
+          reference_number: string | null
+          status: string
+          token_code: string | null
+          token_units: number | null
+          transaction_date: string
+          transaction_type: string
+          updated_at: string
+          user_id: string
+          vendor: string | null
+        }
+        Insert: {
+          amount: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          meter_number: string
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          token_code?: string | null
+          token_units?: number | null
+          transaction_date?: string
+          transaction_type: string
+          updated_at?: string
+          user_id: string
+          vendor?: string | null
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          balance_before?: number
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          meter_number?: string
+          payment_method?: string | null
+          reference_number?: string | null
+          status?: string
+          token_code?: string | null
+          token_units?: number | null
+          transaction_date?: string
+          transaction_type?: string
+          updated_at?: string
+          user_id?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          estimated_days: number | null
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          severity: string
+          title: string
+          token_balance: number | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          estimated_days?: number | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          severity?: string
+          title: string
+          token_balance?: number | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          estimated_days?: number | null
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          severity?: string
+          title?: string
+          token_balance?: number | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           email: string | null
           full_name: string | null
           id: string
+          industry_type: string | null
+          meter_category: string | null
           meter_number: string | null
           phone_number: string | null
           updated_at: string
-          meter_category: string | null
-          industry_type: string | null
         }
         Insert: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id: string
+          industry_type?: string | null
+          meter_category?: string | null
           meter_number?: string | null
           phone_number?: string | null
           updated_at?: string
-          meter_category?: string | null
-          industry_type?: string | null
         }
         Update: {
           created_at?: string
           email?: string | null
           full_name?: string | null
           id?: string
+          industry_type?: string | null
+          meter_category?: string | null
           meter_number?: string | null
           phone_number?: string | null
           updated_at?: string
-          meter_category?: string | null
-          industry_type?: string | null
+        }
+        Relationships: []
+      }
+      token_balances: {
+        Row: {
+          created_at: string
+          current_balance: number
+          daily_consumption_avg: number
+          estimated_days_remaining: number
+          id: string
+          last_updated: string
+          low_balance_threshold: number
+          meter_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_balance?: number
+          daily_consumption_avg?: number
+          estimated_days_remaining?: number
+          id?: string
+          last_updated?: string
+          low_balance_threshold?: number
+          meter_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_balance?: number
+          daily_consumption_avg?: number
+          estimated_days_remaining?: number
+          id?: string
+          last_updated?: string
+          low_balance_threshold?: number
+          meter_number?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -197,6 +344,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_notifications: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      create_notification: {
+        Args: {
+          p_user_id: string
+          p_title: string
+          p_message: string
+          p_type?: string
+          p_severity?: string
+          p_token_balance?: number
+          p_estimated_days?: number
+          p_metadata?: Json
+          p_expires_at?: string
+        }
+        Returns: string
+      }
+      delete_notification: {
+        Args: {
+          p_user_id: string
+          p_notification_id: string
+        }
+        Returns: boolean
+      }
+      delete_read_notifications: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
+      ensure_notifications_table: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       get_latest_energy_data: {
         Args: { p_user_id: string }
         Returns: {
@@ -206,14 +388,77 @@ export type Database = {
           efficiency_score: number
         }[]
       }
+      get_notification_stats: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      get_token_analytics: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      get_user_notifications: {
+        Args: {
+          p_user_id: string
+          p_limit?: number
+          p_unread_only?: boolean
+        }
+        Returns: {
+          id: string
+          title: string
+          message: string
+          type: string
+          severity: string
+          is_read: boolean
+          token_balance: number | null
+          estimated_days: number | null
+          metadata: Json | null
+          created_at: string
+          updated_at: string
+          expires_at: string | null
+        }[]
+      }
       insert_energy_reading: {
         Args: {
           p_user_id: string
-          p_meter_number: string //Try number for consistency
+          p_meter_number: string
           p_kwh_consumed: number
           p_cost_per_kwh?: number
         }
         Returns: string
+      }
+      mark_all_notifications_read: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: number
+      }
+      mark_notification_read: {
+        Args: {
+          p_user_id: string
+          p_notification_id: string
+        }
+        Returns: boolean
+      }
+      purchase_tokens: {
+        Args: {
+          p_user_id: string
+          p_meter_number: string
+          p_amount: number
+          p_payment_method?: string
+          p_vendor?: string
+        }
+        Returns: Json
+      }
+      update_token_balance: {
+        Args: {
+          p_user_id: string
+          p_meter_number: string
+          p_amount: number
+          p_transaction_type?: string
+        }
+        Returns: number
       }
     }
     Enums: {
