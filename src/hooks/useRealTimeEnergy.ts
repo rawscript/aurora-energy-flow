@@ -44,53 +44,49 @@ interface ProfileData {
 const SUPABASE_URL = "https://rcthtxwzsqvwivritzln.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM";
 
+// Empty/zero state for when no meter is connected
+const EMPTY_ENERGY_DATA: EnergyData = {
+  current_usage: 0,
+  daily_total: 0,
+  daily_cost: 0,
+  efficiency_score: 0,
+  weekly_average: 0,
+  monthly_total: 0,
+  peak_usage_time: '00:00',
+  cost_trend: 'stable'
+};
+
+const EMPTY_ANALYTICS: EnergyAnalytics = {
+  hourlyPattern: [],
+  weeklyTrend: [],
+  monthlyComparison: [],
+  deviceBreakdown: [],
+  peakHours: []
+};
+
 export const useRealTimeEnergy = () => {
-  const [energyData, setEnergyData] = useState<EnergyData>({
-    current_usage: 2.5,
-    daily_total: 12.3,
-    daily_cost: 307.5,
-    efficiency_score: 87,
-    weekly_average: 11.8,
-    monthly_total: 354,
-    peak_usage_time: '18:00',
-    cost_trend: 'stable'
-  });
+  const [energyData, setEnergyData] = useState<EnergyData>(EMPTY_ENERGY_DATA);
   const [recentReadings, setRecentReadings] = useState<EnergyReading[]>([]);
-  const [analytics, setAnalytics] = useState<EnergyAnalytics>({
-    hourlyPattern: [],
-    weeklyTrend: [],
-    monthlyComparison: [],
-    deviceBreakdown: [],
-    peakHours: []
-  });
-  const [loading, setLoading] = useState(false); // Start with false to prevent constant loading
+  const [analytics, setAnalytics] = useState<EnergyAnalytics>(EMPTY_ANALYTICS);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [hasMeterConnected, setHasMeterConnected] = useState(false);
+  const [meterConnectionChecked, setMeterConnectionChecked] = useState(false);
+  
   const { user, session } = useAuth();
   const { toast } = useToast();
   const meterNumber = useRef<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const connectionAttempts = useRef(0);
-  const maxConnectionAttempts = 3;
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
-  const dataCache = useRef<{ data: EnergyData; timestamp: number } | null>(null);
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache to reduce API calls
+  const dataCache = useRef<{ data: EnergyData; readings: EnergyReading[]; timestamp: number } | null>(null);
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
   // Helper function to get authenticated headers for protected routes
   const getAuthHeaders = useCallback(async () => {
     if (!session?.access_token) {
-      // Try to get fresh session
-      const { data: { session: freshSession }, error } = await supabase.auth.getSession();
-      if (error || !freshSession?.access_token) {
-        throw new Error('No valid authentication session found');
-      }
-      return {
-        'Authorization': `Bearer ${freshSession.access_token}`,
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY
-      };
+      throw new Error('No valid authentication session found');
     }
     
     return {
@@ -116,66 +112,50 @@ export const useRealTimeEnergy = () => {
     );
   };
 
-  // Generate sample data for better UX when no real data exists
-  const generateSampleData = useCallback(() => {
-    const now = new Date();
-    const sampleReadings: EnergyReading[] = [];
+  // Check if user has a meter connected (without triggering session refresh)
+  const checkMeterConnection = useCallback(async () => {
+    if (!user || meterConnectionChecked) return false;
     
-    // Generate 12 hours of sample data
-    for (let i = 11; i >= 0; i--) {
-      const readingTime = new Date(now.getTime() - (i * 60 * 60 * 1000));
-      const baseUsage = 2 + Math.sin((readingTime.getHours() / 24) * Math.PI * 2) * 1.5;
-      const usage = Math.max(0.5, baseUsage + (Math.random() - 0.5) * 0.8);
+    try {
+      console.log('Checking meter connection for user:', user.id);
       
-      sampleReadings.push({
-        id: `sample-${i}`,
-        user_id: user?.id || 'demo',
-        meter_number: meterNumber.current || 'DEMO123456789',
-        kwh_consumed: usage,
-        total_cost: usage * 25,
-        reading_date: readingTime.toISOString(),
-        cost_per_kwh: 25,
-        peak_usage: usage > 3 ? usage : undefined,
-        off_peak_usage: usage <= 3 ? usage : undefined
-      });
+      // Check profile for meter number (simple query, no session refresh needed)
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('meter_number, meter_category, industry_type')
+        .eq('id', user.id)
+        .maybeSingle();
+        
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking meter connection:', error);
+        setMeterConnectionChecked(true);
+        return false;
+      }
+      
+      if (profile?.meter_number) {
+        console.log('Meter found:', profile.meter_number);
+        meterNumber.current = profile.meter_number;
+        setProfileData(profile);
+        setHasMeterConnected(true);
+        setMeterConnectionChecked(true);
+        return true;
+      } else {
+        console.log('No meter connected');
+        setHasMeterConnected(false);
+        setMeterConnectionChecked(true);
+        return false;
+      }
+    } catch (error) {
+      console.error('Exception checking meter connection:', error);
+      setMeterConnectionChecked(true);
+      return false;
     }
-    
-    return sampleReadings;
-  }, [user?.id]);
+  }, [user, meterConnectionChecked]);
 
-  // Calculate analytics based on readings with caching
+  // Calculate analytics based on readings
   const calculateAnalytics = useCallback((readings: EnergyReading[]) => {
     if (readings.length === 0) {
-      // Generate sample analytics for better UX
-      const sampleHourlyPattern = Array.from({ length: 24 }, (_, hour) => ({
-        hour,
-        usage: 1.5 + Math.sin((hour / 24) * Math.PI * 2) * 1.2,
-        cost: (1.5 + Math.sin((hour / 24) * Math.PI * 2) * 1.2) * 25
-      }));
-
-      const sampleWeeklyTrend = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({
-        day,
-        usage: 10 + Math.random() * 5,
-        cost: (10 + Math.random() * 5) * 25,
-        efficiency: 80 + Math.random() * 15
-      }));
-
-      setAnalytics({
-        hourlyPattern: sampleHourlyPattern,
-        weeklyTrend: sampleWeeklyTrend,
-        monthlyComparison: [],
-        deviceBreakdown: [
-          { device: 'HVAC', percentage: 30, cost: energyData.daily_cost * 0.3 },
-          { device: 'Lighting', percentage: 25, cost: energyData.daily_cost * 0.25 },
-          { device: 'Appliances', percentage: 25, cost: energyData.daily_cost * 0.25 },
-          { device: 'Electronics', percentage: 20, cost: energyData.daily_cost * 0.2 }
-        ],
-        peakHours: [
-          { hour: 18, usage: 3.2 },
-          { hour: 19, usage: 3.8 },
-          { hour: 20, usage: 3.5 }
-        ]
-      });
+      setAnalytics(EMPTY_ANALYTICS);
       return;
     }
 
@@ -270,30 +250,6 @@ export const useRealTimeEnergy = () => {
     });
   }, [energyData.daily_cost, profileData?.meter_category]);
 
-  // Fetch user profile data with proper authentication and caching
-  const fetchProfileData = useCallback(async () => {
-    if (!user || !session) return null;
-    
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('meter_number, meter_category, industry_type')
-        .eq('id', user.id)
-        .maybeSingle(); // Use maybeSingle to avoid errors when no profile exists
-        
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching profile:', error);
-        return null;
-      }
-      
-      setProfileData(data);
-      return data;
-    } catch (error) {
-      console.error('Exception fetching profile:', error);
-      return null;
-    }
-  }, [user, session]);
-
   // Process a new reading from the meter
   const processNewReading = useCallback((reading: EnergyReading) => {
     if (!isValidEnergyReading(reading)) {
@@ -329,16 +285,11 @@ export const useRealTimeEnergy = () => {
     });
   }, [calculateAnalytics, toast]);
 
-  // Fetch real energy readings from the database with proper error handling
+  // Fetch real energy readings from the database (only when meter is connected)
   const fetchRealEnergyData = useCallback(async (forceRefresh = false) => {
-    if (!user || !session) {
-      // Don't show loading or error for unauthenticated users
+    if (!user || !session || !hasMeterConnected || !meterNumber.current) {
+      console.log('Skipping data fetch - no meter connected or not authenticated');
       setLoading(false);
-      setError(null);
-      // Use sample data for demo
-      const sampleReadings = generateSampleData();
-      setRecentReadings(sampleReadings);
-      calculateAnalytics(sampleReadings);
       return;
     }
 
@@ -347,6 +298,8 @@ export const useRealTimeEnergy = () => {
     if (!forceRefresh && dataCache.current && (now - dataCache.current.timestamp) < CACHE_DURATION) {
       console.log('Using cached energy data');
       setEnergyData(dataCache.current.data);
+      setRecentReadings(dataCache.current.readings);
+      calculateAnalytics(dataCache.current.readings);
       setLoading(false);
       return;
     }
@@ -370,34 +323,8 @@ export const useRealTimeEnergy = () => {
       // Set a timeout to prevent infinite loading
       loadingTimeoutRef.current = setTimeout(() => {
         setLoading(false);
-        // Use sample data as fallback
-        const sampleReadings = generateSampleData();
-        setRecentReadings(sampleReadings);
-        calculateAnalytics(sampleReadings);
-      }, 10000); // 10 second timeout
-      
-      // Get the meter number to use
-      const currentMeterNumber = meterNumber.current;
-      
-      if (!currentMeterNumber) {
-        // Try to get meter from profile
-        const profile = await fetchProfileData();
-        if (profile?.meter_number) {
-          meterNumber.current = profile.meter_number;
-          setHasMeterConnected(true);
-        } else {
-          // No meter set up, use sample data
-          if (loadingTimeoutRef.current) {
-            clearTimeout(loadingTimeoutRef.current);
-          }
-          setLoading(false);
-          setError(null); // Don't show error, just use sample data
-          const sampleReadings = generateSampleData();
-          setRecentReadings(sampleReadings);
-          calculateAnalytics(sampleReadings);
-          return;
-        }
-      }
+        setError('Request timeout - please try again');
+      }, 10000);
       
       console.log(`Fetching real data for meter: ${meterNumber.current}`);
       
@@ -522,19 +449,18 @@ export const useRealTimeEnergy = () => {
         // Cache the data
         dataCache.current = {
           data: newEnergyData,
+          readings: readings,
           timestamp: now
         };
         
         // Calculate analytics
         calculateAnalytics(readings);
-        setHasMeterConnected(true);
       } else {
-        // No readings found, use sample data for better UX
-        console.log('No energy readings found, using sample data');
-        const sampleReadings = generateSampleData();
-        setRecentReadings(sampleReadings);
-        calculateAnalytics(sampleReadings);
-        setHasMeterConnected(false);
+        // No readings found, but meter is connected - show zero state
+        console.log('No energy readings found for connected meter');
+        setEnergyData(EMPTY_ENERGY_DATA);
+        setRecentReadings([]);
+        setAnalytics(EMPTY_ANALYTICS);
         setError(null); // Don't show error for empty data
       }
       
@@ -550,31 +476,31 @@ export const useRealTimeEnergy = () => {
         clearTimeout(loadingTimeoutRef.current);
       }
       
-      // Use sample data as fallback instead of showing error
-      const sampleReadings = generateSampleData();
-      setRecentReadings(sampleReadings);
-      calculateAnalytics(sampleReadings);
-      setError(null); // Don't show error, just use fallback data
+      setError('Failed to load energy data from your meter');
+      
+      // Reset to empty state on error
+      setEnergyData(EMPTY_ENERGY_DATA);
+      setRecentReadings([]);
+      setAnalytics(EMPTY_ANALYTICS);
     } finally {
       setLoading(false);
     }
-  }, [user, session, calculateAnalytics, profileData?.meter_category, fetchProfileData, generateSampleData]);
+  }, [user, session, hasMeterConnected, calculateAnalytics, profileData?.meter_category]);
 
   // Get a new energy reading from the meter
   const getNewReading = async () => {
     try {
       // Check if we have a meter connected and proper authentication
-      if (!user || !session) {
+      if (!user || !session || !hasMeterConnected || !meterNumber.current) {
         toast({
-          title: 'Authentication Required',
-          description: 'Please sign in to get meter readings.',
+          title: 'No Meter Connected',
+          description: 'Please set up your smart meter first to get readings.',
           variant: 'destructive'
         });
         return;
       }
       
-      const currentMeterNumber = meterNumber.current || 'DEMO123456789';
-      console.log(`Getting new reading from meter ${currentMeterNumber}`);
+      console.log(`Getting new reading from meter ${meterNumber.current}`);
       
       // Generate a realistic reading
       const now = new Date();
@@ -589,14 +515,14 @@ export const useRealTimeEnergy = () => {
           .from('energy_readings')
           .insert({
             user_id: user.id,
-            meter_number: currentMeterNumber,
+            meter_number: meterNumber.current,
             kwh_consumed: usage,
             cost_per_kwh: costPerKwh,
             total_cost: totalCost,
             reading_date: now.toISOString()
           })
           .select()
-          .maybeSingle(); // Use maybeSingle to avoid errors
+          .maybeSingle();
         
         if (error && error.code !== 'PGRST116') {
           console.error('Error recording reading:', error);
@@ -606,7 +532,7 @@ export const useRealTimeEnergy = () => {
         const newReading: EnergyReading = {
           id: data?.id || `temp-${Date.now()}`,
           user_id: user.id,
-          meter_number: currentMeterNumber,
+          meter_number: meterNumber.current,
           kwh_consumed: usage,
           total_cost: totalCost,
           reading_date: now.toISOString(),
@@ -622,23 +548,10 @@ export const useRealTimeEnergy = () => {
         
       } catch (dbError) {
         console.error('Database error recording reading:', dbError);
-        
-        // Still process the reading locally for better UX
-        const newReading: EnergyReading = {
-          id: `local-${Date.now()}`,
-          user_id: user.id,
-          meter_number: currentMeterNumber,
-          kwh_consumed: usage,
-          total_cost: totalCost,
-          reading_date: now.toISOString(),
-          cost_per_kwh: costPerKwh
-        };
-        
-        processNewReading(newReading);
-        
         toast({
-          title: 'Reading Simulated',
-          description: `Generated ${usage.toFixed(2)} kWh reading (KSh ${totalCost.toFixed(2)})`,
+          title: 'Reading Failed',
+          description: 'Could not record reading in database.',
+          variant: 'destructive'
         });
       }
       
@@ -654,8 +567,10 @@ export const useRealTimeEnergy = () => {
   
   // Refresh data from the meter
   const refreshData = useCallback(async () => {
-    await fetchRealEnergyData(true); // Force refresh
-  }, [fetchRealEnergyData]);
+    if (hasMeterConnected) {
+      await fetchRealEnergyData(true); // Force refresh
+    }
+  }, [fetchRealEnergyData, hasMeterConnected]);
 
   // Record a real reading in the database
   const recordRealReading = useCallback(async (
@@ -664,10 +579,7 @@ export const useRealTimeEnergy = () => {
     totalCost: number = 0,
     readingDate: string = new Date().toISOString()
    ) => {
-    if (!user || !session) return null;
-    
-    // Get the current meter number
-    const currentMeterNumber = meterNumber.current || 'DEMO123456789';
+    if (!user || !session || !hasMeterConnected || !meterNumber.current) return null;
     
     // Calculate total cost if not provided
     const finalTotalCost = totalCost > 0 ? totalCost : usage * costPerKwh;
@@ -680,24 +592,25 @@ export const useRealTimeEnergy = () => {
         .from('energy_readings')
         .insert({
           user_id: user.id,
-          meter_number: currentMeterNumber,
+          meter_number: meterNumber.current,
           kwh_consumed: usage,
           cost_per_kwh: costPerKwh,
           total_cost: finalTotalCost,
           reading_date: readingDate
         })
         .select()
-        .maybeSingle(); // Use maybeSingle to avoid errors
+        .maybeSingle();
       
       if (error && error.code !== 'PGRST116') {
         console.error('Error recording reading:', error);
+        throw error;
       }
       
       // Process the new reading immediately
       const newReading: EnergyReading = {
         id: data?.id || `temp-${Date.now()}`,
         user_id: user.id,
-        meter_number: currentMeterNumber,
+        meter_number: meterNumber.current,
         kwh_consumed: usage,
         total_cost: finalTotalCost,
         reading_date: readingDate,
@@ -708,22 +621,9 @@ export const useRealTimeEnergy = () => {
       return newReading;
     } catch (error) {
       console.error('Exception recording reading:', error);
-      
-      // Still process locally for better UX
-      const newReading: EnergyReading = {
-        id: `local-${Date.now()}`,
-        user_id: user.id,
-        meter_number: currentMeterNumber,
-        kwh_consumed: usage,
-        total_cost: finalTotalCost,
-        reading_date: readingDate,
-        cost_per_kwh: costPerKwh
-      };
-      
-      processNewReading(newReading);
-      return newReading;
+      throw error;
     }
-  }, [user, session, processNewReading]);
+  }, [user, session, hasMeterConnected, processNewReading]);
 
   // Function to connect to meter
   const connectToMeter = useCallback(async (meter: string) => {
@@ -738,6 +638,7 @@ export const useRealTimeEnergy = () => {
       // Set the new meter number
       meterNumber.current = meter;
       setHasMeterConnected(true);
+      setMeterConnectionChecked(true);
       setError(null);
       
       // Fetch data from the specific meter
@@ -748,16 +649,16 @@ export const useRealTimeEnergy = () => {
       console.error(`Error connecting to meter ${meter}:`, error);
       setHasMeterConnected(false);
       
-      // Use sample data as fallback
-      const sampleReadings = generateSampleData();
-      setRecentReadings(sampleReadings);
-      calculateAnalytics(sampleReadings);
+      // Reset to empty state on connection failure
+      setEnergyData(EMPTY_ENERGY_DATA);
+      setRecentReadings([]);
+      setAnalytics(EMPTY_ANALYTICS);
       
       return false;
     }
-  }, [user, session, fetchRealEnergyData, generateSampleData, calculateAnalytics]);
+  }, [user, session, fetchRealEnergyData]);
 
-  // Initial data loading
+  // Initial setup - check meter connection first
   useEffect(() => {
     if (isInitialized.current) return;
     
@@ -766,47 +667,47 @@ export const useRealTimeEnergy = () => {
         isInitialized.current = true;
         
         if (user && session) {
-          // First fetch profile to determine if we have a meter set up
-          const profile = await fetchProfileData();
+          // Check if user has a meter connected
+          const hasMeter = await checkMeterConnection();
           
-          // If we have a meter number, connect to the real meter
-          if (profile?.meter_number) {
-            meterNumber.current = profile.meter_number;
-            setHasMeterConnected(true);
+          if (hasMeter) {
+            // Meter is connected, fetch real data
             await fetchRealEnergyData();
           } else {
-            // No meter set up, use sample data
-            const sampleReadings = generateSampleData();
-            setRecentReadings(sampleReadings);
-            calculateAnalytics(sampleReadings);
+            // No meter connected, show empty state
+            console.log('No meter connected - showing empty state');
+            setEnergyData(EMPTY_ENERGY_DATA);
+            setRecentReadings([]);
+            setAnalytics(EMPTY_ANALYTICS);
             setLoading(false);
           }
         } else {
-          // Not authenticated, use sample data
-          const sampleReadings = generateSampleData();
-          setRecentReadings(sampleReadings);
-          calculateAnalytics(sampleReadings);
+          // Not authenticated, show empty state
+          console.log('Not authenticated - showing empty state');
+          setEnergyData(EMPTY_ENERGY_DATA);
+          setRecentReadings([]);
+          setAnalytics(EMPTY_ANALYTICS);
           setLoading(false);
         }
       } catch (error) {
         console.error('Error in initial data loading:', error);
-        // Use sample data as fallback
-        const sampleReadings = generateSampleData();
-        setRecentReadings(sampleReadings);
-        calculateAnalytics(sampleReadings);
+        // Show empty state on error
+        setEnergyData(EMPTY_ENERGY_DATA);
+        setRecentReadings([]);
+        setAnalytics(EMPTY_ANALYTICS);
         setLoading(false);
       }
     };
     
     // Initialize immediately
     initializeData();
-  }, [user, session, fetchProfileData, fetchRealEnergyData, generateSampleData, calculateAnalytics]);
+  }, [user, session, checkMeterConnection, fetchRealEnergyData]);
 
-  // Set up real-time data subscription and periodic refresh
+  // Set up real-time data subscription (only when meter is connected)
   useEffect(() => {
     if (!user || !session || !hasMeterConnected || !meterNumber.current) return;
     
-    // Set up a periodic refresh (every 10 minutes) - less frequent to reduce load
+    // Set up a periodic refresh (every 10 minutes) - only when meter is connected
     const refreshInterval = setInterval(async () => {
       try {
         await refreshData();
@@ -874,6 +775,7 @@ export const useRealTimeEnergy = () => {
     refreshData,
     getNewReading,
     hasMeterConnected,
+    meterConnectionChecked,
     recordRealReading,
     connectToMeter,
     meterNumber: meterNumber.current

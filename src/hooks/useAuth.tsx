@@ -21,17 +21,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
   const lastSessionCheck = useRef<number>(0);
+  const sessionRefreshInProgress = useRef(false);
 
-  // Refresh session function to prevent logout
+  // Refresh session function - only when really needed
   const refreshSession = async () => {
     try {
-      // Prevent too frequent refresh calls
-      const now = Date.now();
-      if (now - lastSessionCheck.current < 30000) { // 30 seconds minimum between checks
+      // Prevent concurrent refresh attempts
+      if (sessionRefreshInProgress.current) {
+        console.log('Session refresh already in progress, skipping');
         return;
       }
-      lastSessionCheck.current = now;
 
+      // Prevent too frequent refresh calls
+      const now = Date.now();
+      if (now - lastSessionCheck.current < 60000) { // 1 minute minimum between checks
+        console.log('Session refresh called too frequently, skipping');
+        return;
+      }
+      
+      lastSessionCheck.current = now;
+      sessionRefreshInProgress.current = true;
+
+      console.log('Refreshing session...');
       const { data: { session: refreshedSession }, error } = await supabase.auth.refreshSession();
       
       if (error) {
@@ -47,29 +58,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     } catch (error) {
       console.error('Exception refreshing session:', error);
+    } finally {
+      sessionRefreshInProgress.current = false;
     }
   };
 
-  // Check session validity and refresh if needed
+  // Check session validity - only refresh when really needed
   const checkSessionValidity = async () => {
     try {
-      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const expiresAt = session.expires_at;
+      const now = Math.floor(Date.now() / 1000);
+      const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
       
-      if (error) {
-        console.error('Error checking session:', error);
-        return;
-      }
-      
-      if (currentSession) {
-        const expiresAt = currentSession.expires_at;
-        const now = Math.floor(Date.now() / 1000);
-        const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
-        
-        // Refresh session if it expires in less than 10 minutes
-        if (timeUntilExpiry < 600) {
-          console.log('Session expiring soon, refreshing...');
-          await refreshSession();
-        }
+      // Only refresh if session expires in less than 5 minutes
+      if (timeUntilExpiry < 300) {
+        console.log(`Session expiring in ${timeUntilExpiry} seconds, refreshing...`);
+        await refreshSession();
+      } else {
+        console.log(`Session valid for ${Math.floor(timeUntilExpiry / 60)} more minutes`);
       }
     } catch (error) {
       console.error('Exception checking session validity:', error);
@@ -80,12 +88,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Get initial session
     const getInitialSession = async () => {
       try {
+        console.log('Getting initial session...');
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting session:', error);
-          // Don't show toast on initial load to avoid spam
         } else {
+          console.log('Initial session loaded:', session ? 'authenticated' : 'not authenticated');
           setSession(session);
           setUser(session?.user ?? null);
           
@@ -96,8 +105,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               clearInterval(sessionCheckInterval.current);
             }
             
-            // Check session every 5 minutes (less frequent to reduce load)
-            sessionCheckInterval.current = setInterval(checkSessionValidity, 5 * 60 * 1000);
+            // Check session every 10 minutes (less frequent to reduce load)
+            sessionCheckInterval.current = setInterval(checkSessionValidity, 10 * 60 * 1000);
           }
         }
       } catch (error) {
@@ -131,7 +140,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (sessionCheckInterval.current) {
             clearInterval(sessionCheckInterval.current);
           }
-          sessionCheckInterval.current = setInterval(checkSessionValidity, 5 * 60 * 1000);
+          sessionCheckInterval.current = setInterval(checkSessionValidity, 10 * 60 * 1000);
           
           // Create or update profile with sign up data (with better error handling)
           try {
@@ -169,6 +178,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             clearInterval(sessionCheckInterval.current);
             sessionCheckInterval.current = null;
           }
+          
+          // Reset session refresh tracking
+          lastSessionCheck.current = 0;
+          sessionRefreshInProgress.current = false;
         }
 
         // Handle token refresh
@@ -197,6 +210,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         clearInterval(sessionCheckInterval.current);
         sessionCheckInterval.current = null;
       }
+      
+      // Reset session refresh tracking
+      lastSessionCheck.current = 0;
+      sessionRefreshInProgress.current = false;
 
       const { error } = await supabase.auth.signOut();
       if (error) {
