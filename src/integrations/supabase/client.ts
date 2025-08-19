@@ -7,6 +7,53 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Create the Supabase client with proper headers configuration
+export const supabase = createClient<Database>(
+  SUPABASE_URL, 
+  SUPABASE_PUBLISHABLE_KEY,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    },
+    global: {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    }
+  }
+);
 
+// Add error handling for Supabase requests
+const originalFrom = supabase.from;
+supabase.from = function(table) {
+  const query = originalFrom.call(this, table);
+  
+  // Add error handling to select queries
+  const originalSelect = query.select;
+  query.select = function(...args) {
+    const selectQuery = originalSelect.apply(this, args);
+    
+    // Add error handling to the execution
+    const originalThen = selectQuery.then;
+    selectQuery.then = function(onFulfilled, onRejected) {
+      return originalThen.call(
+        this,
+        (result) => {
+          if (result.error) {
+            console.error(`Supabase query error for ${table}:`, result.error);
+          }
+          return onFulfilled ? onFulfilled(result) : result;
+        },
+        onRejected
+      );
+    };
+    
+    return selectQuery;
+  };
+  
+  return query;
+};
 

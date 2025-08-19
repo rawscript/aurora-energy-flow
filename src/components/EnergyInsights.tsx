@@ -91,7 +91,12 @@ const EnergyInsights = () => {
         <CardContent>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <div className="text-4xl font-bold text-aurora-green-light mb-2">87%</div>
+              <div className="text-4xl font-bold text-aurora-green-light mb-2">
+                {(() => {
+                  const score = energyData?.efficiency_score ?? 0;
+                  return typeof score === 'number' ? `${score.toFixed(0)}%` : '—';
+                })()}
+              </div>
               <p className="text-muted-foreground">Above average efficiency</p>
             </div>
             <div className="w-32 h-32 relative">
@@ -125,7 +130,9 @@ const EnergyInsights = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-slate-800/50 rounded-lg">
-              <div className="text-2xl font-bold text-aurora-blue-light">+12%</div>
+              <div className="text-2xl font-bold text-aurora-blue-light">
+                {/*Update insights for month*/}
+              </div>
               <p className="text-sm text-muted-foreground">vs last month</p>
             </div>
             <div className="text-center p-4 bg-slate-800/50 rounded-lg">

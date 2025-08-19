@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +48,7 @@ const KPLCTokenDashboard: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
-  const fetchTokenData = async () => {
+  const fetchTokenData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -146,7 +146,7 @@ const KPLCTokenDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, toast]);
 
   const simulateTokenPurchase = async () => {
     if (!user) return;
@@ -236,7 +236,7 @@ const KPLCTokenDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTokenData();
-  }, [user]);
+  }, [fetchTokenData]);
 
   if (loading) {
     return (

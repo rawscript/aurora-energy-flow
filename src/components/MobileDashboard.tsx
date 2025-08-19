@@ -25,7 +25,7 @@ interface MobileDashboardProps {
 }
 
 const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
-  const { energyData, recentReadings, loading, simulateReading } = useRealTimeEnergy();
+  const { energyData, recentReadings, loading, simulateReading, useMockData } = useRealTimeEnergy();
   const { unreadCount } = useNotifications();
 
   const handleNavigation = (tab: string) => {
@@ -52,7 +52,14 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-aurora-green-light">Live Data</span>
+              <span className="text-sm text-aurora-green-light">
+                {useMockData ? 'Simulated Data' : 'Live Data'}
+              </span>
+              {useMockData && (
+                <Badge variant="outline" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+                  Demo
+                </Badge>
+              )}
             </div>
             <Button 
               onClick={simulateReading}
@@ -60,7 +67,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
               className="bg-aurora-green hover:bg-aurora-green/80 text-xs px-3 py-1"
             >
               <Zap className="h-3 w-3 mr-1" />
-              Update
+              {useMockData ? 'Simulate' : 'Update'}
             </Button>
           </div>
         </CardContent>
@@ -227,12 +234,24 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
       {/* Quick Tips */}
       <Card className="bg-aurora-card border-yellow-500/20">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg text-yellow-400">💡 Energy Tip</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg text-yellow-400">💡 Energy Tip</CardTitle>
+            {useMockData && (
+              <Badge variant="outline" className="text-xs bg-amber-500/20 text-amber-400 border-amber-500/30">
+                Simulated
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-300">
             Your peak usage is at {energyData.peak_usage_time}. Consider shifting some activities to off-peak hours to save on costs.
           </p>
+          {useMockData && (
+            <p className="text-xs text-amber-400 mt-2">
+              Connect a real meter for personalized energy tips based on your actual usage patterns.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

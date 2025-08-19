@@ -2,15 +2,24 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wifi, WifiOff, Zap, Clock } from 'lucide-react';
+import { Wifi, WifiOff, Zap, Clock, AlertTriangle, Link } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const SmartMeterStatus = () => {
-  const { recentReadings } = useRealTimeEnergy();
+  const { recentReadings, useMockData } = useRealTimeEnergy();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   
   const lastReading = recentReadings[0];
   const isConnected = lastReading && 
     new Date().getTime() - new Date(lastReading.reading_date).getTime() < 300000; // 5 minutes
+
+  const handleSetupMeter = () => {
+    navigate('/meter-setup');
+  };
 
   return (
     <Card className="bg-aurora-card border-aurora-green/20">
@@ -22,6 +31,12 @@ const SmartMeterStatus = () => {
             <WifiOff className="h-5 w-5 text-red-400" />
           )}
           <span>Smart Meter Status</span>
+          {useMockData && (
+            <Badge variant="outline" className="ml-2 bg-amber-500/20 text-amber-400 border-amber-500/30">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Simulated
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -64,9 +79,25 @@ const SmartMeterStatus = () => {
           </>
         )}
         
+        {useMockData && user && (
+          <div className="pt-2 pb-1">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full border-aurora-green/30 hover:bg-aurora-green/20"
+              onClick={handleSetupMeter}
+            >
+              <Link className="h-4 w-4 mr-2" />
+              Connect Real Smart Meter
+            </Button>
+          </div>
+        )}
+        
         <div className="pt-2 border-t border-slate-700">
           <div className="text-xs text-muted-foreground">
-            Real-time data from Kenya Power smart meters
+            {useMockData 
+              ? 'Using simulated data. Connect a real meter for accurate insights.'
+              : 'Real-time data from Kenya Power smart meters'}
           </div>
         </div>
       </CardContent>

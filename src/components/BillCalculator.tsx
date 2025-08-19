@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ const BillCalculator = () => {
   const [estimatedBill, setEstimatedBill] = useState<number>(0);
   const [savings, setSavings] = useState<number>(0);
 
-  const calculateBill = () => {
+  const calculateBill = useCallback(() => {
     const dailyUsage = parseFloat(usage) || 0;
     const energyRate = parseFloat(rate) || 0;
     const billingDays = parseInt(days) || 30;
@@ -24,11 +24,11 @@ const BillCalculator = () => {
     
     setEstimatedBill(bill);
     setSavings(potentialSavings);
-  };
+  }, [usage, rate, days]);
 
   useEffect(() => {
     calculateBill();
-  }, [usage, rate, days]);
+  }, [usage, rate, days, calculateBill]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -54,7 +54,7 @@ const BillCalculator = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="rate">Rate ($/kWh)</Label>
+              <Label htmlFor="rate">Rate (Ksh/kWh)</Label>
               <Input
                 id="rate"
                 type="number"
@@ -85,7 +85,7 @@ const BillCalculator = () => {
                 <DollarSign className="h-12 w-12 text-aurora-blue-light mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground mb-1">Estimated Bill</p>
                 <p className="text-3xl font-bold text-aurora-blue-light">
-                  ${estimatedBill.toFixed(2)}
+                  ksh{estimatedBill.toFixed(2)}
                 </p>
               </CardContent>
             </Card>
@@ -97,7 +97,7 @@ const BillCalculator = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-1">Potential Savings</p>
                 <p className="text-3xl font-bold text-aurora-green-light">
-                  ${savings.toFixed(2)}
+                  ksh{savings.toFixed(2)}
                 </p>
               </CardContent>
             </Card>
@@ -107,7 +107,7 @@ const BillCalculator = () => {
             <h3 className="text-lg font-semibold text-aurora-green-light mb-4">Usage Breakdown</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Monthly Usage:</span>
+                <span className="text-muted-foreground">Estima\\Monthly Usage:</span>
                 <span className="font-medium">{((parseFloat(usage) || 0) * parseInt(days)).toFixed(1)} kWh</span>
               </div>
               <div className="flex justify-between items-center">

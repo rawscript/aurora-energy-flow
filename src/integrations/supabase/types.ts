@@ -209,7 +209,7 @@ export type Database = {
       insert_energy_reading: {
         Args: {
           p_user_id: string
-          p_meter_number: string
+          p_meter_number: string //Try number for consistency
           p_kwh_consumed: number
           p_cost_per_kwh?: number
         }

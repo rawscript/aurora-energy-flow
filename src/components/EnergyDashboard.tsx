@@ -7,6 +7,7 @@ import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
+import RealTimeInsights from './RealTimeInsights';
 
 // Memoized components for better mobile performance
 const StatCard = memo(({ icon: Icon, title, value, color, trend }: {
@@ -39,15 +40,40 @@ const StatCard = memo(({ icon: Icon, title, value, color, trend }: {
 ));
 
 const EnergyDashboard = () => {
-  const { energyData, recentReadings, analytics, loading, simulateReading } = useRealTimeEnergy();
+  const { energyData, recentReadings, analytics, loading, simulateReading, useMockData } = useRealTimeEnergy();
   const isMobile = useIsMobile();
 
-  // Transform recent readings for charts - optimized for mobile
-  const chartData = recentReadings.slice(0, isMobile ? 8 : 12).reverse().map(reading => ({
-    time: format(new Date(reading.reading_date), isMobile ? 'HH:mm' : 'HH:mm'),
-    usage: Number(reading.kwh_consumed),
-    cost: Number(reading.total_cost),
-  }));
+  // Transform recent readings for charts - optimized for mobile and with error handling
+  const chartData = React.useMemo(() => {
+    try {
+      if (!recentReadings || recentReadings.length === 0) {
+        return [];
+      }
+      
+      return recentReadings
+        .slice(0, isMobile ? 8 : 12)
+        .reverse()
+        .map(reading => {
+          try {
+            return {
+              time: format(new Date(reading.reading_date), isMobile ? 'HH:mm' : 'HH:mm'),
+              usage: Number(reading.kwh_consumed) || 0,
+              cost: Number(reading.total_cost) || 0,
+            };
+          } catch (err) {
+            console.error('Error processing reading:', err);
+            return {
+              time: 'Error',
+              usage: 0,
+              cost: 0
+            };
+          }
+        });
+    } catch (error) {
+      console.error('Error processing chart data:', error);
+      return [];
+    }
+  }, [recentReadings, isMobile]);
 
   if (loading) {
     return (
@@ -65,7 +91,14 @@ const EnergyDashboard = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-aurora-green-light">Live Smart Meter Data</span>
+              <span className="text-sm text-aurora-green-light">
+                {useMockData ? 'Simulated Smart Meter Data' : 'Live Smart Meter Data'}
+              </span>
+              {useMockData && (
+                <span className="text-xs text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                  Setup meter to use real data
+                </span>
+              )}
             </div>
             <Button
               onClick={simulateReading}
@@ -73,7 +106,7 @@ const EnergyDashboard = () => {
               className="bg-aurora-green hover:bg-aurora-green/80"
             >
               <Zap className="h-4 w-4 mr-2" />
-              Live feed Reading
+              {useMockData ? 'Simulate Reading' : 'Record Reading'}
             </Button>
           </div>
         </CardContent>
@@ -327,6 +360,9 @@ const EnergyDashboard = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Real-time Insights */}
+      <RealTimeInsights />
     </div>
   );
 };

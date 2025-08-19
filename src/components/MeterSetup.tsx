@@ -8,13 +8,15 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory } from 'lucide-react';
+import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory, Zap, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 
 const meterFormSchema = z.object({
   meterNumber: z.string().min(5, 'Meter number must be at least 5 characters'),
@@ -55,21 +57,23 @@ interface MeterHistory {
 const MeterSetup = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [meterHistory, setMeterHistory] = useState<MeterHistory[]>([]);
-  const [currentProfile, setCurrentProfile] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('current');
   const [showIndustryType, setShowIndustryType] = useState(false);
   const { user } = useAuth();
+  const { profile, loading: profileLoading, setupMeter } = useProfile();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { connectToMeter, useMockData, meterNumber } = useRealTimeEnergy();
 
   const form = useForm<MeterFormValues>({
     resolver: zodResolver(meterFormSchema),
     defaultValues: {
-      meterNumber: '',
-      fullName: user?.user_metadata?.full_name || '',
-      phoneNumber: '',
+      meterNumber: profile?.meter_number || '',
+      fullName: profile?.full_name || user?.user_metadata?.full_name || '',
+      phoneNumber: profile?.phone_number || user?.user_metadata?.phone_number || '',
       location: '',
-      meterCategory: 'household',
+      meterCategory: (profile?.meter_category as 'household' | 'SME' | 'industry') || 'household',
+      industryType: (profile?.industry_type as 'heavyduty' | 'medium' | 'light') || undefined,
     },
   });
   
@@ -88,45 +92,29 @@ const MeterSetup = () => {
     }
   };
 
-  // Fetch current profile and meter history
+  // Update form when profile data loads
+  useEffect(() => {
+    if (profile) {
+      form.reset({
+        meterNumber: profile.meter_number || '',
+        fullName: profile.full_name || user?.user_metadata?.full_name || '',
+        phoneNumber: profile.phone_number || user?.user_metadata?.phone_number || '',
+        location: '',
+        meterCategory: (profile.meter_category as 'household' | 'SME' | 'industry') || 'household',
+        industryType: (profile.industry_type as 'heavyduty' | 'medium' | 'light') || undefined,
+      });
+      
+      // Set industry type visibility
+      setShowIndustryType(profile.meter_category === 'industry');
+    }
+  }, [profile, user, form]);
+
+  // Fetch meter history
   useEffect(() => {
     if (user) {
-      fetchCurrentProfile();
       fetchMeterHistory();
     }
   }, [user]);
-
-  const fetchCurrentProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') throw error;
-      
-      if (data) {
-        setCurrentProfile(data);
-        
-        // Set the meter category and update UI state
-        const meterCategory = data.meter_category || 'household';
-        const showIndustry = meterCategory === 'industry';
-        setShowIndustryType(showIndustry);
-        
-        form.reset({
-          meterNumber: data.meter_number || '',
-          fullName: data.full_name || '',
-          phoneNumber: data.phone_number || '',
-          location: '', // We don't store location in profiles yet
-          meterCategory: meterCategory as 'household' | 'SME' | 'industry',
-          industryType: showIndustry ? (data.industry_type as 'heavyduty' | 'medium' | 'light' || 'medium') : undefined,
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    }
-  };
 
   const fetchMeterHistory = async () => {
     try {
@@ -172,55 +160,77 @@ const MeterSetup = () => {
   const selectFromHistory = async (historyItem: MeterHistory) => {
     setIsLoading(true);
     try {
-      // Prepare the profile data
-      const profileData: any = {
-        id: user?.id,
-        email: user?.email,
+      // Ensure user ID is available
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
+      // Prepare the profile data with proper typing
+      const profileData = {
+        id: user.id,
+        email: user.email || '',
         full_name: historyItem.full_name,
         phone_number: historyItem.phone_number,
         meter_number: historyItem.meter_number,
       };
       
+      // Create the complete profile data object with proper typing
+      const completeProfileData = {
+        ...profileData,
+        meter_category: '',
+        industry_type: null as string | null,
+      };
+
       // Use the meter category from history if available, otherwise use current or default
       if (historyItem.meter_category) {
-        profileData.meter_category = historyItem.meter_category;
+        completeProfileData.meter_category = historyItem.meter_category;
         
         // If it's an industry meter, include the industry type
         if (historyItem.meter_category === 'industry' && historyItem.industry_type) {
-          profileData.industry_type = historyItem.industry_type;
+          completeProfileData.industry_type = historyItem.industry_type;
         } else if (historyItem.meter_category === 'industry') {
           // Default industry type if not specified
-          profileData.industry_type = 'medium';
+          completeProfileData.industry_type = 'medium';
         } else {
           // Clear industry type for non-industry meters
-          profileData.industry_type = null;
+          completeProfileData.industry_type = null;
         }
       } else {
         // If no category in history, get from current profile or use default
         const { data: currentData } = await supabase
           .from('profiles')
           .select('meter_category, industry_type')
-          .eq('id', user?.id)
+          .eq('id', user.id)
           .single();
           
-        profileData.meter_category = currentData?.meter_category || 'household';
-        profileData.industry_type = 
-          (profileData.meter_category === 'industry') ? 
+        completeProfileData.meter_category = currentData?.meter_category || 'household';
+        completeProfileData.industry_type = 
+          (completeProfileData.meter_category === 'industry') ? 
           (currentData?.industry_type || 'medium') : null;
       }
         
       const { error } = await supabase
         .from('profiles')
-        .upsert(profileData);
+        .upsert(completeProfileData);
 
       if (error) throw error;
+      
+      // Connect to the meter using the real-time energy hook
+      const success = await connectToMeter(historyItem.meter_number);
+      
+      if (success) {
+        toast({
+          title: "Meter Connected",
+          description: `Successfully connected to meter ${historyItem.meter_number}. Real-time data collection is now enabled.`,
+        });
+      } else {
+        toast({
+          title: "Partial Connection",
+          description: `Meter ${historyItem.meter_number} was set up but real-time connection failed. Will retry automatically.`,
+          variant: "destructive",
+        });
+      }
 
-      toast({
-        title: "Meter Selected",
-        description: `Successfully connected to meter ${historyItem.meter_number}`,
-      });
-
-      fetchCurrentProfile();
       setActiveTab('current');
     } catch (error) {
       console.error('Error selecting meter:', error);
@@ -235,41 +245,48 @@ const MeterSetup = () => {
   };
 
   const onSubmit = async (data: MeterFormValues) => {
-    if (!user) return;
+    if (!user?.id) return;
 
     setIsLoading(true);
     try {
-      // Prepare the profile data
-      const profileData: any = {
-        id: user.id,
-        email: user.email,
-        full_name: data.fullName,
-        phone_number: data.phoneNumber,
+      // Use the profile hook to setup meter
+      const success = await setupMeter({
         meter_number: data.meterNumber,
         meter_category: data.meterCategory,
-      };
-      
-      // Only include industry_type if meter category is 'industry'
-      if (data.meterCategory === 'industry' && data.industryType) {
-        profileData.industry_type = data.industryType;
-      } else {
-        // Set to null if not industry
-        profileData.industry_type = null;
+        industry_type: data.meterCategory === 'industry' ? data.industryType : undefined,
+      });
+
+      if (!success) {
+        throw new Error('Failed to setup meter');
       }
 
+      // Also update other profile fields
       const { error } = await supabase
         .from('profiles')
-        .upsert(profileData);
+        .update({
+          full_name: data.fullName,
+          phone_number: data.phoneNumber,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
 
       if (error) throw error;
-
-      toast({
-        title: "Meter Details Updated",
-        description: "Your smart meter has been successfully connected to Aurora Energy.",
-      });
       
-      // Refresh the current profile
-      fetchCurrentProfile();
+      // Connect to the meter using the real-time energy hook
+      const meterSuccess = await connectToMeter(data.meterNumber);
+      
+      if (meterSuccess) {
+        toast({
+          title: "Meter Connected",
+          description: "Your smart meter has been successfully connected to Aurora Energy. Real-time data collection is now enabled.",
+        });
+      } else {
+        toast({
+          title: "Partial Setup",
+          description: "Meter details saved but real-time connection failed. Will retry automatically.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -291,8 +308,14 @@ const MeterSetup = () => {
             Smart Meter Setup
           </CardTitle>
           <p className="text-sm text-gray-400">
-            Connect your Kenya Power smart meter to start monitoring your energy usage.
+            Connect your Kenya Power smart meter to start monitoring your real energy usage.
           </p>
+          <div className="mt-2 p-2 bg-aurora-green/10 border border-aurora-green/20 rounded-md">
+            <p className="text-xs text-aurora-green-light flex items-center">
+              <Check className="h-4 w-4 mr-1 flex-shrink-0" />
+              Setting up your meter enables real-time data collection and personalized insights
+            </p>
+          </div>
         </CardHeader>
       </Card>
 
@@ -316,31 +339,89 @@ const MeterSetup = () => {
 
         {/* Current Meter Tab */}
         <TabsContent value="current" className="space-y-4">
-          {currentProfile?.meter_number ? (
+          {/* Show existing profile data if available */}
+          {profile && (profile.full_name || profile.phone_number) && !profile.meter_number && (
+            <Card className="border-green-200 bg-green-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-800">
+                  <Check className="h-5 w-5" />
+                  Your Saved Information
+                </CardTitle>
+                <p className="text-sm text-green-700">
+                  We found some information from your signup. You can edit or add to it below.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {profile.full_name && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">Name:</span> {profile.full_name}
+                  </div>
+                )}
+                {profile.phone_number && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">Phone:</span> {profile.phone_number}
+                  </div>
+                )}
+                {profile.meter_category && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Building className="h-4 w-4 text-green-600" />
+                    <span className="font-medium">Category:</span> {profile.meter_category}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+          
+          {profile?.meter_number ? (
             <Card className="bg-aurora-card border-aurora-green/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg text-aurora-green-light">Connected Meter</CardTitle>
                     <div className="flex mt-1 space-x-2">
-                      {currentProfile?.meter_category && (
+                      {profile?.meter_category && (
                         <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                           <Building className="h-3 w-3 mr-1" />
-                          {currentProfile.meter_category === 'SME' ? 'SME' : 
-                           currentProfile.meter_category.charAt(0).toUpperCase() + currentProfile.meter_category.slice(1)}
+                          {profile.meter_category === 'SME' ? 'SME' : 
+                           profile.meter_category.charAt(0).toUpperCase() + profile.meter_category.slice(1)}
                         </Badge>
                       )}
-                      {currentProfile?.meter_category === 'industry' && currentProfile?.industry_type && (
+                      {profile?.meter_category === 'industry' && profile?.industry_type && (
                         <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
                           <Factory className="h-3 w-3 mr-1" />
-                          {currentProfile.industry_type.charAt(0).toUpperCase() + currentProfile.industry_type.slice(1)}
+                          {profile.industry_type.charAt(0).toUpperCase() + profile.industry_type.slice(1)}
+                        </Badge>
+                      )}
+                      {useMockData ? (
+                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Simulated
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                          <Zap className="h-3 w-3 mr-1" />
+                          Real-time
                         </Badge>
                       )}
                     </div>
                   </div>
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                    <Check className="h-3 w-3 mr-1" />
-                    Active
+                  <Badge className={useMockData 
+                    ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                    : "bg-green-500/20 text-green-400 border-green-500/30"
+                  }>
+                    {useMockData ? (
+                      <>
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Simulated
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3 w-3 mr-1" />
+                        Active
+                      </>
+                    )}
                   </Badge>
                 </div>
               </CardHeader>
@@ -349,16 +430,16 @@ const MeterSetup = () => {
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">Meter Number</Label>
                     <p className="font-mono text-lg text-aurora-green-light">
-                      {currentProfile.meter_number}
+                      {profile.meter_number}
                     </p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">Account Holder</Label>
-                    <p className="text-lg">{currentProfile.full_name}</p>
+                    <p className="text-lg">{profile.full_name}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">Phone Number</Label>
-                    <p className="text-lg">{currentProfile.phone_number || 'Not set'}</p>
+                    <p className="text-lg">{profile.phone_number || 'Not set'}</p>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">Status</Label>
@@ -372,21 +453,21 @@ const MeterSetup = () => {
                     <div className="flex items-center space-x-2">
                       <Building className="h-4 w-4 text-amber-400" />
                       <span className="text-lg">
-                        {currentProfile.meter_category ? 
-                          METER_CATEGORIES.find(c => c.value === currentProfile.meter_category)?.label || 
-                          currentProfile.meter_category : 
+                        {profile.meter_category ? 
+                          METER_CATEGORIES.find(c => c.value === profile.meter_category)?.label || 
+                          profile.meter_category : 
                           'Household'}
                       </span>
                     </div>
                   </div>
-                  {currentProfile.meter_category === 'industry' && currentProfile.industry_type && (
+                  {profile.meter_category === 'industry' && profile.industry_type && (
                     <div className="space-y-2">
                       <Label className="text-sm text-muted-foreground">Industry Type</Label>
                       <div className="flex items-center space-x-2">
                         <Factory className="h-4 w-4 text-orange-400" />
                         <span className="text-lg">
-                          {INDUSTRY_TYPES.find(t => t.value === currentProfile.industry_type)?.label || 
-                           currentProfile.industry_type}
+                          {INDUSTRY_TYPES.find(t => t.value === profile.industry_type)?.label || 
+                           profile.industry_type}
                         </span>
                       </div>
                     </div>

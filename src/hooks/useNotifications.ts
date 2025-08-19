@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -22,8 +22,39 @@ export const useNotifications = () => {
     const { user } = useAuth();
     const { toast } = useToast();
 
+    const createNotification = useCallback(async (notification: Omit<KPLCNotification, 'id' | 'isRead' | 'createdAt'>) => {
+        if (!user) return;
+
+        try {
+            const { error } = await supabase
+                .from('ai_alerts')
+                .insert({
+                    user_id: user.id,
+                    alert_type: notification.type,
+                    title: notification.title,
+                    message: notification.message,
+                    severity: notification.severity,
+                    recommended_actions: {
+                        tokenBalance: notification.tokenBalance,
+                        estimatedDays: notification.estimatedDays
+                    }
+                });
+
+            if (error) throw error;
+
+            // Show toast notification
+            toast({
+                title: notification.title,
+                description: notification.message,
+                variant: notification.severity === 'critical' ? 'destructive' : 'default',
+            });
+        } catch (error) {
+            console.error('Error creating notification:', error);
+        }
+    }, [user, toast]);
+
     // Check token balance and create notifications
-    const checkTokenBalance = async () => {
+    const checkTokenBalance = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -77,40 +108,9 @@ export const useNotifications = () => {
         } catch (error) {
             console.error('Error checking token balance:', error);
         }
-    };
+    }, [user, createNotification]);
 
-    const createNotification = async (notification: Omit<KPLCNotification, 'id' | 'isRead' | 'createdAt'>) => {
-        if (!user) return;
-
-        try {
-            const { error } = await supabase
-                .from('ai_alerts')
-                .insert({
-                    user_id: user.id,
-                    alert_type: notification.type,
-                    title: notification.title,
-                    message: notification.message,
-                    severity: notification.severity,
-                    recommended_actions: {
-                        tokenBalance: notification.tokenBalance,
-                        estimatedDays: notification.estimatedDays
-                    }
-                });
-
-            if (error) throw error;
-
-            // Show toast notification
-            toast({
-                title: notification.title,
-                description: notification.message,
-                variant: notification.severity === 'critical' ? 'destructive' : 'default',
-            });
-        } catch (error) {
-            console.error('Error creating notification:', error);
-        }
-    };
-
-    const fetchNotifications = async () => {
+    const fetchNotifications = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -145,7 +145,7 @@ export const useNotifications = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
 
     const markAsRead = async (notificationId: string) => {
         try {
@@ -214,7 +214,7 @@ export const useNotifications = () => {
             supabase.removeChannel(channel);
             clearInterval(tokenCheckInterval);
         };
-    }, [user]);
+    }, [user, fetchNotifications, checkTokenBalance]);
 
     return {
         notifications,

@@ -61,15 +61,38 @@ const AuthForm = () => {
           variant: "destructive"
         });
       } else {
+        // Create profile with signup data immediately
+        if (data.user) {
+          try {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: data.user.id,
+                email: formData.email,
+                full_name: formData.fullName,
+                phone_number: formData.phoneNumber,
+                meter_number: formData.meterNumber || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+
+            if (profileError) {
+              console.error('Profile creation error:', profileError);
+            }
+          } catch (profileError) {
+            console.error('Error creating profile:', profileError);
+          }
+        }
+
         if (data.user && !data.session) {
           toast({
             title: "Account Created!",
-            description: "Check your email to verify your account."
+            description: "Check your email to verify your account. Your profile data has been saved."
           });
         } else if (data.session) {
           toast({
             title: "Account Created!",
-            description: "Welcome to Aurora Energy!"
+            description: "Welcome to Aurora Energy! Your profile has been set up."
           });
         }
       }
