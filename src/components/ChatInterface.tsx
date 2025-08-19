@@ -4,9 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
-import { useProfile } from '@/hooks/useProfile';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Message {
@@ -24,6 +21,18 @@ interface EnergyAlert {
   timestamp: Date;
 }
 
+// Mock energy data for demonstration (completely isolated from auth)
+const MOCK_ENERGY_DATA = {
+  daily_total: 12.5,
+  daily_cost: 312.50,
+  current_usage: 2.3,
+  efficiency_score: 87,
+  weekly_average: 11.2,
+  monthly_total: 345.6,
+  peak_usage_time: '18:00',
+  cost_trend: 'stable' as const
+};
+
 const ChatInterface = () => {
   const isMobile = useIsMobile();
   
@@ -39,40 +48,15 @@ const ChatInterface = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [alerts, setAlerts] = useState<EnergyAlert[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const sessionKeepAliveRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const { user, refreshSession } = useAuth();
-  const { energyData } = useRealTimeEnergy();
-  const { profile } = useProfile(); // Add profile hook
+  // COMPLETELY ISOLATED - NO AUTH DEPENDENCIES AT ALL
+  // Using mock data instead of real energy data
 
-  // Keep session alive during chat to prevent logout
-  useEffect(() => {
-    // Set up session keep-alive when chat is active
-    const keepSessionAlive = () => {
-      if (user) {
-        refreshSession();
-      }
-    };
-
-    // Refresh session every 3 minutes while chat is active
-    sessionKeepAliveRef.current = setInterval(keepSessionAlive, 3 * 60 * 1000);
-
-    // Cleanup on unmount
-    return () => {
-      if (sessionKeepAliveRef.current) {
-        clearInterval(sessionKeepAliveRef.current);
-      }
-    };
-  }, [user, refreshSession]);
-
-  // Generate AI alerts based on energy data
+  // Generate AI alerts based on mock energy data
   const generateAlerts = useCallback(() => {
     const newAlerts: EnergyAlert[] = [];
-
-    // Only generate alerts if we have valid energy data
-    if (!energyData || typeof energyData.daily_total !== 'number') {
-      return;
-    }
+    const energyData = MOCK_ENERGY_DATA;
 
     // High usage alert
     if (energyData.daily_total > 15) {
@@ -131,12 +115,11 @@ const ChatInterface = () => {
     }
 
     setAlerts(newAlerts);
-  }, [energyData]);
+  }, []);
 
   useEffect(() => {
-    if (energyData && energyData.daily_total > 0) {
-      generateAlerts();
-    }
+    // Generate alerts on component mount
+    generateAlerts();
   }, [generateAlerts]);
 
   const scrollToBottom = useCallback(() => {
@@ -159,20 +142,11 @@ const ChatInterface = () => {
   const getBotResponse = useCallback((userMessage: string): string => {
     const message = userMessage.toLowerCase();
     
-    // Get user name safely
-    const userName = profile?.full_name || user?.user_metadata?.full_name || 'rafiki';
+    // Use generic user name since we don't have auth
+    const userName = 'rafiki';
     
-    // Safely get energy data with fallbacks
-    const safeEnergyData = {
-      daily_total: energyData?.daily_total || 0,
-      daily_cost: energyData?.daily_cost || 0,
-      current_usage: energyData?.current_usage || 0,
-      efficiency_score: energyData?.efficiency_score || 87,
-      weekly_average: energyData?.weekly_average || 0,
-      monthly_total: energyData?.monthly_total || 0,
-      peak_usage_time: energyData?.peak_usage_time || '18:00',
-      cost_trend: energyData?.cost_trend || 'stable'
-    };
+    // Use mock energy data
+    const safeEnergyData = MOCK_ENERGY_DATA;
     
     if (message.includes('reduce') || message.includes('save') || message.includes('lower') || message.includes('bill')) {
       return `Here are proven ways to reduce your electricity bill in Kenya:\n\n💡 Immediate Actions:\n• Switch to LED bulbs (save up to 80% on lighting)\n• Unplug devices when not in use\n• Use natural light during the day\n• Set water heater to 60°C maximum\n\n🏠 Home Efficiency:\n• Use fans instead of AC when possible\n• Iron clothes in batches\n• Use pressure cookers for faster cooking\n• Maintain your fridge at 4°C\n\n📊 Your Current Usage: ${safeEnergyData.daily_total.toFixed(2)} kWh today (KSh ${safeEnergyData.daily_cost.toFixed(2)})\nWith these tips, you could save 20-30% monthly!`;
@@ -204,80 +178,69 @@ const ChatInterface = () => {
     }
     
     return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "Explain my current energy usage"\n• "What are Kenya Power tariff rates?"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
-  }, [energyData, user, profile]);
+  }, []);
 
+  // IMPROVED SEND MESSAGE WITH PROPER TIMING
   const sendMessage = useCallback(async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isTyping) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       text: inputValue,
       isBot: false,
       timestamp: new Date()
     };
 
+    // Add user message immediately
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
+    
+    // Clear any existing typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Start typing indicator
     setIsTyping(true);
 
-    try {
-      // Keep session alive during API call
-      if (user) {
-        refreshSession();
+    // Generate bot response with proper delay
+    typingTimeoutRef.current = setTimeout(() => {
+      try {
+        const botResponseText = getBotResponse(currentInput);
+        
+        const botMessage: Message = {
+          id: `bot-${Date.now()}`,
+          text: botResponseText,
+          isBot: true,
+          timestamp: new Date()
+        };
+
+        // Add bot message and stop typing
+        setMessages(prev => [...prev, botMessage]);
+        setIsTyping(false);
+      } catch (error) {
+        console.error('Chat error:', error);
+        
+        // Fallback response
+        const fallbackMessage: Message = {
+          id: `bot-fallback-${Date.now()}`,
+          text: "I'm here to help with your energy questions! Please try asking again.",
+          isBot: true,
+          timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, fallbackMessage]);
+        setIsTyping(false);
       }
-
-      // Try external API first
-      const response = await fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': 'sk-default-pOdtybko4izSvpfeXN7qV2rtuyRhpEhp'
-        },
-        body: JSON.stringify({
-          user_id: user?.email || 'anonymous',
-          agent_id: '686ce3c9868e419e65c9eece',
-          session_id: `${user?.id || 'anonymous'}-${Date.now()}`,
-          message: inputValue
-        })
-      });
-
-      let botResponseText = '';
-
-      if (response.ok) {
-        const data = await response.json();
-        botResponseText = data.response || getBotResponse(inputValue);
-      } else {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-      
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: botResponseText,
-        isBot: true,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
-      console.error('Chat API error:', error);
-      
-      // Fallback to local response
-      const fallbackMessage: Message = {
-        id: (Date.now() + 2).toString(),
-        text: getBotResponse(inputValue),
-        isBot: true,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, fallbackMessage]);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [inputValue, user, refreshSession, getBotResponse]);
+    }, 1500 + Math.random() * 1000); // 1.5-2.5 seconds delay
+  }, [inputValue, isTyping, getBotResponse]);
 
   const handleQuickAction = useCallback((action: string) => {
-    setInputValue(action);
-  }, []);
+    if (!isTyping) {
+      setInputValue(action);
+    }
+  }, [isTyping]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -285,6 +248,15 @@ const ChatInterface = () => {
       sendMessage();
     }
   }, [sendMessage]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const getAlertIcon = (type: string) => {
     switch (type) {
@@ -328,6 +300,9 @@ const ChatInterface = () => {
           <CardTitle className="text-white font-medium flex items-center gap-2 text-sm md:text-base">
             <Bot className="h-4 w-4 md:h-5 md:w-5" />
             Aurora Assistant 🇰🇪
+            <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+              Demo Mode
+            </span>
           </CardTitle>
         </CardHeader>
         
@@ -336,24 +311,29 @@ const ChatInterface = () => {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex gap-2 ${message.isBot ? 'justify-start' : 'justify-end'}`}
+                className={`flex gap-2 ${message.isBot ? 'justify-start' : 'justify-end'} animate-fade-in`}
               >
                 {message.isBot && (
-                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0 mt-1">
                     <Bot className="h-3 w-3 md:h-4 md:w-4 text-white" />
                   </div>
                 )}
                 <div
-                  className={`max-w-[85%] md:max-w-[80%] p-2 md:p-3 rounded-lg text-xs md:text-sm whitespace-pre-line ${
+                  className={`max-w-[85%] md:max-w-[80%] p-2 md:p-3 rounded-lg text-xs md:text-sm whitespace-pre-line break-words ${
                     message.isBot
-                      ? 'bg-slate-800 text-gray-200'
-                      : 'bg-aurora-green text-white'
+                      ? 'bg-slate-800 text-gray-200 rounded-tl-none'
+                      : 'bg-aurora-green text-white rounded-tr-none'
                   }`}
+                  style={{ 
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
+                    hyphens: 'auto'
+                  }}
                 >
                   {message.text}
                 </div>
                 {!message.isBot && (
-                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-blue-light flex items-center justify-center flex-shrink-0">
+                  <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-blue-light flex items-center justify-center flex-shrink-0 mt-1">
                     <User className="h-3 w-3 md:h-4 md:w-4 text-white" />
                   </div>
                 )}
@@ -361,11 +341,11 @@ const ChatInterface = () => {
             ))}
             
             {isTyping && (
-              <div className="flex gap-2 justify-start">
-                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0">
+              <div className="flex gap-2 justify-start animate-fade-in">
+                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-aurora-green flex items-center justify-center flex-shrink-0 mt-1">
                   <Bot className="h-3 w-3 md:h-4 md:w-4 text-white" />
                 </div>
-                <div className="bg-slate-800 text-gray-200 p-2 md:p-3 rounded-lg text-xs md:text-sm">
+                <div className="bg-slate-800 text-gray-200 p-2 md:p-3 rounded-lg rounded-tl-none text-xs md:text-sm">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -377,7 +357,7 @@ const ChatInterface = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {messages.length === 1 && (
+          {messages.length === 1 && !isTyping && (
             <div className="p-2 md:p-4 border-t border-slate-700">
               <p className="text-xs md:text-sm text-gray-400 mb-2 md:mb-3">Quick actions:</p>
               <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-1'} gap-2`}>
@@ -388,6 +368,7 @@ const ChatInterface = () => {
                     size="sm"
                     onClick={() => handleQuickAction(action.text)}
                     className="text-xs justify-start h-8 border-slate-600 hover:bg-slate-800 gap-2"
+                    disabled={isTyping}
                   >
                     <action.icon className="h-3 w-3" />
                     <span className={isMobile ? "truncate" : ""}>{action.text}</span>
@@ -405,6 +386,7 @@ const ChatInterface = () => {
                 onKeyDown={handleKeyPress}
                 placeholder={isMobile ? "Ask about energy..." : "Ask about energy saving, bills, Kenya Power..."}
                 className="flex-1 bg-slate-800 border-slate-600 text-white placeholder:text-gray-400 text-sm"
+                disabled={isTyping}
               />
               <Button
                 onClick={sendMessage}
@@ -415,6 +397,9 @@ const ChatInterface = () => {
                 <Send className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
             </div>
+            <p className="text-xs text-blue-400 mt-2 text-center">
+              Chat assistant running in demo mode - completely isolated from authentication
+            </p>
           </div>
         </CardContent>
       </Card>

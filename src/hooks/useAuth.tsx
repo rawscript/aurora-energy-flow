@@ -23,8 +23,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const lastSessionCheck = useRef<number>(0);
   const sessionRefreshInProgress = useRef(false);
   const profileCreationInProgress = useRef(false);
+  const authStateChangeInProgress = useRef(false);
 
-  // Refresh session function - only when really needed
+  // COMPLETELY ISOLATED refresh session function
   const refreshSession = async () => {
     try {
       // Prevent concurrent refresh attempts
@@ -33,9 +34,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // Prevent too frequent refresh calls
+      // Prevent too frequent refresh calls (increased to 5 minutes)
       const now = Date.now();
-      if (now - lastSessionCheck.current < 60000) { // 1 minute minimum between checks
+      if (now - lastSessionCheck.current < 300000) { // 5 minutes minimum between checks
         console.log('Session refresh called too frequently, skipping');
         return;
       }
@@ -44,21 +45,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       sessionRefreshInProgress.current = true;
 
       console.log('Refreshing session...');
+      
+      // First check if current session is still valid
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Error getting current session:', sessionError);
+        return;
+      }
+
+      if (!currentSession) {
+        console.log('No current session found');
+        return;
+      }
+
+      // Check if session needs refresh (expires in less than 15 minutes)
+      const expiresAt = currentSession.expires_at;
+      const timeUntilExpiry = expiresAt ? expiresAt - Math.floor(Date.now() / 1000) : 0;
+      
+      if (timeUntilExpiry > 900) { // More than 15 minutes left
+        console.log(`Session still valid for ${Math.floor(timeUntilExpiry / 60)} minutes, no refresh needed`);
+        return;
+      }
+
+      // Refresh the session
       const { data: { session: refreshedSession }, error } = await supabase.auth.refreshSession();
       
       if (error) {
         console.error('Error refreshing session:', error);
-        // Don't show toast for refresh errors to avoid spam
+        
+        // Only sign out on specific auth errors, not network errors
+        if (error.message?.includes('refresh_token_not_found') || 
+            error.message?.includes('invalid_grant')) {
+          console.log('Session refresh failed with auth error, signing out');
+          await supabase.auth.signOut();
+        }
         return;
       }
       
       if (refreshedSession) {
-        setSession(refreshedSession);
-        setUser(refreshedSession.user);
-        console.log('Session refreshed successfully');
+        // Only update state if not in the middle of auth state change
+        if (!authStateChangeInProgress.current) {
+          setSession(refreshedSession);
+          setUser(refreshedSession.user);
+          console.log('Session refreshed successfully');
+        }
       }
     } catch (error) {
       console.error('Exception refreshing session:', error);
+      // Don't force logout on exceptions
     } finally {
       sessionRefreshInProgress.current = false;
     }
@@ -67,14 +102,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Check session validity - only refresh when really needed
   const checkSessionValidity = async () => {
     try {
-      if (!session) return;
+      if (!session || authStateChangeInProgress.current) return;
 
       const expiresAt = session.expires_at;
       const now = Math.floor(Date.now() / 1000);
       const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
       
-      // Only refresh if session expires in less than 5 minutes
-      if (timeUntilExpiry < 300) {
+      // Only refresh if session expires in less than 15 minutes
+      if (timeUntilExpiry < 900) {
         console.log(`Session expiring in ${timeUntilExpiry} seconds, refreshing...`);
         await refreshSession();
       } else {
@@ -96,40 +131,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       profileCreationInProgress.current = true;
       console.log('Ensuring profile exists for user:', user.id);
 
-      // First check if profile already exists
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!checkError && existingProfile) {
-        console.log('Profile already exists, no need to create');
-        return;
-      }
-
-      // Profile doesn't exist, create it
-      console.log('Creating profile for new user');
-      const { error: createError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || null,
-          phone_number: user.user_metadata?.phone_number || null,
-          meter_number: user.user_metadata?.meter_number || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id',
-          ignoreDuplicates: true // Ignore if profile already exists
+      // Use the safe database function
+      const { data, error: createError } = await supabase
+        .rpc('ensure_user_profile', {
+          p_user_id: user.id,
+          p_email: user.email,
+          p_full_name: user.user_metadata?.full_name,
+          p_phone_number: user.user_metadata?.phone_number,
+          p_meter_number: user.user_metadata?.meter_number
         });
 
-      if (createError && createError.code !== '23505') {
-        // Only log error if it's not a duplicate key error
+      if (createError) {
         console.error('Error ensuring profile exists:', createError);
       } else {
-        console.log('Profile ensured successfully');
+        console.log('Profile ensured successfully:', data?.message);
       }
     } catch (error) {
       console.error('Exception ensuring profile exists:', error);
@@ -159,13 +174,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               clearInterval(sessionCheckInterval.current);
             }
             
-            // Check session every 15 minutes (increased interval to reduce load)
-            sessionCheckInterval.current = setInterval(checkSessionValidity, 15 * 60 * 1000);
+            // Check session every 30 minutes (much less frequent)
+            sessionCheckInterval.current = setInterval(checkSessionValidity, 30 * 60 * 1000);
             
             // Ensure profile exists for authenticated user (with delay to avoid conflicts)
             setTimeout(() => {
               ensureProfileExists(session.user);
-            }, 2000);
+            }, 3000);
           }
         }
       } catch (error) {
@@ -178,58 +193,74 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     getInitialSession();
 
-    // Listen for auth changes
+    // Listen for auth changes with protection against rapid changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Prevent rapid auth state changes from interfering
+        if (authStateChangeInProgress.current) {
+          console.log('Auth state change already in progress, skipping');
+          return;
+        }
+
+        authStateChangeInProgress.current = true;
         console.log('Auth state changed:', event);
         
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Only set loading to false after initial load
-        if (isInitialized.current) {
-          setLoading(false);
-        }
-
-        // Handle successful sign in
-        if (event === 'SIGNED_IN' && session) {
-          console.log('User signed in successfully');
-          
-          // Set up session refresh interval
-          if (sessionCheckInterval.current) {
-            clearInterval(sessionCheckInterval.current);
-          }
-          sessionCheckInterval.current = setInterval(checkSessionValidity, 15 * 60 * 1000);
-          
-          // Ensure profile exists (with delay to avoid conflicts with useProfile hook)
-          setTimeout(() => {
-            ensureProfileExists(session.user);
-          }, 3000);
-        }
-
-        // Handle sign out
-        if (event === 'SIGNED_OUT') {
-          console.log('User signed out');
-          setSession(null);
-          setUser(null);
-          
-          // Clear session refresh interval
-          if (sessionCheckInterval.current) {
-            clearInterval(sessionCheckInterval.current);
-            sessionCheckInterval.current = null;
-          }
-          
-          // Reset session refresh tracking
-          lastSessionCheck.current = 0;
-          sessionRefreshInProgress.current = false;
-          profileCreationInProgress.current = false;
-        }
-
-        // Handle token refresh
-        if (event === 'TOKEN_REFRESHED' && session) {
-          console.log('Token refreshed successfully');
+        try {
           setSession(session);
-          setUser(session.user);
+          setUser(session?.user ?? null);
+          
+          // Only set loading to false after initial load
+          if (isInitialized.current) {
+            setLoading(false);
+          }
+
+          // Handle successful sign in
+          if (event === 'SIGNED_IN' && session) {
+            console.log('User signed in successfully');
+            
+            // Set up session refresh interval
+            if (sessionCheckInterval.current) {
+              clearInterval(sessionCheckInterval.current);
+            }
+            sessionCheckInterval.current = setInterval(checkSessionValidity, 30 * 60 * 1000);
+            
+            // Ensure profile exists (with delay to avoid conflicts)
+            setTimeout(() => {
+              ensureProfileExists(session.user);
+            }, 5000);
+          }
+
+          // Handle sign out
+          if (event === 'SIGNED_OUT') {
+            console.log('User signed out');
+            setSession(null);
+            setUser(null);
+            
+            // Clear session refresh interval
+            if (sessionCheckInterval.current) {
+              clearInterval(sessionCheckInterval.current);
+              sessionCheckInterval.current = null;
+            }
+            
+            // Reset all tracking variables
+            lastSessionCheck.current = 0;
+            sessionRefreshInProgress.current = false;
+            profileCreationInProgress.current = false;
+          }
+
+          // Handle token refresh
+          if (event === 'TOKEN_REFRESHED' && session) {
+            console.log('Token refreshed successfully');
+            setSession(session);
+            setUser(session.user);
+          }
+        } catch (error) {
+          console.error('Error in auth state change handler:', error);
+        } finally {
+          // Add delay before allowing next auth state change
+          setTimeout(() => {
+            authStateChangeInProgress.current = false;
+          }, 1000);
         }
       }
     );
@@ -246,13 +277,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Enhanced sign out function
   const signOut = async () => {
     try {
+      // Prevent auth state changes during sign out
+      authStateChangeInProgress.current = true;
+      
       // Clear session refresh interval
       if (sessionCheckInterval.current) {
         clearInterval(sessionCheckInterval.current);
         sessionCheckInterval.current = null;
       }
       
-      // Reset session refresh tracking
+      // Reset all tracking variables
       lastSessionCheck.current = 0;
       sessionRefreshInProgress.current = false;
       profileCreationInProgress.current = false;
@@ -278,6 +312,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         description: "An unexpected error occurred during sign out.",
         variant: "destructive"
       });
+    } finally {
+      // Allow auth state changes after sign out
+      setTimeout(() => {
+        authStateChangeInProgress.current = false;
+      }, 2000);
     }
   };
 
