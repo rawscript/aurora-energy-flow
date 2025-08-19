@@ -466,7 +466,7 @@ const ChatInterface = () => {
     return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\n${hasMeter ? `I have access to your ${meterCategory} meter data and can provide personalized insights.` : 'Connect your smart meter for personalized insights based on your actual usage!'}\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n• 🪙 KPLC token management\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "Explain my current energy usage"\n• "What's my token balance?"\n• "Kenya Power tariff rates"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
   }, [userData, energyData, tokenData]);
 
-  // Enhanced send message with AI service integration
+  // Enhanced send message with Gemini AI integration
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isTyping) return;
 
@@ -488,35 +488,66 @@ const ChatInterface = () => {
     setIsTyping(true);
 
     try {
-      console.log('Sending message to AI service...');
+      console.log('Sending message to Gemini AI...');
       
       // Create context-aware message with user data
-      const contextualMessage = `User: ${userData?.full_name || 'User'} (${userData?.meter_category || 'no meter'} meter)
-Energy Data: ${energyData.daily_total.toFixed(2)} kWh today, KSh ${energyData.daily_cost.toFixed(2)} cost, ${energyData.efficiency_score}% efficiency
-Token Data: KSh ${tokenData.current_balance.toFixed(2)} balance, ${tokenData.estimated_days_remaining} days remaining
+      const contextualMessage = `You are Aurora, a smart energy assistant for Kenya. You help users understand electricity usage, save on bills, and navigate Kenya Power services.
+
+User Context:
+- Name: ${userData?.full_name || 'User'}
+- Meter Type: ${userData?.meter_category || 'no meter connected'}
+- Energy Data: ${energyData.daily_total.toFixed(2)} kWh today, KSh ${energyData.daily_cost.toFixed(2)} cost, ${energyData.efficiency_score}% efficiency
+- Token Data: KSh ${tokenData.current_balance.toFixed(2)} balance, ${tokenData.estimated_days_remaining} days remaining
 
 User Query: ${currentInput}
 
-Please provide a helpful response about energy management, Kenya Power services, or electricity savings.`;
+Please provide a helpful, personalized response about energy management, Kenya Power services, or electricity savings. Use the user's actual data when relevant. Be conversational and use Kenyan context (like "Jambo" for greetings). Include practical tips and specific advice.`;
 
-      const response: AIResponse = await aiService.sendMessage(contextualMessage);
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': 'AIzaSyCTDMfBeEvuliA3CtIjmZV5IBHVM8bkgHk'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: contextualMessage
+            }]
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const aiMessage = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!aiMessage) {
+        throw new Error('No response from Gemini AI');
+      }
 
       const botMessage: Message = {
         id: `bot-${Date.now()}`,
-        text: response.message,
+        text: aiMessage,
         isBot: true,
-        timestamp: response.timestamp,
-        source: response.source
+        timestamp: new Date(),
+        source: 'ai'
       };
 
       setMessages(prev => [...prev, botMessage]);
-      console.log(`Response received from ${response.source}`);
+      console.log('Response received from Gemini AI');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending message to Gemini:', error);
+      
+      // Fallback to local response if Gemini fails
+      const fallbackResponse = getBotResponse(currentInput);
       
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
-        text: '⚠️ I encountered an issue processing your request. Please try again or contact support if the problem persists.',
+        text: fallbackResponse + '\n\n🤖 Note: Using offline response as AI service is temporarily unavailable.',
         isBot: true,
         timestamp: new Date(),
         source: 'fallback'
@@ -526,7 +557,7 @@ Please provide a helpful response about energy management, Kenya Power services,
     } finally {
       setIsTyping(false);
     }
-  }, [inputValue, isTyping, userData, energyData, tokenData]);
+  }, [inputValue, isTyping, userData, energyData, tokenData, getBotResponse]);
 
   const handleQuickAction = useCallback((action: string) => {
     if (!isTyping) {
@@ -668,6 +699,10 @@ Please provide a helpful response about energy management, Kenya Power services,
               <span className="text-xs bg-black/20 px-2 py-1 rounded">
                 {getStatusText()}
               </span>
+              <div className="flex items-center gap-1 ml-2">
+                <Cloud className="h-3 w-3 text-blue-400" />
+                <span className="text-xs text-blue-400">Gemini AI</span>
+              </div>
             </div>
           </CardTitle>
         </CardHeader>
