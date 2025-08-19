@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 const SmartMeterStatus = () => {
-  const { recentReadings, useMockData } = useRealTimeEnergy();
+  const { recentReadings } = useRealTimeEnergy();
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -31,12 +31,7 @@ const SmartMeterStatus = () => {
             <WifiOff className="h-5 w-5 text-red-400" />
           )}
           <span>Smart Meter Status</span>
-          {useMockData && (
-            <Badge variant="outline" className="ml-2 bg-amber-500/20 text-amber-400 border-amber-500/30">
-              <AlertTriangle className="h-3 w-3 mr-1" />
-              Simulated
-            </Badge>
-          )}
+      
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -79,7 +74,7 @@ const SmartMeterStatus = () => {
           </>
         )}
         
-        {useMockData && user && (
+        {user && (
           <div className="pt-2 pb-1">
             <Button 
               variant="outline" 
@@ -95,7 +90,7 @@ const SmartMeterStatus = () => {
         
         <div className="pt-2 border-t border-slate-700">
           <div className="text-xs text-muted-foreground">
-            {useMockData 
+            {!isConnected 
               ? 'Using simulated data. Connect a real meter for accurate insights.'
               : 'Real-time data from Kenya Power smart meters'}
           </div>

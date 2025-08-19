@@ -5,21 +5,34 @@ import { TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Info } from 'lucide
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 
 const RealTimeInsights = () => {
-  const { energyData, analytics, useMockData } = useRealTimeEnergy();
+  const { energyData, analytics, hasMeterConnected, error, loading } = useRealTimeEnergy();
   
-  // Generate insights based on data patterns (real or mock)
+  // Generate insights based on data patterns
   const generateInsights = () => {
     const insights = [];
     
-    // If using mock data, add a clear indicator
-    if (useMockData) {
+    // If no meter connected, add a clear indicator
+    if (!hasMeterConnected) {
       insights.push({
-        type: 'mock',
-        title: 'Using Simulated Data',
-        description: 'These insights are based on simulated data. Connect a real meter for personalized insights.',
-        icon: <Info className="h-5 w-5 text-blue-400" />,
-        severity: 'info'
+        type: 'no-meter',
+        title: 'No Meter Connected',
+        description: 'Connect your smart meter to get personalized energy insights and real-time data.',
+        icon: <Info className="h-5 w-5 text-amber-400" />,
+        severity: 'warning'
       });
+      return insights;
+    }
+    
+    // If there's an error, show it
+    if (error) {
+      insights.push({
+        type: 'error',
+        title: 'Data Unavailable',
+        description: error,
+        icon: <AlertTriangle className="h-5 w-5 text-red-400" />,
+        severity: 'alert'
+      });
+      return insights;
     }
     
     // Check for peak usage times
@@ -91,8 +104,8 @@ const RealTimeInsights = () => {
       }
     }
     
-    // If no insights (other than mock data indicator), add a default one
-    if (insights.length === (useMockData ? 1 : 0)) {
+    // If no insights, add a default one
+    if (insights.length === 0) {
       insights.push({
         type: 'default',
         title: 'Energy Usage Normal',
@@ -107,6 +120,27 @@ const RealTimeInsights = () => {
   
   const insights = generateInsights();
   
+  if (loading) {
+    return (
+      <Card className="bg-aurora-card border-aurora-purple/20">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg text-aurora-purple-light flex items-center gap-2">
+            <Lightbulb className="h-5 w-5" />
+            Real-Time Energy Insights
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aurora-purple-light mx-auto mb-4"></div>
+              <p className="text-sm text-muted-foreground">Loading energy insights...</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   return (
     <Card className="bg-aurora-card border-aurora-purple/20">
       <CardHeader className="pb-2">
@@ -115,9 +149,9 @@ const RealTimeInsights = () => {
             <Lightbulb className="h-5 w-5" />
             Real-Time Energy Insights
           </CardTitle>
-          {useMockData && (
+          {!hasMeterConnected && (
             <Badge variant="outline" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-              Simulated Insights
+              No Meter
             </Badge>
           )}
         </div>
@@ -149,9 +183,9 @@ const RealTimeInsights = () => {
         ))}
         
         <div className="pt-2 text-xs text-muted-foreground">
-          {useMockData 
-            ? 'These insights are based on simulated data. Connect a real meter for personalized insights.'
-            : 'Insights are generated based on your actual energy usage patterns.'}
+          {hasMeterConnected 
+            ? 'Insights are generated based on your actual energy usage patterns.'
+            : 'Connect your smart meter to get personalized insights based on your actual usage.'}
         </div>
       </CardContent>
     </Card>

@@ -45,7 +45,7 @@ export const useRealTimeEnergy = () => {
     current_usage: 0,
     daily_total: 0,
     daily_cost: 0,
-    efficiency_score: 87,
+    efficiency_score: 0,
     weekly_average: 0,
     monthly_total: 0,
     peak_usage_time: '18:00',
@@ -60,11 +60,13 @@ export const useRealTimeEnergy = () => {
     peakHours: []
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [useMockData, setUseMockData] = useState(true);
+  const [hasMeterConnected, setHasMeterConnected] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const meterNumber = useRef<string | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Type guard function to validate EnergyReading
   const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
@@ -222,23 +224,21 @@ export const useRealTimeEnergy = () => {
         
       if (error) {
         console.error('Error fetching profile:', error);
+        setError('Failed to fetch profile data');
         return null;
       }
       
       setProfileData(data);
-      
-      // Determine if we should use mock data based on whether meter is set up
-      const shouldUseMockData = !data?.meter_number;
-      setUseMockData(shouldUseMockData);
-      
+      setHasMeterConnected(!!data?.meter_number);
       return data;
     } catch (error) {
       console.error('Exception fetching profile:', error);
+      setError('Failed to fetch profile data');
       return null;
     }
   }, [user]);
 
-  // Process a new reading (real or simulated)
+  // Process a new reading from the meter
   const processNewReading = useCallback((reading: EnergyReading) => {
     // Validate the reading
     if (!reading || typeof reading.kwh_consumed !== 'number' || typeof reading.total_cost !== 'number') {
@@ -263,14 +263,12 @@ export const useRealTimeEnergy = () => {
     const updatedReadings = [reading, ...recentReadings.slice(0, 167)];
     calculateAnalytics(updatedReadings);
     
-    // If this is a real reading (not mock), show a notification
-    if (!useMockData && reading.id && !reading.id.startsWith('mock-')) {
-      toast({
-        title: "New Reading Received",
-        description: `Received ${reading.kwh_consumed.toFixed(2)} kWh reading from meter ${reading.meter_number}`,
-      });
-    }
-  }, [recentReadings, calculateAnalytics, useMockData, toast]);
+    // Show notification for new reading
+    toast({
+      title: "New Reading Received",
+      description: `Received ${reading.kwh_consumed.toFixed(2)} kWh reading from meter ${reading.meter_number}`,
+    });
+  }, [recentReadings, calculateAnalytics, toast]);
 
   // Record a real reading in the database
   const recordRealReading = useCallback(async (
@@ -329,23 +327,48 @@ export const useRealTimeEnergy = () => {
 
   // Fetch real energy readings from the database with better error handling
   const fetchRealEnergyData = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      setError('User not authenticated');
+      return;
+    }
     
     try {
       setLoading(true);
+      setError(null);
       
-      // No need to get session separately - user is already available from useAuth
+      // Clear any existing loading timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      
+      // Set a timeout to prevent infinite loading
+      loadingTimeoutRef.current = setTimeout(() => {
+        setLoading(false);
+        setError('Request timeout - please try again');
+        toast({
+          title: 'Request Timeout',
+          description: 'Failed to load energy data. Please check your connection and try again.',
+          variant: 'destructive'
+        });
+      }, 10000); // 10 second timeout
       
       // Use a timeout to prevent hanging requests
       const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => 
-        setTimeout(() => resolve({ data: null, error: new Error('Request timeout') }), 15000)
+        setTimeout(() => resolve({ data: null, error: new Error('Request timeout') }), 8000)
       );
       
       // Get the meter number to use
       const currentMeterNumber = meterNumber.current;
       
       if (!currentMeterNumber) {
-        throw new Error('No meter number available');
+        // Clear loading timeout
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+        }
+        setLoading(false);
+        setError('No meter connected. Please set up your smart meter first.');
+        return;
       }
       
       console.log(`Fetching real data for meter: ${currentMeterNumber}`);
@@ -671,33 +694,36 @@ export const useRealTimeEnergy = () => {
           // Calculate analytics
           calculateAnalytics(readings);
         } else {
-          // No data at all, use default values
-          setEnergyData({
-            current_usage: 0,
-            daily_total: 0,
-            daily_cost: 0,
-            efficiency_score: 87,
-            weekly_average: 0,
-            monthly_total: 0,
-            peak_usage_time: '18:00',
-            cost_trend: 'stable'
-          });
+          // No data available from meter
+          setError('No energy data available from your meter. Please check your meter connection.');
+        }
+        
+        // Clear loading timeout on success
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
         }
       }
     } catch (error) {
       console.error('Error fetching real energy data:', error);
+      
+      // Clear loading timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      
+      setError('Failed to load energy data from your meter');
       toast({
         title: 'Error loading energy data',
-        description: 'Could not load real energy data. Using default values.',
+        description: 'Could not connect to your meter. Please check your meter connection.',
         variant: 'destructive'
       });
       
-      // Set default values if real data fails
+      // Reset to empty state on error
       setEnergyData({
         current_usage: 0,
         daily_total: 0,
         daily_cost: 0,
-        efficiency_score: 87,
+        efficiency_score: 0,
         weekly_average: 0,
         monthly_total: 0,
         peak_usage_time: '18:00',
@@ -716,170 +742,74 @@ export const useRealTimeEnergy = () => {
     }
   }, [user, toast, calculateAnalytics, recordRealReading]);
 
-  // Generate mock data for the energy dashboard when real data is not available
-  const generateMockData = useCallback(() => {
+  // Get a new energy reading from the meter
+  const getNewReading = async () => {
     try {
-      setLoading(true);
-      
-      // Generate a random current usage between 2-5 kWh
-      const currentUsage = 2 + Math.random() * 3;
-      
-      // Generate daily total as 10-20x current usage
-      const dailyTotal = currentUsage * (10 + Math.random() * 10);
-      
-      // Cost per kWh (Kenya Power rate)
-      const costPerKwh = 25.0;
-      
-      // Calculate daily cost
-      const dailyCost = dailyTotal * costPerKwh;
-      
-      // Weekly average (slightly higher than daily)
-      const weeklyAverage = dailyTotal * (1 + Math.random() * 0.3);
-      
-      // Monthly total (about 30x daily)
-      const monthlyTotal = dailyTotal * (28 + Math.random() * 4);
-      
-      // Calculate efficiency score (simplified)
-      const efficiencyScore = Math.max(60, Math.min(100, 100 - (dailyTotal * 0.5)));
-      
-      // Random cost trend
-      const costTrendOptions: ('up' | 'down' | 'stable')[] = ['up', 'down', 'stable'];
-      const costTrend = costTrendOptions[Math.floor(Math.random() * 3)];
-      
-      // Set the energy data with our generated values
-      setEnergyData({
-        current_usage: currentUsage,
-        daily_total: dailyTotal,
-        daily_cost: dailyCost,
-        efficiency_score: efficiencyScore,
-        weekly_average: weeklyAverage,
-        monthly_total: monthlyTotal,
-        peak_usage_time: '18:00',
-        cost_trend: costTrend
-      });
-      
-      // Generate mock readings for the analytics
-      const mockReadings: EnergyReading[] = [];
-      const now = new Date();
-      
-      // Generate readings for the past week (hourly)
-      for (let i = 0; i < 168; i++) {
-        const readingDate = new Date(now.getTime() - i * 60 * 60 * 1000);
-        const hour = readingDate.getHours();
-        
-        // Higher usage during peak hours (morning and evening)
-        let hourlyMultiplier = 1;
-        if (hour >= 6 && hour <= 9) hourlyMultiplier = 1.5; // Morning peak
-        if (hour >= 18 && hour <= 22) hourlyMultiplier = 1.8; // Evening peak
-        if (hour >= 0 && hour <= 5) hourlyMultiplier = 0.5; // Night low
-        
-        const kwh = (0.5 + Math.random() * 1) * hourlyMultiplier;
-        const cost = kwh * costPerKwh;
-        
-        mockReadings.push({
-          id: `mock-${i}`,
-          user_id: user?.id || 'mock-user',
-          meter_number: profileData?.meter_number || 'MOCK-METER',
-          kwh_consumed: kwh,
-          total_cost: cost,
-          reading_date: readingDate.toISOString(),
-          cost_per_kwh: costPerKwh
+      // Check if we have a meter connected
+      if (!user || !meterNumber.current) {
+        toast({
+          title: 'No Meter Connected',
+          description: 'Please set up your smart meter first to get readings.',
+          variant: 'destructive'
         });
+        return;
       }
+      console.log(`Fetching real reading from meter ${meterNumber.current}`);
       
-      setRecentReadings(mockReadings);
-      calculateAnalytics(mockReadings);
-    } catch (error) {
-      console.error('Error generating mock data:', error);
-      toast({
-        title: 'Error loading energy data',
-        description: 'Could not load energy data. Using default values.',
-        variant: 'destructive'
+      // Try to fetch a real reading from the meter API
+      const response = await fetch(`/api/meters/${meterNumber.current}/current`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
-    } finally {
-      setLoading(false);
-    }
-  }, [calculateAnalytics, toast, profileData?.meter_number, user?.id]);
-
-  // Get a new energy reading (real or simulated)
-  const simulateReading = async () => {
-    try {
-      // If we have a real meter set up, try to get a real reading
-      if (user && !useMockData && meterNumber.current) {
-        try {
-          console.log(`Fetching real reading from meter ${meterNumber.current}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data && typeof data.consumption === 'number') {
+          // We got a real reading from the meter
+          const usage = data.consumption;
+          const costPerKwh = data.rate || 25.0;
+          const totalCost = data.cost || (usage * costPerKwh);
           
-          // Try to fetch a real reading from the meter API
-          const response = await fetch(`/api/meters/${meterNumber.current}/current`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          });
+          // Record the real reading in the database
+          await recordRealReading(usage, costPerKwh, totalCost);
           
-          if (response.ok) {
-            const data = await response.json();
-            
-            if (data && typeof data.consumption === 'number') {
-              // We got a real reading from the meter
-              const usage = data.consumption;
-              const costPerKwh = data.rate || 25.0;
-              const totalCost = data.cost || (usage * costPerKwh);
-              
-              // Record the real reading in the database
-              await recordRealReading(usage, costPerKwh, totalCost);
-              
-              toast({
-                title: 'Real Reading Received',
-                description: `Received ${usage.toFixed(2)} kWh reading from meter ${meterNumber.current}`,
-              });
-              
-              return;
-            }
-          }
-          
-          // If we couldn't get a real reading from the API, try the database function
-          console.log('API reading failed, trying database function');
-          
-          // Use the insert_energy_reading function to generate a realistic reading
-          const { data, error } = await supabase.rpc('insert_energy_reading', {
-            p_user_id: user.id,
-            p_meter_number: meterNumber.current,
-            p_kwh_consumed: 1.5 + Math.random() * 2, // Generate realistic consumption between 1.5-3.5 kWh
-            p_cost_per_kwh: 25 // Default cost per kWh
-          });
-          
-          if (error) {
-            throw error;
-          }
-          
-          if (data) {
-            // Reading was successfully inserted, fetch the latest data
-            await fetchRealEnergyData();
-            
-            toast({
-              title: 'Reading Recorded',
-              description: `New reading recorded for meter ${meterNumber.current}`,
-            });
-            
-            return;
-          }
-        } catch (error) {
-          console.error('Error getting real reading:', error);
-          
-          // If we failed to get a real reading, show an error but don't fall back to mock data
-          // This encourages fixing the real meter connection rather than relying on mock data
           toast({
-            title: 'Reading Failed',
-            description: 'Could not get a reading from your meter. Please check your meter connection.',
-            variant: 'destructive'
+            title: 'Reading Received',
+            description: `Received ${usage.toFixed(2)} kWh reading from meter ${meterNumber.current}`,
           });
           
           return;
         }
-      } else {
-        // Using mock data, generate a realistic reading
-        generateMockReading();
+      }
+      
+      // If we couldn't get a real reading from the API, try the database function
+      console.log('API reading failed, trying database function');
+      
+      // Use the insert_energy_reading function to generate a realistic reading
+      const { data, error } = await supabase.rpc('insert_energy_reading', {
+        p_user_id: user.id,
+        p_meter_number: meterNumber.current,
+        p_kwh_consumed: 1.5 + Math.random() * 2, // Generate realistic consumption between 1.5-3.5 kWh
+        p_cost_per_kwh: 25 // Default cost per kWh
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        // Reading was successfully inserted, fetch the latest data
+        await fetchRealEnergyData();
+        
+        toast({
+          title: 'Reading Recorded',
+          description: `New reading recorded for meter ${meterNumber.current}`,
+        });
+        
+        return;
       }
     } catch (error) {
       console.error('Reading error:', error);
@@ -891,71 +821,10 @@ export const useRealTimeEnergy = () => {
     }
   };
   
-  // Generate a mock reading when no real meter is available
-  const generateMockReading = () => {
-    // Generate a random usage between 0.5-3 kWh
-    const usage = 0.5 + Math.random() * 2.5;
-    
-    // Cost per kWh (Kenya Power rate)
-    const costPerKwh = 25.0;
-    
-    // Calculate total cost
-    const totalCost = usage * costPerKwh;
-    
-    // Get meter number from profile or use a mock one
-    const mockMeterNumber = profileData?.meter_number || 'MOCK-METER';
-    
-    // Update state with the mock reading
-    handleSimulatedReading(usage, costPerKwh, totalCost, mockMeterNumber);
-    
-    toast({
-      title: 'Simulated Reading',
-      description: `Generated ${usage.toFixed(2)} kWh simulated reading`,
-    });
-  };
-
-
-
-  // Handle a simulated reading (update state without database)
-  const handleSimulatedReading = (usage: number, costPerKwh: number, totalCost: number, meterNumber: string) => {
-    // Create a new mock reading
-    const newReading: EnergyReading = {
-      id: `mock-${Date.now()}`,
-      user_id: user?.id || 'mock-user',
-      meter_number: meterNumber,
-      kwh_consumed: usage,
-      cost_per_kwh: costPerKwh,
-      total_cost: totalCost,
-      reading_date: new Date().toISOString()
-    };
-    
-    // Process the new reading (same function used for real and mock readings)
-    processNewReading(newReading);
-
-    // Show success message with meter category info
-    let meterInfo = '';
-    if (profileData?.meter_category) {
-      meterInfo = ` (${profileData.meter_category}`;
-      if (profileData.meter_category === 'industry' && profileData.industry_type) {
-        meterInfo += ` - ${profileData.industry_type}`;
-      }
-      meterInfo += ')';
-    }
-    
-    toast({
-      title: 'Reading Simulated',
-      description: `Generated ${usage.toFixed(2)} kWh reading for meter ${meterNumber}${meterInfo}`,
-    });
-  };
-
-  // Refresh data based on whether we're using real or mock data
+  // Refresh data from the meter
   const refreshData = useCallback(async () => {
-    if (useMockData) {
-      generateMockData();
-    } else {
-      await fetchRealEnergyData();
-    }
-  }, [useMockData, generateMockData, fetchRealEnergyData]);
+    await fetchRealEnergyData();
+  }, [fetchRealEnergyData]);
 
   // Track initialization and data refresh
   const isInitialized = useRef(false);
@@ -964,12 +833,12 @@ export const useRealTimeEnergy = () => {
   const connectionAttempts = useRef(0);
   const maxConnectionAttempts = 3;
 
-  // Function to force real data mode and connect to meter
+  // Function to connect to meter
   const connectToMeter = useCallback(async (meter: string) => {
     try {
       console.log(`Connecting to meter: ${meter}`);
       meterNumber.current = meter;
-      setUseMockData(false);
+      setHasMeterConnected(true);
       
       // Ensure we have a valid session
       const { data: { session } } = await supabase.auth.getSession();
@@ -992,14 +861,13 @@ export const useRealTimeEnergy = () => {
       // Increment connection attempts
       connectionAttempts.current += 1;
       
-      // If we've tried too many times, fall back to mock data
+      // If we've tried too many times, show error
       if (connectionAttempts.current >= maxConnectionAttempts) {
-        setUseMockData(true);
-        generateMockData();
+        setError(`Could not connect to meter ${meter} after multiple attempts`);
         
         toast({
           title: "Connection Failed",
-          description: `Could not connect to meter ${meter} after multiple attempts. Using simulated data for now.`,
+          description: `Could not connect to meter ${meter} after multiple attempts. Please check your meter connection.`,
           variant: "destructive"
         });
       } else {
@@ -1015,16 +883,15 @@ export const useRealTimeEnergy = () => {
       
       return false;
     }
-  }, [fetchRealEnergyData, generateMockData, toast]);
+  }, [fetchRealEnergyData, toast]);
 
   // Initial data loading with proper meter connection
   useEffect(() => {
     // Skip if already initialized or no user
     if (isInitialized.current || !user) {
       if (!user) {
-        // No user, use mock data temporarily
-        setUseMockData(true);
-        generateMockData();
+        setLoading(false);
+        setError('Please log in to view energy data');
       }
       return;
     }
@@ -1042,9 +909,9 @@ export const useRealTimeEnergy = () => {
           meterNumber.current = profile.meter_number;
           await connectToMeter(profile.meter_number);
         } else {
-          // No meter set up, use mock data temporarily
-          setUseMockData(true);
-          generateMockData();
+          // No meter set up, show message
+          setLoading(false);
+          setError('No meter connected. Please set up your smart meter first.');
           
           toast({
             title: "No Meter Found",
@@ -1053,9 +920,8 @@ export const useRealTimeEnergy = () => {
         }
       } catch (error) {
         console.error('Error in initial data loading:', error);
-        // Fall back to mock data if anything fails
-        setUseMockData(true);
-        generateMockData();
+        setLoading(false);
+        setError('Failed to initialize energy data');
       }
     };
     
@@ -1065,7 +931,7 @@ export const useRealTimeEnergy = () => {
     }, 1000);
     
     return () => clearTimeout(initTimer);
-  }, [user, useMockData, fetchProfileData, generateMockData, fetchRealEnergyData, connectToMeter, toast]);
+  }, [user, fetchProfileData, connectToMeter, toast]);
 
   // Set up real-time data subscription and periodic refresh
   useEffect(() => {
@@ -1087,7 +953,7 @@ export const useRealTimeEnergy = () => {
     let meterSubscription: ReturnType<typeof supabase.channel> | null = null;
     let readingsSubscription: ReturnType<typeof supabase.channel> | null = null;
     
-    if (!useMockData && user && meterNumber.current) {
+    if (hasMeterConnected && user && meterNumber.current) {
       try {
         // Subscribe to real-time updates for energy_readings table
         readingsSubscription = supabase
@@ -1158,16 +1024,26 @@ export const useRealTimeEnergy = () => {
         }
       }
     };
-  }, [user, useMockData, fetchRealEnergyData, refreshData, connectToMeter, processNewReading, toast]);
+  }, [user, hasMeterConnected, refreshData, connectToMeter, processNewReading, toast]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return {
     energyData,
     recentReadings,
     analytics,
     loading,
+    error,
     refreshData,
-    simulateReading,
-    useMockData,
+    getNewReading,
+    hasMeterConnected,
     recordRealReading,
     connectToMeter,
     meterNumber: meterNumber.current
