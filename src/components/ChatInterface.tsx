@@ -3,15 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info, Wifi, WifiOff } from 'lucide-react';
+import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info, Wifi, WifiOff, RefreshCw, Database, Cloud } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
+import { aiService, AIServiceStatus, AIResponse } from '@/services/aiService';
 
 interface Message {
   id: string;
   text: string;
   isBot: boolean;
   timestamp: Date;
+  source?: 'ai' | 'fallback' | 'cache';
 }
 
 interface EnergyAlert {
@@ -89,10 +91,20 @@ const ChatInterface = () => {
   const [tokenData, setTokenData] = useState<TokenData>(MOCK_TOKEN_DATA);
   const [dataStatus, setDataStatus] = useState<'loading' | 'connected' | 'offline' | 'error'>('loading');
   const [lastDataFetch, setLastDataFetch] = useState<number>(0);
+  const [aiStatus, setAiStatus] = useState<AIServiceStatus>(aiService.getStatus());
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dataFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Subscribe to AI service status changes
+  useEffect(() => {
+    const unsubscribe = aiService.onStatusChange((status) => {
+      setAiStatus(status);
+    });
+
+    return unsubscribe;
+  }, []);
   
   // Safe data fetching with comprehensive error handling
   const fetchUserDataSafely = useCallback(async () => {
@@ -239,16 +251,24 @@ const ChatInterface = () => {
           const { data: tokenAnalytics, error: tokenError } = await supabase
             .rpc('get_token_analytics', { p_user_id: user.id });
 
-          if (!tokenError && tokenAnalytics && tokenAnalytics.length > 0) {
+          if (!tokenError && tokenAnalytics && Array.isArray(tokenAnalytics) && tokenAnalytics.length > 0) {
             const analytics = tokenAnalytics[0];
-            const realTokenData: TokenData = {
-              current_balance: analytics.current_balance || 0,
-              daily_consumption_avg: analytics.daily_consumption_avg || 0,
-              estimated_days_remaining: analytics.estimated_days_remaining || 0,
-              monthly_spending: analytics.monthly_spending || 0,
-              last_purchase_date: analytics.last_purchase_date
-            };
-            setTokenData(realTokenData);
+            
+            // Type guard to ensure analytics is an object with the expected properties
+            if (analytics && typeof analytics === 'object' && analytics !== null) {
+              const analyticsObj = analytics as Record<string, any>;
+              const realTokenData: TokenData = {
+                current_balance: typeof analyticsObj.current_balance === 'number' ? analyticsObj.current_balance : 0,
+                daily_consumption_avg: typeof analyticsObj.daily_consumption_avg === 'number' ? analyticsObj.daily_consumption_avg : 0,
+                estimated_days_remaining: typeof analyticsObj.estimated_days_remaining === 'number' ? analyticsObj.estimated_days_remaining : 0,
+                monthly_spending: typeof analyticsObj.monthly_spending === 'number' ? analyticsObj.monthly_spending : 0,
+                last_purchase_date: typeof analyticsObj.last_purchase_date === 'string' ? analyticsObj.last_purchase_date : undefined
+              };
+              setTokenData(realTokenData);
+            } else {
+              console.log('Invalid token analytics format, using mock data');
+              setTokenData(MOCK_TOKEN_DATA);
+            }
           } else {
             console.log('No token data found, using mock data');
             setTokenData(MOCK_TOKEN_DATA);
@@ -446,7 +466,7 @@ const ChatInterface = () => {
     return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\n${hasMeter ? `I have access to your ${meterCategory} meter data and can provide personalized insights.` : 'Connect your smart meter for personalized insights based on your actual usage!'}\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n• 🪙 KPLC token management\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "Explain my current energy usage"\n• "What's my token balance?"\n• "Kenya Power tariff rates"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
   }, [userData, energyData, tokenData]);
 
-  // Enhanced send message with real data integration
+  // Enhanced send message with AI service integration
   const sendMessage = useCallback(async () => {
     if (!inputValue.trim() || isTyping) return;
 
@@ -467,34 +487,46 @@ const ChatInterface = () => {
     
     setIsTyping(true);
 
-    typingTimeoutRef.current = setTimeout(() => {
-      try {
-        const botResponseText = getBotResponse(currentInput);
-        
-        const botMessage: Message = {
-          id: `bot-${Date.now()}`,
-          text: botResponseText,
-          isBot: true,
-          timestamp: new Date()
-        };
+    try {
+      console.log('Sending message to AI service...');
+      
+      // Create context-aware message with user data
+      const contextualMessage = `User: ${userData?.full_name || 'User'} (${userData?.meter_category || 'no meter'} meter)
+Energy Data: ${energyData.daily_total.toFixed(2)} kWh today, KSh ${energyData.daily_cost.toFixed(2)} cost, ${energyData.efficiency_score}% efficiency
+Token Data: KSh ${tokenData.current_balance.toFixed(2)} balance, ${tokenData.estimated_days_remaining} days remaining
 
-        setMessages(prev => [...prev, botMessage]);
-        setIsTyping(false);
-      } catch (error) {
-        console.error('Chat error:', error);
-        
-        const fallbackMessage: Message = {
-          id: `bot-fallback-${Date.now()}`,
-          text: "I'm here to help with your energy questions! Please try asking again.",
-          isBot: true,
-          timestamp: new Date()
-        };
+User Query: ${currentInput}
 
-        setMessages(prev => [...prev, fallbackMessage]);
-        setIsTyping(false);
-      }
-    }, 1500 + Math.random() * 1000);
-  }, [inputValue, isTyping, getBotResponse]);
+Please provide a helpful response about energy management, Kenya Power services, or electricity savings.`;
+
+      const response: AIResponse = await aiService.sendMessage(contextualMessage);
+
+      const botMessage: Message = {
+        id: `bot-${Date.now()}`,
+        text: response.message,
+        isBot: true,
+        timestamp: response.timestamp,
+        source: response.source
+      };
+
+      setMessages(prev => [...prev, botMessage]);
+      console.log(`Response received from ${response.source}`);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        text: '⚠️ I encountered an issue processing your request. Please try again or contact support if the problem persists.',
+        isBot: true,
+        timestamp: new Date(),
+        source: 'fallback'
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  }, [inputValue, isTyping, userData, energyData, tokenData]);
 
   const handleQuickAction = useCallback((action: string) => {
     if (!isTyping) {
@@ -561,6 +593,48 @@ const ChatInterface = () => {
         return 'Connecting...';
     }
   };
+
+  const getAiStatusIcon = () => {
+    if (aiStatus.isConnecting) {
+      return <RefreshCw className="h-3 w-3 text-blue-400 animate-spin" />;
+    }
+    
+    if (aiStatus.isConnected) {
+      return <Cloud className="h-3 w-3 text-green-400" />;
+    }
+    
+    return <WifiOff className="h-3 w-3 text-yellow-400" />;
+  };
+
+  const getAiStatusText = () => {
+    if (aiStatus.isConnecting) {
+      return 'AI Connecting...';
+    }
+    
+    if (aiStatus.isConnected) {
+      return 'AI Online';
+    }
+    
+    return 'AI Offline';
+  };
+
+  const getSourceIcon = (source?: string) => {
+    switch (source) {
+      case 'ai':
+        return <Cloud className="h-3 w-3 text-green-400" />;
+      case 'cache':
+        return <Database className="h-3 w-3 text-blue-400" />;
+      case 'fallback':
+        return <WifiOff className="h-3 w-3 text-yellow-400" />;
+      default:
+        return null;
+    }
+  };
+
+  const handleForceReconnect = useCallback(async () => {
+    console.log('Force reconnecting AI service...');
+    await aiService.forceReconnect();
+  }, []);
 
   return (
     <div className="space-y-4">
