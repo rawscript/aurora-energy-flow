@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { MessageCircle, X, Send, Bot, User, Zap, Calculator, Settings, TrendingUp, RefreshCw, Wifi, WifiOff, Database, Cloud } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { aiService, AIServiceStatus, AIResponse } from '@/services/aiService';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   id: string;
@@ -254,7 +254,7 @@ const Chatbot = () => {
               )}
               <div className="flex flex-col max-w-[80%]">
                 <div
-                  className={`p-3 rounded-lg text-sm whitespace-pre-line break-words ${
+                  className={`p-3 rounded-lg text-sm break-words ${
                     message.isBot
                       ? 'bg-slate-800 text-gray-200 rounded-tl-none'
                       : 'bg-aurora-green text-white rounded-tr-none'
@@ -265,7 +265,29 @@ const Chatbot = () => {
                     hyphens: 'auto'
                   }}
                 >
-                  {message.text}
+                  {message.isBot ? (
+                    <div className="prose prose-sm prose-invert max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          strong: ({ children }) => <strong className="font-bold text-aurora-green-light">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="text-sm">{children}</li>,
+                          h1: ({ children }) => <h1 className="text-lg font-bold mb-2 text-aurora-green-light">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-base font-bold mb-2 text-aurora-green-light">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-bold mb-1 text-aurora-green-light">{children}</h3>,
+                          code: ({ children }) => <code className="bg-slate-700 px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
+                          blockquote: ({ children }) => <blockquote className="border-l-2 border-aurora-green pl-2 italic">{children}</blockquote>
+                        }}
+                      >
+                        {message.text}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <span className="whitespace-pre-line">{message.text}</span>
+                  )}
                 </div>
                 {message.isBot && message.source && (
                   <div className="flex items-center gap-1 mt-1 ml-2">
