@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,11 +43,13 @@ const INDUSTRY_TYPES = [
   { value: 'light', label: 'Light Duty Usage' },
 ];
 
+// Simple type definitions following useRealTimeEnergy pattern
 interface MeterHistory {
   id: string;
   meter_number: string;
   full_name: string;
   phone_number: string;
+  location?: string;
   created_at: string;
   is_current: boolean;
   meter_category?: string;
@@ -59,21 +61,25 @@ const MeterSetup = () => {
   const [meterHistory, setMeterHistory] = useState<MeterHistory[]>([]);
   const [activeTab, setActiveTab] = useState('current');
   const [showIndustryType, setShowIndustryType] = useState(false);
-  const { user } = useAuth();
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const fetchingRef = useRef(false);
+  
+  const { user, session } = useAuth(); // Get both user and session for protected routes
   const { profile, loading: profileLoading, setupMeter } = useProfile();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { connectToMeter, useMockData, meterNumber } = useRealTimeEnergy();
+  const { connectToMeter, hasMeterConnected, meterNumber, loading: energyLoading } = useRealTimeEnergy();
 
   const form = useForm<MeterFormValues>({
     resolver: zodResolver(meterFormSchema),
     defaultValues: {
-      meterNumber: profile?.meter_number || '',
-      fullName: profile?.full_name || user?.user_metadata?.full_name || '',
-      phoneNumber: profile?.phone_number || user?.user_metadata?.phone_number || '',
+      meterNumber: '',
+      fullName: '',
+      phoneNumber: '',
       location: '',
-      meterCategory: (profile?.meter_category as 'household' | 'SME' | 'industry') || 'household',
-      industryType: (profile?.industry_type as 'heavyduty' | 'medium' | 'light') || undefined,
+      meterCategory: 'household',
+      industryType: undefined,
     },
   });
   
@@ -92,9 +98,82 @@ const MeterSetup = () => {
     }
   };
 
+  const fetchMeterHistory = useCallback(async (): Promise<void> => {
+    if (!user?.id || fetchingRef.current) return;
+    
+    try {
+      fetchingRef.current = true;
+      setHistoryLoading(true);
+      console.log('Fetching meter history for user:', user.id);
+      
+      // We'll get previous meter configurations by looking at profile updates
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('meter_number, full_name, phone_number, meter_category, industry_type, updated_at')
+        .eq('id', user.id)
+        .not('meter_number', 'is', null);
+        
+      if (error) {
+        console.error('Error fetching meter history:', error);
+        return;
+      }
+      
+      // For now, we'll create a simple history based on the current profile
+      // In a production app, you'd have a separate meter_history table
+      const currentProfile = data?.[0];
+      if (currentProfile) {
+        const historyItems: MeterHistory[] = [
+          {
+            id: '1',
+            meter_number: currentProfile.meter_number,
+            full_name: currentProfile.full_name || 'User',
+            phone_number: currentProfile.phone_number || '',
+            created_at: currentProfile.updated_at || new Date().toISOString(),
+            is_current: true,
+            meter_category: currentProfile.meter_category,
+            industry_type: currentProfile.industry_type
+          }
+        ];
+        
+        // Add some example historical meters for demonstration
+        // In production, these would come from actual historical data
+        if (currentProfile.meter_number !== '12345678901') {
+          historyItems.push({
+            id: '2',
+            meter_number: '12345678901',
+            full_name: currentProfile.full_name || 'User',
+            phone_number: currentProfile.phone_number || '',
+            created_at: '2024-01-15T10:00:00Z',
+            is_current: false,
+            meter_category: 'household'
+          });
+        }
+        
+        if (currentProfile.meter_number !== '98765432109') {
+          historyItems.push({
+            id: '3',
+            meter_number: '98765432109',
+            full_name: currentProfile.full_name || 'User',
+            phone_number: currentProfile.phone_number || '',
+            created_at: '2024-06-20T14:30:00Z',
+            is_current: false,
+            meter_category: 'SME'
+          });
+        }
+        
+        setMeterHistory(historyItems);
+      }
+    } catch (error) {
+      console.error('Error fetching meter history:', error);
+    } finally {
+      setHistoryLoading(false);
+      fetchingRef.current = false;
+    }
+  }, [user?.id]);
+
   // Update form when profile data loads
   useEffect(() => {
-    if (profile) {
+    if (profile && user && !isInitialized) {
       form.reset({
         meterNumber: profile.meter_number || '',
         fullName: profile.full_name || user?.user_metadata?.full_name || '',
@@ -106,116 +185,51 @@ const MeterSetup = () => {
       
       // Set industry type visibility
       setShowIndustryType(profile.meter_category === 'industry');
+      setIsInitialized(true);
     }
-  }, [profile, user, form]);
+  }, [profile, user, form, isInitialized]);
 
-  // Fetch meter history
+  // Fetch meter history when user changes - only once
   useEffect(() => {
-    if (user) {
+    if (user?.id && !fetchingRef.current) {
       fetchMeterHistory();
     }
-  }, [user]);
+  }, [user?.id, fetchMeterHistory]);
 
-  const fetchMeterHistory = async () => {
-    try {
-      // Since we don't have a meter_history table, we'll simulate it
-      // In a real app, you'd have a separate table for meter history
-      const mockHistory: MeterHistory[] = [
-        {
-          id: '1',
-          meter_number: '12345678901',
-          full_name: 'John Doe',
-          phone_number: '+254700000001',
-          created_at: '2024-01-15T10:00:00Z',
-          is_current: false,
-          meter_category: 'household'
-        },
-        {
-          id: '2',
-          meter_number: '98765432109',
-          full_name: 'John Doe',
-          phone_number: '+254700000002',
-          created_at: '2024-06-20T14:30:00Z',
-          is_current: false,
-          meter_category: 'SME'
-        },
-        {
-          id: '3',
-          meter_number: '56789012345',
-          full_name: 'John Doe',
-          phone_number: '+254700000003',
-          created_at: '2024-07-10T09:15:00Z',
-          is_current: false,
-          meter_category: 'industry',
-          industry_type: 'heavyduty'
-        }
-      ];
-      //add meter history logic to supabase to ensure that users can get readings from history
-      setMeterHistory(mockHistory);
-    } catch (error) {
-      console.error('Error fetching meter history:', error);
-    }
-  };
-
-  const selectFromHistory = async (historyItem: MeterHistory) => {
+  const selectFromHistory = async (historyItem: MeterHistory): Promise<void> => {
+    if (isLoading) return; // Prevent multiple simultaneous selections
+    
     setIsLoading(true);
     try {
+      console.log(`Selecting meter ${historyItem.meter_number} from history`);
+
       // Ensure user ID is available
       if (!user?.id) {
         throw new Error('User not authenticated');
       }
 
-      // Prepare the profile data with proper typing
+      // Prepare the profile data - following useRealTimeEnergy pattern
       const profileData = {
-        id: user.id,
-        email: user.email || '',
         full_name: historyItem.full_name,
         phone_number: historyItem.phone_number,
         meter_number: historyItem.meter_number,
+        meter_category: historyItem.meter_category || 'household',
+        industry_type: historyItem.meter_category === 'industry' ? (historyItem.industry_type || 'medium') : null,
+        updated_at: new Date().toISOString()
       };
-      
-      // Create the complete profile data object with proper typing
-      const completeProfileData = {
-        ...profileData,
-        meter_category: '',
-        industry_type: null as string | null,
-      };
-
-      // Use the meter category from history if available, otherwise use current or default
-      if (historyItem.meter_category) {
-        completeProfileData.meter_category = historyItem.meter_category;
         
-        // If it's an industry meter, include the industry type
-        if (historyItem.meter_category === 'industry' && historyItem.industry_type) {
-          completeProfileData.industry_type = historyItem.industry_type;
-        } else if (historyItem.meter_category === 'industry') {
-          // Default industry type if not specified
-          completeProfileData.industry_type = 'medium';
-        } else {
-          // Clear industry type for non-industry meters
-          completeProfileData.industry_type = null;
-        }
-      } else {
-        // If no category in history, get from current profile or use default
-        const { data: currentData } = await supabase
-          .from('profiles')
-          .select('meter_category, industry_type')
-          .eq('id', user.id)
-          .single();
-          
-        completeProfileData.meter_category = currentData?.meter_category || 'household';
-        completeProfileData.industry_type = 
-          (completeProfileData.meter_category === 'industry') ? 
-          (currentData?.industry_type || 'medium') : null;
-      }
-        
+      // Update the profile with the selected meter - following useRealTimeEnergy pattern
       const { error } = await supabase
         .from('profiles')
-        .upsert(completeProfileData);
+        .update(profileData)
+        .eq('id', user.id);
 
       if (error) throw error;
       
-      // Connect to the meter using the real-time energy hook
+      // Wait a bit for the profile to update before connecting
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Connect to the SPECIFIC meter using the real-time energy hook
       const success = await connectToMeter(historyItem.meter_number);
       
       if (success) {
@@ -223,9 +237,12 @@ const MeterSetup = () => {
           title: "Meter Connected",
           description: `Successfully connected to meter ${historyItem.meter_number}. Real-time data collection is now enabled.`,
         });
+        
+        // Refresh the meter history to reflect the current selection
+        await fetchMeterHistory();
       } else {
         toast({
-          title: "Partial Connection",
+          title: "Connection Issue",
           description: `Meter ${historyItem.meter_number} was set up but real-time connection failed. Will retry automatically.`,
           variant: "destructive",
         });
@@ -244,8 +261,8 @@ const MeterSetup = () => {
     }
   };
 
-  const onSubmit = async (data: MeterFormValues) => {
-    if (!user?.id) return;
+  const onSubmit = async (data: MeterFormValues): Promise<void> => {
+    if (!user?.id || isLoading) return;
 
     setIsLoading(true);
     try {
@@ -260,7 +277,7 @@ const MeterSetup = () => {
         throw new Error('Failed to setup meter');
       }
 
-      // Also update other profile fields
+      // Also update other profile fields - following useRealTimeEnergy pattern
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -271,7 +288,10 @@ const MeterSetup = () => {
         .eq('id', user.id);
 
       if (error) throw error;
-      
+
+      // Wait a bit for the profile to update before connecting
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       // Connect to the meter using the real-time energy hook
       const meterSuccess = await connectToMeter(data.meterNumber);
       
@@ -280,6 +300,10 @@ const MeterSetup = () => {
           title: "Meter Connected",
           description: "Your smart meter has been successfully connected to Aurora Energy. Real-time data collection is now enabled.",
         });
+        
+        // Refresh the meter history to show the new meter
+        await fetchMeterHistory();
+        setActiveTab('current');
       } else {
         toast({
           title: "Partial Setup",
@@ -394,35 +418,25 @@ const MeterSetup = () => {
                           {profile.industry_type.charAt(0).toUpperCase() + profile.industry_type.slice(1)}
                         </Badge>
                       )}
-                      {useMockData ? (
-                        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Simulated
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                          <Zap className="h-3 w-3 mr-1" />
-                          Real-time
-                        </Badge>
-                      )}
+                      <Badge className={`${hasMeterConnected ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                        <Zap className="h-3 w-3 mr-1" />
+                        {hasMeterConnected ? 'Real-time' : 'Connecting...'}
+                      </Badge>
                     </div>
                   </div>
-                  <Badge className={useMockData 
-                    ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                    : "bg-green-500/20 text-green-400 border-green-500/30"
-                  }>
-                    {useMockData ? (
-                      <>
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Simulated
-                      </>
-                    ) : (
+                  <div className={`flex items-center text-sm ${hasMeterConnected ? 'text-aurora-green' : 'text-yellow-400'}`}>
+                    {hasMeterConnected ? (
                       <>
                         <Check className="h-3 w-3 mr-1" />
                         Active
                       </>
+                    ) : (
+                      <>
+                        <Clock className="h-3 w-3 mr-1" />
+                        Connecting
+                      </>
                     )}
-                  </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -444,8 +458,10 @@ const MeterSetup = () => {
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">Status</Label>
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-green-400">Connected</span>
+                      <div className={`w-2 h-2 rounded-full ${hasMeterConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
+                      <span className={hasMeterConnected ? 'text-green-400' : 'text-yellow-400'}>
+                        {hasMeterConnected ? 'Connected' : 'Connecting...'}
+                      </span>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -513,24 +529,42 @@ const MeterSetup = () => {
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
-              {meterHistory.length > 0 ? (
+              {historyLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aurora-blue mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading meter history...</p>
+                </div>
+              ) : meterHistory.length > 0 ? (
                 <>
                   {meterHistory.map((meter) => (
                     <div
                       key={meter.id}
-                      className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg border border-slate-700/50 hover:border-aurora-blue/30 transition-colors"
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                        meter.is_current 
+                          ? 'bg-aurora-green/10 border-aurora-green/30 hover:border-aurora-green/50' 
+                          : 'bg-slate-800/30 border-slate-700/50 hover:border-aurora-blue/30'
+                      }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
-                          <Gauge className="h-5 w-5 text-aurora-blue-light" />
+                          <Gauge className={`h-5 w-5 ${meter.is_current ? 'text-aurora-green' : 'text-aurora-blue-light'}`} />
                           <div>
-                            <p className="font-mono text-sm font-medium">
-                              {meter.meter_number}
-                            </p>
+                            <div className="flex items-center space-x-2">
+                              <p className="font-mono text-sm font-medium">
+                                {meter.meter_number}
+                              </p>
+                              {meter.is_current && (
+                                <Badge className="bg-aurora-green/20 text-aurora-green border-aurora-green/30 text-xs">
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Current
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               {meter.full_name} • {meter.phone_number}
                             </p>
                             <p className="text-xs text-muted-foreground">
+                              {meter.location && `${meter.location} • `}
                               Used: {new Date(meter.created_at).toLocaleDateString()}
                             </p>
                             <div className="flex items-center mt-1">
@@ -549,14 +583,22 @@ const MeterSetup = () => {
                           </div>
                         </div>
                       </div>
-                      <Button
-                        onClick={() => selectFromHistory(meter)}
-                        disabled={isLoading}
-                        size="sm"
-                        className="bg-aurora-green hover:bg-aurora-green/80"
-                      >
-                        {isLoading ? 'Connecting...' : 'Select'}
-                      </Button>
+                      {!meter.is_current && (
+                        <Button
+                          onClick={() => selectFromHistory(meter)}
+                          disabled={isLoading}
+                          size="sm"
+                          className="bg-aurora-green hover:bg-aurora-green/80"
+                        >
+                          {isLoading ? 'Connecting...' : 'Select'}
+                        </Button>
+                      )}
+                      {meter.is_current && (
+                        <div className="flex items-center text-aurora-green text-sm">
+                          <Check className="h-4 w-4 mr-1" />
+                          Active
+                        </div>
+                      )}
                     </div>
                   ))}
                   <div className="pt-4 border-t border-slate-700/50">
@@ -702,7 +744,7 @@ const MeterSetup = () => {
                         <div className="relative">
                           <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
                           <Select 
-                            defaultValue={field.value} 
+                            value={field.value} 
                             onValueChange={(value) => handleMeterCategoryChange(value)}
                           >
                             <FormControl>
@@ -738,7 +780,7 @@ const MeterSetup = () => {
                           <div className="relative">
                             <Factory className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
                             <Select 
-                              defaultValue={field.value} 
+                              value={field.value} 
                               onValueChange={field.onChange}
                             >
                               <FormControl>

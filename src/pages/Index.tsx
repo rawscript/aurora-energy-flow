@@ -126,7 +126,7 @@ const Index = () => {
                   <EnergyDashboard />
                 </div>
                 <div className="lg:col-span-1">
-                  <SmartMeterStatus />
+                  <SmartMeterStatus onNavigateToMeter={() => setActiveTab("meter")} />
                 </div>
               </div>
             )}

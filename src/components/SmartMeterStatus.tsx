@@ -6,19 +6,23 @@ import { Wifi, WifiOff, Zap, Clock, AlertTriangle, Link } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
 
-const SmartMeterStatus = () => {
-  const { recentReadings } = useRealTimeEnergy();
+interface SmartMeterStatusProps {
+  onNavigateToMeter?: () => void;
+}
+
+const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
+  const { recentReadings, hasMeterConnected, error, loading } = useRealTimeEnergy();
   const { user } = useAuth();
-  const navigate = useNavigate();
   
   const lastReading = recentReadings[0];
-  const isConnected = lastReading && 
+  const isConnected = hasMeterConnected && lastReading && 
     new Date().getTime() - new Date(lastReading.reading_date).getTime() < 300000; // 5 minutes
 
   const handleSetupMeter = () => {
-    navigate('/meter-setup');
+    if (onNavigateToMeter) {
+      onNavigateToMeter();
+    }
   };
 
   return (
@@ -90,9 +94,15 @@ const SmartMeterStatus = () => {
         
         <div className="pt-2 border-t border-slate-700">
           <div className="text-xs text-muted-foreground">
-            {!isConnected 
-              ? 'Using simulated data. Connect a real meter for accurate insights.'
-              : 'Real-time data from Kenya Power smart meters'}
+            {loading 
+              ? 'Loading meter status...'
+              : error 
+                ? 'Unable to connect to meter. Please check your setup.'
+                : !hasMeterConnected 
+                  ? 'No meter connected. Set up your smart meter to get real-time data.'
+                  : isConnected
+                    ? 'Real-time data from Kenya Power smart meters'
+                    : 'Meter connected but no recent readings. Checking connection...'}
           </div>
         </div>
       </CardContent>
