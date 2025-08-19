@@ -116,6 +116,9 @@ const Index = () => {
           </div>
         );
         break;
+      case 'insights':
+        content = <EnergyInsights onNavigateToMeter={handleNavigateToMeter} />;
+        break;
       default:
         const Component = config.component;
         content = <Component />;
@@ -138,6 +141,19 @@ const Index = () => {
       setLoadedTabs(prev => new Set([...prev, ...criticalTabs]));
     }, 500);
   }, []);
+
+  // Listen for global navigation events (fallback for components without navigation props)
+  useEffect(() => {
+    const handleNavigateToMeter = () => {
+      handleTabChange("meter");
+    };
+
+    window.addEventListener('navigate-to-meter', handleNavigateToMeter);
+    
+    return () => {
+      window.removeEventListener('navigate-to-meter', handleNavigateToMeter);
+    };
+  }, [handleTabChange]);
 
   return (
     <div className="min-h-screen bg-aurora-dark">

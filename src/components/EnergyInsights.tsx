@@ -8,37 +8,56 @@ import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 
-const EnergyInsights = () => {
+interface EnergyInsightsProps {
+  onNavigateToMeter?: () => void;
+}
+
+const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) => {
   const { energyData, analytics, loading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy();
   const isMobile = useIsMobile();
+
+  // Handle meter setup navigation
+  const handleSetupMeter = () => {
+    if (onNavigateToMeter) {
+      onNavigateToMeter();
+    } else {
+      // Fallback: trigger tab change via URL hash or custom event
+      const event = new CustomEvent('navigate-to-meter');
+      window.dispatchEvent(event);
+    }
+  };
 
   // Show loading only when actually loading
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32 sm:h-64">
-        <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-aurora-green-light"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-aurora-green-light mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Loading energy insights...</p>
+        </div>
       </div>
     );
   }
 
-  // Show no meter connected state
+  // Show no meter connected state with proper navigation
   if (meterConnectionChecked && !hasMeterConnected) {
     return (
       <div className="space-y-6 animate-fade-in">
         <Card className="bg-aurora-card border-yellow-500/20">
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-6 sm:p-8 text-center">
             <div className="flex flex-col items-center space-y-4">
               <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center">
                 <Zap className="h-8 w-8 text-yellow-500" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-2">No Smart Meter Connected</h3>
-                <p className="text-muted-foreground mb-4 max-w-md">
+                <p className="text-muted-foreground mb-6 max-w-md">
                   Connect your Kenya Power smart meter to start getting personalized energy insights and analytics.
                 </p>
                 <Button 
-                  onClick={() => window.location.hash = '#meter'}
+                  onClick={handleSetupMeter}
                   className="bg-aurora-green hover:bg-aurora-green/80"
+                  size="lg"
                 >
                   <Zap className="h-4 w-4 mr-2" />
                   Setup Smart Meter
@@ -48,46 +67,55 @@ const EnergyInsights = () => {
           </CardContent>
         </Card>
 
-        {/* Empty state cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="bg-aurora-card border-aurora-green/20">
+        {/* Preview cards showing what users will get */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <Card className="bg-aurora-card border-aurora-green/20 opacity-60">
             <CardHeader>
-              <CardTitle className="text-lg text-aurora-green-light">Efficiency Score</CardTitle>
+              <CardTitle className="text-lg text-aurora-green-light flex items-center space-x-2">
+                <TrendingUp className="h-5 w-5" />
+                <span>Efficiency Score</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center">
                 <div className="text-4xl font-bold text-gray-500 mb-2">—</div>
-                <p className="text-sm text-muted-foreground">No data available</p>
+                <p className="text-sm text-muted-foreground">Connect meter to see your efficiency</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-aurora-card border-aurora-blue/20">
+          <Card className="bg-aurora-card border-aurora-blue/20 opacity-60">
             <CardHeader>
-              <CardTitle className="text-lg text-aurora-blue-light">Usage Pattern</CardTitle>
+              <CardTitle className="text-lg text-aurora-blue-light flex items-center space-x-2">
+                <Sun className="h-5 w-5" />
+                <span>Usage Pattern</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center">
                 <div className="text-4xl font-bold text-gray-500 mb-2">—</div>
-                <p className="text-sm text-muted-foreground">No data available</p>
+                <p className="text-sm text-muted-foreground">Track your daily usage patterns</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-aurora-card border-aurora-purple/20">
+          <Card className="bg-aurora-card border-aurora-purple/20 opacity-60">
             <CardHeader>
-              <CardTitle className="text-lg text-aurora-purple-light">Cost Analysis</CardTitle>
+              <CardTitle className="text-lg text-aurora-purple-light flex items-center space-x-2">
+                <Battery className="h-5 w-5" />
+                <span>Cost Analysis</span>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-center">
                 <div className="text-4xl font-bold text-gray-500 mb-2">—</div>
-                <p className="text-sm text-muted-foreground">No data available</p>
+                <p className="text-sm text-muted-foreground">Monitor your electricity costs</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Information card */}
+        {/* Benefits information card */}
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader>
             <CardTitle className="text-xl text-aurora-blue-light flex items-center space-x-2">
@@ -95,35 +123,52 @@ const EnergyInsights = () => {
               <span>What You'll Get With Smart Meter Connection</span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-start space-x-3">
-                <TrendingUp className="h-5 w-5 text-aurora-green mt-1" />
+                <TrendingUp className="h-5 w-5 text-aurora-green mt-1 flex-shrink-0" />
                 <div>
-                  <h4 className="font-medium">Real-time Usage Tracking</h4>
-                  <p className="text-sm text-muted-foreground">Monitor your electricity consumption as it happens</p>
+                  <h4 className="font-medium text-aurora-green-light">Real-time Usage Tracking</h4>
+                  <p className="text-sm text-muted-foreground">Monitor your electricity consumption as it happens with live data from your Kenya Power smart meter</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
-                <Battery className="h-5 w-5 text-aurora-blue mt-1" />
+                <Battery className="h-5 w-5 text-aurora-blue mt-1 flex-shrink-0" />
                 <div>
-                  <h4 className="font-medium">Efficiency Analysis</h4>
-                  <p className="text-sm text-muted-foreground">Get personalized efficiency scores and recommendations</p>
+                  <h4 className="font-medium text-aurora-blue-light">AI-Powered Efficiency Analysis</h4>
+                  <p className="text-sm text-muted-foreground">Get personalized efficiency scores and smart recommendations to reduce your electricity bills</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
-                <Sun className="h-5 w-5 text-aurora-purple mt-1" />
+                <Sun className="h-5 w-5 text-aurora-purple mt-1 flex-shrink-0" />
                 <div>
-                  <h4 className="font-medium">Cost Optimization</h4>
-                  <p className="text-sm text-muted-foreground">Identify peak hours and reduce your electricity bills</p>
+                  <h4 className="font-medium text-aurora-purple-light">Peak Hour Cost Optimization</h4>
+                  <p className="text-sm text-muted-foreground">Identify your peak usage hours and learn when to use appliances to save money</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
-                <House className="h-5 w-5 text-emerald-400 mt-1" />
+                <House className="h-5 w-5 text-emerald-400 mt-1 flex-shrink-0" />
                 <div>
-                  <h4 className="font-medium">Device Breakdown</h4>
-                  <p className="text-sm text-muted-foreground">See which appliances consume the most energy</p>
+                  <h4 className="font-medium text-emerald-400">Device Usage Breakdown</h4>
+                  <p className="text-sm text-muted-foreground">See which appliances consume the most energy and get tips to optimize their usage</p>
                 </div>
+              </div>
+            </div>
+            
+            <div className="border-t border-slate-700 pt-6">
+              <div className="text-center">
+                <h4 className="font-medium text-aurora-green-light mb-3">Ready to get started?</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Setting up your smart meter takes just a few minutes and unlocks all these powerful insights.
+                </p>
+                <Button 
+                  onClick={handleSetupMeter}
+                  className="bg-aurora-green hover:bg-aurora-green/80"
+                  size="lg"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  Setup Smart Meter Now
+                </Button>
               </div>
             </div>
           </CardContent>
