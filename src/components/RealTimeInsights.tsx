@@ -1,124 +1,43 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Info } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Lightbulb, AlertTriangle, Info, ExternalLink } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
+import { useProfile } from '@/hooks/useProfile';
+import { generateMeterSpecificInsights, getCategoryDisplayName, type MeterCategory, type IndustryType } from '@/utils/meterInsights';
 
 const RealTimeInsights = () => {
   const { energyData, analytics, hasMeterConnected, error, loading } = useRealTimeEnergy();
+  const { profile } = useProfile();
   
-  // Generate insights based on data patterns
-  const generateInsights = () => {
-    const insights = [];
-    
-    // If no meter connected, add a clear indicator
-    if (!hasMeterConnected) {
-      insights.push({
-        type: 'no-meter',
-        title: 'No Meter Connected',
-        description: 'Connect your smart meter to get personalized energy insights and real-time data.',
-        icon: <Info className="h-5 w-5 text-amber-400" />,
-        severity: 'warning'
-      });
-      return insights;
-    }
-    
-    // If there's an error, show it
-    if (error) {
-      insights.push({
-        type: 'error',
-        title: 'Data Unavailable',
-        description: error,
-        icon: <AlertTriangle className="h-5 w-5 text-red-400" />,
-        severity: 'alert'
-      });
-      return insights;
-    }
-    
-    // Check for peak usage times
-    if (analytics.peakHours?.length > 0) {
-      const firstPeak = analytics.peakHours[0];
-      if (firstPeak && typeof firstPeak.hour === 'number') {
-        insights.push({
-          type: 'peak',
-          title: 'Peak Usage Detected',
-          description: `Your highest energy usage occurs at ${firstPeak.hour}:00. Consider shifting some activities to off-peak hours.`,
-          icon: <TrendingUp className="h-5 w-5 text-amber-400" />,
-          severity: 'warning'
-        });
-      }
-    }
-    
-    // Check for cost trends
-    if (energyData.cost_trend === 'up') {
-      insights.push({
-        type: 'cost',
-        title: 'Rising Energy Costs',
-        description: 'Your energy costs are trending upward. Check for devices that might be using more power than usual.',
-        icon: <TrendingUp className="h-5 w-5 text-red-400" />,
-        severity: 'alert'
-      });
-    } else if (energyData.cost_trend === 'down') {
-      insights.push({
-        type: 'cost',
-        title: 'Decreasing Energy Costs',
-        description: 'Your energy costs are trending downward. Keep up the good work!',
-        icon: <TrendingDown className="h-5 w-5 text-green-400" />,
-        severity: 'success'
-      });
-    }
-    
-    // Check for efficiency score
-    if (energyData.efficiency_score < 70) {
-      insights.push({
-        type: 'efficiency',
-        title: 'Low Efficiency Score',
-        description: 'Your energy efficiency score is below average. Consider upgrading to energy-efficient appliances.',
-        icon: <AlertTriangle className="h-5 w-5 text-red-400" />,
-        severity: 'alert'
-      });
-    } else if (energyData.efficiency_score > 90) {
-      insights.push({
-        type: 'efficiency',
-        title: 'Excellent Efficiency',
-        description: 'Your energy efficiency score is excellent. You\'re using energy wisely!',
-        icon: <Lightbulb className="h-5 w-5 text-green-400" />,
-        severity: 'success'
-      });
-    }
-    
-    // Check device breakdown for optimization opportunities
-    if (analytics.deviceBreakdown && analytics.deviceBreakdown.length > 0) {
-      const highestDevice = analytics.deviceBreakdown.reduce((prev, current) => 
-        (prev.percentage > current.percentage) ? prev : current
-      );
-      
-      if (highestDevice.percentage > 40) {
-        insights.push({
-          type: 'device',
-          title: `High ${highestDevice.device} Usage`,
-          description: `${highestDevice.device} accounts for ${highestDevice.percentage}% of your energy usage. Consider optimizing this category.`,
-          icon: <Info className="h-5 w-5 text-blue-400" />,
-          severity: 'info'
-        });
-      }
-    }
-    
-    // If no insights, add a default one
-    if (insights.length === 0) {
-      insights.push({
-        type: 'default',
-        title: 'Energy Usage Normal',
-        description: 'Your energy usage patterns appear normal. Continue monitoring for future insights.',
-        icon: <Info className="h-5 w-5 text-blue-400" />,
-        severity: 'info'
-      });
-    }
-    
-    return insights;
-  };
+  // Get meter category and industry type from profile with fallbacks
+  const meterCategory = (profile?.meter_category as MeterCategory) || 'household';
+  const industryType = profile?.industry_type as IndustryType;
   
-  const insights = generateInsights();
+  // Generate meter-specific insights
+  const insights = generateMeterSpecificInsights(
+    energyData,
+    analytics,
+    meterCategory,
+    industryType,
+    hasMeterConnected
+  );
+  
+  // Handle error state by adding error insight
+  if (error && insights.length > 0) {
+    insights.unshift({
+      id: 'error',
+      type: 'alert',
+      title: 'Data Unavailable',
+      description: error,
+      icon: AlertTriangle,
+      severity: 'alert',
+      category: meterCategory,
+      industryType,
+      priority: 10
+    });
+  }
   
   if (loading) {
     return (
@@ -157,35 +76,100 @@ const RealTimeInsights = () => {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {insights.map((insight, index) => (
-          <div 
-            key={index} 
-            className={`p-3 rounded-lg flex items-start space-x-3 ${
-              insight.severity === 'alert' ? 'bg-red-500/10 border border-red-500/20' :
-              insight.severity === 'warning' ? 'bg-amber-500/10 border border-amber-500/20' :
-              insight.severity === 'success' ? 'bg-green-500/10 border border-green-500/20' :
-              'bg-blue-500/10 border border-blue-500/20'
-            }`}
-          >
-            <div className="mt-0.5">{insight.icon}</div>
-            <div>
-              <h4 className={`font-medium ${
-                insight.severity === 'alert' ? 'text-red-400' :
-                insight.severity === 'warning' ? 'text-amber-400' :
-                insight.severity === 'success' ? 'text-green-400' :
-                'text-blue-400'
-              }`}>
-                {insight.title}
-              </h4>
-              <p className="text-sm text-muted-foreground">{insight.description}</p>
+        {insights.length > 0 ? (
+          <>
+            {/* Category Badge */}
+            <div className="flex items-center justify-between mb-4">
+              <Badge variant="outline" className="bg-aurora-purple/20 text-aurora-purple-light border-aurora-purple/30">
+                {getCategoryDisplayName(meterCategory, industryType)} Insights
+              </Badge>
+              {hasMeterConnected && (
+                <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">
+                  Live Data
+                </Badge>
+              )}
             </div>
+
+            {/* Insights */}
+            {insights.map((insight) => {
+              const IconComponent = insight.icon;
+              return (
+                <div 
+                  key={insight.id} 
+                  className={`p-3 rounded-lg border transition-all hover:border-opacity-50 ${
+                    insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
+                    insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                    insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                    'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="mt-0.5">
+                      <IconComponent className={`h-5 w-5 ${
+                        insight.severity === 'alert' ? 'text-red-400' :
+                        insight.severity === 'warning' ? 'text-amber-400' :
+                        insight.severity === 'success' ? 'text-green-400' :
+                        'text-blue-400'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className={`font-medium ${
+                            insight.severity === 'alert' ? 'text-red-400' :
+                            insight.severity === 'warning' ? 'text-amber-400' :
+                            insight.severity === 'success' ? 'text-green-400' :
+                            'text-blue-400'
+                          }`}>
+                            {insight.title}
+                          </h4>
+                          <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
+                          
+                          {/* Recommendation */}
+                          {insight.recommendation && (
+                            <div className="mt-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
+                              <p className="text-xs text-gray-300">
+                                <strong className="text-aurora-green-light">Recommendation:</strong> {insight.recommendation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Action Button */}
+                        {insight.actionable && !hasMeterConnected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="ml-3 text-xs border-aurora-green/30 hover:bg-aurora-green/10"
+                            onClick={() => window.location.hash = '#meter'}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            Setup
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">No insights available</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {hasMeterConnected 
+                ? 'Start using energy to generate insights'
+                : 'Connect your smart meter to get personalized insights'}
+            </p>
           </div>
-        ))}
+        )}
         
-        <div className="pt-2 text-xs text-muted-foreground">
+        <div className="pt-2 text-xs text-muted-foreground border-t border-slate-700/50">
           {hasMeterConnected 
-            ? 'Insights are generated based on your actual energy usage patterns.'
-            : 'Connect your smart meter to get personalized insights based on your actual usage.'}
+            ? `Insights are tailored for ${getCategoryDisplayName(meterCategory, industryType).toLowerCase()} usage patterns based on your actual energy data.`
+            : `Connect your ${getCategoryDisplayName(meterCategory, industryType).toLowerCase()} smart meter to get personalized insights based on your actual usage patterns.`}
         </div>
       </CardContent>
     </Card>
