@@ -19,8 +19,25 @@ export interface EnergyInsight {
   recommendation?: string;
 }
 
+// Shared benchmark types to ensure consistent return shapes
+export type UsageRange = { low: number; normal: number; high: number };
+export type EfficiencyRange = { excellent: number; good: number; poor: number };
+export type DeviceRange = { normal: number; high: number };
+export interface BaseBenchmark {
+  dailyUsage: UsageRange;
+  dailyCost: UsageRange;
+  efficiency: EfficiencyRange;
+  peakHours: string[];
+  monthlyBudget: number;
+  deviceBreakdown: Record<string, DeviceRange>;
+}
+
 // Meter-specific thresholds and benchmarks
-export const METER_BENCHMARKS = {
+export const METER_BENCHMARKS: {
+  household: BaseBenchmark;
+  SME: BaseBenchmark;
+  industry: Record<IndustryType, BaseBenchmark>;
+} = {
   household: {
     dailyUsage: { low: 5, normal: 15, high: 25 }, // kWh
     dailyCost: { low: 125, normal: 375, high: 625 }, // KSh
@@ -91,9 +108,10 @@ export const METER_BENCHMARKS = {
 };
 
 // Get appropriate benchmark based on meter type
-export const getBenchmark = (category: MeterCategory, industryType?: IndustryType) => {
-  if (category === 'industry' && industryType) {
-    return METER_BENCHMARKS.industry[industryType];
+export const getBenchmark = (category: MeterCategory, industryType?: IndustryType): BaseBenchmark => {
+  if (category === 'industry') {
+    const type: IndustryType = industryType ?? 'medium';
+    return METER_BENCHMARKS.industry[type];
   }
   return METER_BENCHMARKS[category];
 };
@@ -129,7 +147,7 @@ export const generateMeterSpecificInsights = (
         industryType,
         priority: 9,
         actionable: true,
-        recommendation: getUsageRecommendation(category, industryType, 'high')
+        recommendation: getUsageRecommendation(category, 'high', industryType)
       });
     } else if (energyData.daily_total < benchmark.dailyUsage.low) {
       insights.push({
@@ -285,7 +303,7 @@ const getCategoryDisplayName = (category: MeterCategory, industryType?: Industry
   return category === 'SME' ? 'SME' : category.charAt(0).toUpperCase() + category.slice(1);
 };
 
-const getUsageRecommendation = (category: MeterCategory, industryType?: IndustryType, level: 'high' | 'low'): string => {
+const getUsageRecommendation = (category: MeterCategory, level: 'high' | 'low', industryType?: IndustryType): string => {
   if (level === 'high') {
     switch (category) {
       case 'household':
@@ -352,7 +370,7 @@ const generateDeviceInsights = (
   deviceBreakdown: any[],
   category: MeterCategory,
   industryType: IndustryType | undefined,
-  benchmark: any
+  benchmark: BaseBenchmark
 ): EnergyInsight[] => {
   const insights: EnergyInsight[] = [];
   
