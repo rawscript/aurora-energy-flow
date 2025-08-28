@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 // Lazy load components for better performance
 const EnergyDashboard = lazy(() => import("@/components/EnergyDashboard"));
@@ -36,18 +38,28 @@ const Index = () => {
   const [loadedTabs, setLoadedTabs] = useState(new Set(["dashboard"])); // Pre-load dashboard
   const isMobile = useIsMobile();
   const { unreadCount } = useNotifications();
+  const { user } = useAuth();
+  const [energyProvider, setEnergyProvider] = useState<string>('KPLC');
 
   // Memoize tab configuration to prevent re-renders
-  const tabConfig = useMemo(() => ({
-    dashboard: { label: isMobile ? "Home" : "Dashboard", component: isMobile ? MobileDashboard : EnergyDashboard },
-    tokens: { label: isMobile ? "Tokens" : "KPLC Tokens", component: KPLCTokenDashboard },
-    notifications: { label: isMobile ? "Alerts" : "Notifications", component: NotificationCenter },
-    insights: { label: "Insights", component: EnergyInsights },
-    calculator: { label: isMobile ? "Calc" : "Calculator", component: BillCalculator },
-    meter: { label: isMobile ? "Meter" : "Meter Setup", component: MeterSetup },
-    chat: { label: isMobile ? "AI Chat" : "AI Assistant", component: ChatInterface },
-    settings: { label: "Settings", component: Settings }
-  }), [isMobile]);
+  const tabConfig = useMemo(() => {
+    const config = {
+      dashboard: { label: isMobile ? "Home" : "Dashboard", component: isMobile ? MobileDashboard : EnergyDashboard },
+      notifications: { label: isMobile ? "Alerts" : "Notifications", component: NotificationCenter },
+      insights: { label: "Insights", component: EnergyInsights },
+      calculator: { label: isMobile ? "Calc" : "Calculator", component: BillCalculator },
+      meter: { label: isMobile ? "Meter" : "Meter Setup", component: MeterSetup },
+      chat: { label: isMobile ? "AI Chat" : "AI Assistant", component: ChatInterface },
+      settings: { label: "Settings", component: Settings }
+    };
+
+    // Only hide the tokens tab if the energy provider is Solar and settings are saved
+    if (energyProvider !== 'Solar') {
+      config.tokens = { label: isMobile ? "Tokens" : "KPLC Tokens", component: KPLCTokenDashboard };
+    }
+
+    return config;
+  }, [isMobile, energyProvider]);
 
   // Optimized tab change handler with preloading
   const handleTabChange = useCallback((value: string) => {
@@ -98,8 +110,18 @@ const Index = () => {
 
     let content;
     const config = tabConfig[tabKey];
-    
-    if (!config) return null;
+
+    if (!config) {
+      // Handle case where tab is not available (e.g., tokens tab for non-KPLC users)
+      return (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">This feature is not available for your energy provider.</p>
+          </div>
+        </div>
+      );
+    }
 
     switch (tabKey) {
       case 'dashboard':
@@ -133,6 +155,29 @@ const Index = () => {
   useEffect(() => {
     componentCache.clear();
   }, [isMobile]);
+
+  // Fetch user's energy provider
+  useEffect(() => {
+    const fetchEnergyProvider = async () => {
+      if (!user) return;
+
+      try {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setEnergyProvider(profile.energy_provider || 'KPLC');
+        }
+      } catch (error) {
+        console.error("Error fetching energy provider:", error);
+      }
+    };
+
+    fetchEnergyProvider();
+  }, [user]);
 
   // Preload critical tabs on mount
   useEffect(() => {
@@ -172,9 +217,11 @@ const Index = () => {
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               {tabConfig.dashboard.label}
             </TabsTrigger>
-            <TabsTrigger value="tokens" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-              {tabConfig.tokens.label}
-            </TabsTrigger>
+            {energyProvider === 'KPLC' && (
+              <TabsTrigger value="tokens" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
+                {tabConfig.tokens?.label}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="notifications" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm relative">
               {tabConfig.notifications.label}
               {unreadCount > 0 && (
@@ -208,11 +255,23 @@ const Index = () => {
           {isMobile && (
             <div className="fixed bottom-0 left-0 right-0 bg-aurora-card border-t border-aurora-green/20 px-2 py-2 z-50">
               <div className="grid grid-cols-3 gap-2">
+                {energyProvider === 'KPLC' && (
+                  <button
+                    onClick={() => handleTabChange("tokens")}
+                    className={`text-xs p-2 rounded transition-colors ${
+                      activeTab === "tokens"
+                        ? "bg-aurora-green text-black"
+                        : "text-gray-300 hover:text-white hover:bg-slate-700/50"
+                    }`}
+                  >
+                    Tokens
+                  </button>
+                )}
                 <button
                   onClick={() => handleTabChange("meter")}
                   className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "meter" 
-                      ? "bg-aurora-green text-black" 
+                    activeTab === "meter"
+                      ? "bg-aurora-green text-black"
                       : "text-gray-300 hover:text-white hover:bg-slate-700/50"
                   }`}
                 >
@@ -221,8 +280,8 @@ const Index = () => {
                 <button
                   onClick={() => handleTabChange("chat")}
                   className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "chat" 
-                      ? "bg-aurora-green text-black" 
+                    activeTab === "chat"
+                      ? "bg-aurora-green text-black"
                       : "text-gray-300 hover:text-white hover:bg-slate-700/50"
                   }`}
                 >
@@ -231,8 +290,8 @@ const Index = () => {
                 <button
                   onClick={() => handleTabChange("settings")}
                   className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "settings" 
-                      ? "bg-aurora-green text-black" 
+                    activeTab === "settings"
+                      ? "bg-aurora-green text-black"
                       : "text-gray-300 hover:text-white hover:bg-slate-700/50"
                   }`}
                 >
@@ -244,9 +303,9 @@ const Index = () => {
 
           {/* Render tab contents with Suspense for lazy loading */}
           {Object.keys(tabConfig).map((tabKey) => (
-            <TabsContent 
-              key={tabKey} 
-              value={tabKey} 
+            <TabsContent
+              key={tabKey}
+              value={tabKey}
               className={isMobile ? "pb-20" : ""}
             >
               <Suspense fallback={<TabLoadingSpinner />}>

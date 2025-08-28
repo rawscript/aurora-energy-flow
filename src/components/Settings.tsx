@@ -6,42 +6,137 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Sun, Battery } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const Settings = () => {
   const [notifications, setNotifications] = useState(true);
   const [autoOptimize, setAutoOptimize] = useState(false);
   const [energyProvider, setEnergyProvider] = useState('');
   const [rate, setRate] = useState('0.15');
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedProvider, setLastSavedProvider] = useState('');
   const { toast } = useToast();
+  const { user } = useAuth();
 
+  // Load cached provider from localStorage on initial render
   useEffect(() => {
-    const saved = localStorage.getItem('smartMeterSettings');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setNotifications(parsed.notifications ?? true);
-      setAutoOptimize(parsed.autoOptimize ?? false);
-      setEnergyProvider(parsed.energyProvider ?? '');
-      setRate(parsed.rate ?? '0.15');
+    const cachedProvider = localStorage.getItem('energyProvider');
+    if (cachedProvider) {
+      setEnergyProvider(cachedProvider);
+      setLastSavedProvider(cachedProvider);
     }
   }, []);
 
-  const handleSave = () => {
-    const settings = {
-      notifications,
-      autoOptimize,
-      energyProvider,
-      rate,
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+
+      try {
+        // Use RPC function to safely get or create profile
+        const { data: profile, error } = await supabase
+          .rpc('get_or_create_profile', {
+            p_user_id: user.id,
+            p_email: user.email,
+            p_full_name: user.user_metadata?.full_name,
+            p_phone_number: user.user_metadata?.phone_number,
+            p_meter_number: user.user_metadata?.meter_number
+          });
+
+        if (error) {
+          console.error("Error fetching profile:", error);
+          // Fallback to localStorage if Supabase fails
+          const cachedProvider = localStorage.getItem('energyProvider');
+          if (cachedProvider) {
+            setEnergyProvider(cachedProvider);
+          }
+        } else if (profile && profile.length > 0) {
+          const userProfile = profile[0];
+          setEnergyProvider(userProfile.energy_provider || 'KPLC');
+          setNotifications(userProfile.notifications_enabled || true);
+          setAutoOptimize(userProfile.auto_optimize || false);
+          setRate(userProfile.energy_rate ? userProfile.energy_rate.toString() : '0.15');
+          // Cache the provider locally
+          localStorage.setItem('energyProvider', userProfile.energy_provider || 'KPLC');
+        }
+      } catch (error) {
+        console.error("Unexpected error fetching profile:", error);
+        // Fallback to localStorage if an unexpected error occurs
+        const cachedProvider = localStorage.getItem('energyProvider');
+        if (cachedProvider) {
+          setEnergyProvider(cachedProvider);
+        }
+      }
     };
 
-    localStorage.setItem('smartMeterSettings', JSON.stringify(settings));
+    fetchProfile();
+  }, [user]);
 
-    toast({
-      title: "Settings saved",
-      description: "Your preferences have been updated successfully.",
-      duration: 3000,
-    });
+  const handleSave = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save settings.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (isSaving) {
+      return; // Prevent multiple concurrent saves
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Cache the current provider in localStorage as a fallback
+      localStorage.setItem('energyProvider', energyProvider);
+
+      // Use RPC function to safely update profile
+      const { data: updatedProfile, error } = await supabase
+        .rpc('safe_update_profile', {
+          p_user_id: user.id,
+          p_updates: {
+            energy_provider: energyProvider,
+            notifications_enabled: notifications,
+            auto_optimize: autoOptimize,
+            energy_rate: parseFloat(rate),
+          }
+        });
+
+      if (error) {
+        console.error("Supabase error:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save settings. Using cached values.",
+          variant: "destructive",
+          duration: 3000,
+        });
+        // Do not revert to last saved provider; keep the user's selection
+      } else {
+        toast({
+          title: "Settings saved",
+          description: "Your preferences have been updated successfully.",
+          duration: 3000,
+        });
+        // Update the last saved provider
+        setLastSavedProvider(energyProvider);
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Using cached values.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      // Do not revert to last saved provider; keep the user's selection
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -62,10 +157,10 @@ const Settings = () => {
                   <SelectValue placeholder="Select your provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pacific-gas">Solar</SelectItem>
-                  <SelectItem value="southern-california">Kenya Power</SelectItem>
-                  <SelectItem value="sdge">KenGEn</SelectItem>
-                  <SelectItem value="other">Independent Power Producers (IPPs):</SelectItem>
+                  <SelectItem value="Solar">Solar</SelectItem>
+                  <SelectItem value="KPLC">Kenya Power</SelectItem>
+                  <SelectItem value="KenGEn">KenGEn</SelectItem>
+                  <SelectItem value="IPP">Independent Power Producers (IPPs)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -178,11 +273,19 @@ const Settings = () => {
           </div>
           
           <div className="pt-4">
-            <Button 
+            <Button
               onClick={handleSave}
+              disabled={isSaving}
               className="w-full bg-gradient-to-r from-aurora-green to-aurora-blue hover:from-aurora-green/80 hover:to-aurora-blue/80 text-white"
             >
-              Save Settings
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Settings'
+              )}
             </Button>
           </div>
         </CardContent>
