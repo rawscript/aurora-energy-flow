@@ -35,6 +35,7 @@ const Settings = () => {
       if (!user) return;
 
       try {
+        console.log("Fetching profile for user:", user.id);
         // Use RPC function to safely get or create profile
         const { data: profile, error } = await supabase
           .rpc('get_or_create_profile', {
@@ -50,10 +51,12 @@ const Settings = () => {
           // Fallback to localStorage if Supabase fails
           const cachedProvider = localStorage.getItem('energyProvider');
           if (cachedProvider) {
+            console.log("Using cached energyProvider:", cachedProvider);
             setEnergyProvider(cachedProvider);
           }
         } else if (profile && profile.length > 0) {
           const userProfile = profile[0];
+          console.log("Fetched energyProvider from Supabase:", userProfile.energy_provider);
           setEnergyProvider(userProfile.energy_provider || 'KPLC');
           setNotifications(userProfile.notifications_enabled || true);
           setAutoOptimize(userProfile.auto_optimize || false);
@@ -66,6 +69,7 @@ const Settings = () => {
         // Fallback to localStorage if an unexpected error occurs
         const cachedProvider = localStorage.getItem('energyProvider');
         if (cachedProvider) {
+          console.log("Using cached energyProvider due to unexpected error:", cachedProvider);
           setEnergyProvider(cachedProvider);
         }
       }
@@ -75,6 +79,7 @@ const Settings = () => {
   }, [user]);
 
   const handleSave = async () => {
+    console.log("Current energyProvider before save:", energyProvider);
     if (!user) {
       toast({
         title: "Error",
@@ -86,12 +91,14 @@ const Settings = () => {
     }
 
     if (isSaving) {
-      return; // Prevent multiple concurrent saves
+      console.log("Save already in progress.");
+      return;
     }
 
     setIsSaving(true);
 
     try {
+      console.log("Attempting to save settings with energyProvider:", energyProvider);
       // Cache the current provider in localStorage as a fallback
       localStorage.setItem('energyProvider', energyProvider);
 
@@ -111,12 +118,12 @@ const Settings = () => {
         console.error("Supabase error:", error);
         toast({
           title: "Error",
-          description: "Failed to save settings. Using cached values.",
+          description: `Failed to save settings: ${error.message}. Using cached values.`,
           variant: "destructive",
-          duration: 3000,
+          duration: 5000,
         });
-        // Do not revert to last saved provider; keep the user's selection
       } else {
+        console.log("Settings saved successfully. Updated energyProvider:", energyProvider);
         toast({
           title: "Settings saved",
           description: "Your preferences have been updated successfully.",
@@ -129,13 +136,13 @@ const Settings = () => {
       console.error("Unexpected error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Using cached values.",
+        description: `Unexpected error: ${error}. Using cached values.`,
         variant: "destructive",
-        duration: 3000,
+        duration: 5000,
       });
-      // Do not revert to last saved provider; keep the user's selection
     } finally {
       setIsSaving(false);
+      console.log("Save operation completed. Current energyProvider:", energyProvider);
     }
   };
 
