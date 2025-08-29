@@ -74,7 +74,7 @@ export const useNotifications = () => {
       console.log('Checking notification status for user:', user.id);
 
       const { data, error } = await supabase
-        .rpc('check_notifications_status', {
+        .rpc('check_user_notification_initialization', {
           p_user_id: user.id
         });
 
@@ -94,22 +94,57 @@ export const useNotifications = () => {
         return defaultStatus;
       }
 
-      const statusData: NotificationStatus = {
-        has_notifications: data.has_notifications || false,
-        total_count: data.total_count || 0,
-        unread_count: data.unread_count || 0,
-        last_notification_date: data.last_notification_date,
-        notification_types: data.notification_types || [],
-        notifications_table_exists: data.notifications_table_exists || false,
-        ai_alerts_table_exists: data.ai_alerts_table_exists || false,
-        status: data.status || 'empty'
+      // If the function returns a boolean, we need to fetch notifications separately
+      const needsInitialization = data as boolean;
+
+      if (needsInitialization) {
+        console.log('User needs notification initialization');
+        // Initialize notifications for the user
+        await supabase.rpc('initialize_user_notifications', {
+          p_user_id: user.id
+        });
+      }
+
+      // Fetch the actual notification status
+      const { data: statusData, error: statusError } = await supabase
+        .rpc('get_user_notifications_safe', {
+          p_user_id: user.id,
+          p_limit: 1,
+          p_unread_only: false
+        });
+
+      if (statusError) {
+        console.error('Error fetching notification status:', statusError);
+        const defaultStatus: NotificationStatus = {
+          has_notifications: false,
+          total_count: 0,
+          unread_count: 0,
+          notification_types: [],
+          notifications_table_exists: false,
+          ai_alerts_table_exists: false,
+          status: 'empty'
+        };
+        setStatus(defaultStatus);
+        return defaultStatus;
+      }
+
+      // If we got data, use it to set the status
+      const transformedStatus: NotificationStatus = {
+        has_notifications: statusData && statusData.length > 0,
+        total_count: statusData ? statusData.length : 0,
+        unread_count: statusData ? statusData.filter((n: any) => !n.is_read).length : 0,
+        last_notification_date: statusData && statusData.length > 0 ? statusData[0].created_at : undefined,
+        notification_types: statusData ? [...new Set(statusData.map((n: any) => n.type))] : [],
+        notifications_table_exists: true,
+        ai_alerts_table_exists: false,
+        status: statusData && statusData.length > 0 ? (statusData.some((n: any) => !n.is_read) ? 'has_unread' : 'all_read') : 'empty'
       };
 
-      setStatus(statusData);
-      setUnreadCount(statusData.unread_count);
-      
-      console.log('Notification status:', statusData);
-      return statusData;
+      setStatus(transformedStatus);
+      setUnreadCount(transformedStatus.unread_count);
+
+      console.log('Notification status:', transformedStatus);
+      return transformedStatus;
     } catch (error) {
       console.error('Exception checking notification status:', error);
       const defaultStatus: NotificationStatus = {

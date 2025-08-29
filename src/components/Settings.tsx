@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { getEnergySettings, saveEnergySettings } from '@/utils/energySettings';
+import { useProfile } from '@/hooks/useProfileFixed';
+import type { EnergySettings } from '@/utils/energySettings';
 
 const Settings = () => {
   const [notifications, setNotifications] = useState(true);
@@ -20,6 +22,7 @@ const Settings = () => {
   const [lastSavedProvider, setLastSavedProvider] = useState('');
   const { toast } = useToast();
   const { user } = useAuth();
+  const { profile, loading, error, updateProfile } = useProfile();
 
   // Load cached provider from localStorage on initial render
   useEffect(() => {
@@ -30,53 +33,27 @@ const Settings = () => {
     }
   }, []);
 
+  // Initialize settings from profile data
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) return;
+    if (profile) {
+      console.log("Initializing settings from profile:", profile);
+      setEnergyProvider(profile.energy_provider || 'KPLC');
+      setNotifications(profile.notifications_enabled || true);
+      setAutoOptimize(profile.auto_optimize || false);
+      setRate(profile.energy_rate ? profile.energy_rate.toString() : '0.15');
+      setLastSavedProvider(profile.energy_provider || 'KPLC');
 
-      try {
-        console.log("Fetching profile for user:", user.id);
-        // Use RPC function to safely get or create profile
-        const { data: profile, error } = await supabase
-          .rpc('get_or_create_profile', {
-            p_user_id: user.id,
-            p_email: user.email,
-            p_full_name: user.user_metadata?.full_name,
-            p_phone_number: user.user_metadata?.phone_number,
-            p_meter_number: user.user_metadata?.meter_number
-          });
-
-        if (error) {
-          console.error("Error fetching profile:", error);
-          // Fallback to localStorage if Supabase fails
-          const cachedProvider = localStorage.getItem('energyProvider');
-          if (cachedProvider) {
-            console.log("Using cached energyProvider:", cachedProvider);
-            setEnergyProvider(cachedProvider);
-          }
-        } else if (profile && profile.length > 0) {
-          const userProfile = profile[0];
-          console.log("Fetched energyProvider from Supabase:", userProfile.energy_provider);
-          setEnergyProvider(userProfile.energy_provider || 'KPLC');
-          setNotifications(userProfile.notifications_enabled || true);
-          setAutoOptimize(userProfile.auto_optimize || false);
-          setRate(userProfile.energy_rate ? userProfile.energy_rate.toString() : '0.15');
-          // Cache the provider locally
-          localStorage.setItem('energyProvider', userProfile.energy_provider || 'KPLC');
-        }
-      } catch (error) {
-        console.error("Unexpected error fetching profile:", error);
-        // Fallback to localStorage if an unexpected error occurs
-        const cachedProvider = localStorage.getItem('energyProvider');
-        if (cachedProvider) {
-          console.log("Using cached energyProvider due to unexpected error:", cachedProvider);
-          setEnergyProvider(cachedProvider);
-        }
+      // Cache the provider locally as a fallback
+      localStorage.setItem('energyProvider', profile.energy_provider || 'KPLC');
+    } else if (!loading && !error) {
+      // Fallback to localStorage if no profile data
+      const cachedProvider = localStorage.getItem('energyProvider');
+      if (cachedProvider) {
+        console.log("Using cached energyProvider:", cachedProvider);
+        setEnergyProvider(cachedProvider);
       }
-    };
-
-    fetchProfile();
-  }, [user]);
+    }
+  }, [profile, loading, error]);
 
   const handleSave = async () => {
     console.log("Current energyProvider before save:", energyProvider);
@@ -100,45 +77,18 @@ const Settings = () => {
     try {
       console.log("Attempting to save settings with energyProvider:", energyProvider);
 
-      // Ensure session is valid
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        toast({
-          title: "Error",
-          description: "Your session has expired. Please log in again.",
-          variant: "destructive",
-          duration: 5000,
-        });
-        return;
-      }
-
-      // Cache the current provider in localStorage as a fallback
-      localStorage.setItem('energyProvider', energyProvider);
-
-      // Log the parameters being passed to the function
-      const params = {
-        p_user_id: user.id,
-        p_updates: {
-          energy_provider: energyProvider,
-          notifications_enabled: notifications,
-          auto_optimize: autoOptimize,
-          energy_rate: parseFloat(rate),
-        }
+      // Create properly typed energy settings object
+      const energySettings: EnergySettings = {
+        energy_provider: energyProvider,
+        notifications_enabled: notifications,
+        auto_optimize: autoOptimize,
+        energy_rate: parseFloat(rate),
       };
-      console.log("Parameters for safe_update_profile:", params);
 
-      // Use RPC function to safely update profile
-      const { data: updatedProfile, error } = await supabase.rpc('safe_update_profile', params);
+      // Update profile using the useProfile hook
+      const success = await updateProfile(energySettings);
 
-      if (error) {
-        console.error("Supabase error:", error);
-        toast({
-          title: "Error",
-          description: `Failed to save settings: ${error.message}. Using cached values.`,
-          variant: "destructive",
-          duration: 5000,
-        });
-      } else {
+      if (success) {
         console.log("Settings saved successfully. Updated energyProvider:", energyProvider);
         toast({
           title: "Settings saved",
@@ -147,12 +97,22 @@ const Settings = () => {
         });
         // Update the last saved provider
         setLastSavedProvider(energyProvider);
+        // Cache the provider locally as a fallback
+        localStorage.setItem('energyProvider', energyProvider);
+      } else {
+        console.error("Failed to save settings");
+        toast({
+          title: "Error",
+          description: "Failed to save settings. Using cached values.",
+          variant: "destructive",
+          duration: 5000,
+        });
       }
     } catch (error) {
       console.error("Unexpected error:", error);
       toast({
         title: "Error",
-        description: `Unexpected error: ${error}. Using cached values.`,
+        description: error instanceof Error ? error.message : "An unknown error occurred. Using cached values.",
         variant: "destructive",
         duration: 5000,
       });

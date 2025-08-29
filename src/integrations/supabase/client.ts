@@ -38,12 +38,12 @@ export const supabase = createClient<Database>(
 const originalFrom = supabase.from;
 supabase.from = function(table) {
   const query = originalFrom.call(this, table);
-  
+
   // Add error handling to select queries
   const originalSelect = query.select;
   query.select = function(...args) {
     const selectQuery = originalSelect.apply(this, args);
-    
+
     // Add error handling to the execution
     const originalThen = selectQuery.then;
     selectQuery.then = function(onFulfilled, onRejected) {
@@ -61,15 +61,15 @@ supabase.from = function(table) {
         onRejected
       );
     };
-    
+
     return selectQuery;
   };
-  
+
   // Add error handling to insert queries
   const originalInsert = query.insert;
   query.insert = function(...args) {
     const insertQuery = originalInsert.apply(this, args);
-    
+
     const originalThen = insertQuery.then;
     insertQuery.then = function(onFulfilled, onRejected) {
       return originalThen.call(
@@ -83,15 +83,15 @@ supabase.from = function(table) {
         onRejected
       );
     };
-    
+
     return insertQuery;
   };
-  
+
   // Add error handling to update queries
   const originalUpdate = query.update;
   query.update = function(...args) {
     const updateQuery = originalUpdate.apply(this, args);
-    
+
     const originalThen = updateQuery.then;
     updateQuery.then = function(onFulfilled, onRejected) {
       return originalThen.call(
@@ -105,9 +105,33 @@ supabase.from = function(table) {
         onRejected
       );
     };
-    
+
     return updateQuery;
   };
-  
+
   return query;
+};
+
+// Type for safe_update_profile parameters
+type SafeUpdateProfileParams = {
+  p_user_id: string;
+  p_updates: {
+    energy_provider?: string;
+    notifications_enabled?: boolean;
+    auto_optimize?: boolean;
+    energy_rate?: number;
+    email?: string;
+    full_name?: string;
+    phone_number?: string;
+    meter_number?: string;
+    meter_category?: string;
+    industry_type?: string;
+  };
+};
+
+// Add custom RPC functions to handle energy settings
+const originalRpc = supabase.rpc;
+supabase.rpc = function(name: string, params: any) {
+  // Call the original RPC function
+  return originalRpc.call(supabase, name, params);
 };

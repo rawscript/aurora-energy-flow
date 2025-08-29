@@ -275,6 +275,10 @@ export type Database = {
           meter_number: string | null
           phone_number: string | null
           updated_at: string
+          energy_provider: string | null
+          notifications_enabled: boolean | null
+          auto_optimize: boolean | null
+          energy_rate: number | null
         }
         Insert: {
           created_at?: string
@@ -286,6 +290,10 @@ export type Database = {
           meter_number?: string | null
           phone_number?: string | null
           updated_at?: string
+          energy_provider?: string | null
+          notifications_enabled?: boolean | null
+          auto_optimize?: boolean | null
+          energy_rate?: number | null
         }
         Update: {
           created_at?: string
@@ -297,6 +305,10 @@ export type Database = {
           meter_number?: string | null
           phone_number?: string | null
           updated_at?: string
+          energy_provider?: string | null
+          notifications_enabled?: boolean | null
+          auto_optimize?: boolean | null
+          energy_rate?: number | null
         }
         Relationships: []
       }
@@ -536,7 +548,18 @@ export type Database = {
       safe_update_profile: {
         Args: {
           p_user_id: string
-          p_updates: Json
+          p_updates: {
+            energy_provider?: string
+            notifications_enabled?: boolean
+            auto_optimize?: boolean
+            energy_rate?: number
+            email?: string
+            full_name?: string
+            phone_number?: string
+            meter_number?: string
+            meter_category?: string
+            industry_type?: string
+          }
         }
         Returns: {
           id: string
@@ -546,6 +569,10 @@ export type Database = {
           meter_number: string | null
           meter_category: string | null
           industry_type: string | null
+          energy_provider: string | null
+          notifications_enabled: boolean | null
+          auto_optimize: boolean | null
+          energy_rate: number | null
           created_at: string
           updated_at: string
         }[]

@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -13,7 +13,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -245,8 +245,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             // Only retry on specific errors
             if (createError.code === '23505' || // Unique violation
-                createError.message.includes('race condition') ||
-                createError.message.includes('concurrent')) {
+                (typeof createError.message === 'string' && (
+                  createError.message.includes('race condition') ||
+                  createError.message.includes('concurrent')
+                ))) {
               retryCount++;
               await new Promise(resolve => setTimeout(resolve, 100 * (retryCount + 1))); // Exponential backoff
               continue;
@@ -255,7 +257,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               break;
             }
           } else {
-            console.log('Profile ensured successfully:', data?.message);
+            console.log('Profile ensured successfully:', data);
             success = true;
           }
         } catch (error) {
