@@ -40,9 +40,7 @@ interface ProfileData {
   industry_type?: string;
 }
 
-// Get the API key and URL from the environment or use the public values
-const SUPABASE_URL = "https://rcthtxwzsqvwivritzln.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM";
+// No need for hardcoded values - we use the supabase client from integrations
 
 // Empty/zero state for when no meter is connected
 const EMPTY_ENERGY_DATA: EnergyData = {
@@ -96,20 +94,71 @@ export const useRealTimeEnergy = () => {
     };
   }, [session]);
 
-  // Type guard function to validate EnergyReading
+  // Enhanced type guard function to validate EnergyReading with additional checks
   const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
-    return (
-      obj &&
-      typeof obj === 'object' &&
-      obj !== null &&
-      typeof (obj as any).id === 'string' &&
-      typeof (obj as any).user_id === 'string' &&
-      typeof (obj as any).meter_number === 'string' &&
-      typeof (obj as any).kwh_consumed === 'number' &&
-      typeof (obj as any).total_cost === 'number' &&
-      typeof (obj as any).reading_date === 'string' &&
-      typeof (obj as any).cost_per_kwh === 'number'
-    );
+    if (!obj || typeof obj !== 'object' || obj === null) {
+      return false;
+    }
+
+    const reading = obj as any;
+
+    // Check required fields
+    const requiredFields = [
+      'id', 'user_id', 'meter_number', 'kwh_consumed',
+      'total_cost', 'reading_date', 'cost_per_kwh'
+    ];
+
+    for (const field of requiredFields) {
+      if (!(field in reading)) {
+        console.warn(`Missing required field: ${field}`);
+        return false;
+      }
+    }
+
+    // Check field types
+    if (
+      typeof reading.id !== 'string' ||
+      typeof reading.user_id !== 'string' ||
+      typeof reading.meter_number !== 'string' ||
+      typeof reading.kwh_consumed !== 'number' ||
+      typeof reading.total_cost !== 'number' ||
+      typeof reading.reading_date !== 'string' ||
+      typeof reading.cost_per_kwh !== 'number'
+    ) {
+      console.warn('Invalid field types in energy reading');
+      return false;
+    }
+
+    // Check for valid values
+    if (
+      reading.kwh_consumed < 0 ||
+      reading.total_cost < 0 ||
+      reading.cost_per_kwh <= 0
+    ) {
+      console.warn('Invalid values in energy reading (negative or zero values)');
+      return false;
+    }
+
+    // Check if reading_date is a valid ISO date string
+    try {
+      new Date(reading.reading_date);
+    } catch (e) {
+      console.warn('Invalid reading_date format');
+      return false;
+    }
+
+    // Optional fields validation
+    if (reading.peak_usage !== undefined && typeof reading.peak_usage !== 'number') {
+      console.warn('Invalid peak_usage type');
+      return false;
+    }
+
+    if (reading.off_peak_usage !== undefined && typeof reading.off_peak_usage !== 'number') {
+      console.warn('Invalid off_peak_usage type');
+      return false;
+    }
+
+    return true;
   };
 
   // Check if user has a meter connected (without triggering session refresh)
@@ -286,7 +335,7 @@ export const useRealTimeEnergy = () => {
   }, [calculateAnalytics, toast]);
 
   // Fetch real energy readings from the database (only when meter is connected)
-  const fetchRealEnergyData = useCallback(async (forceRefresh = false) => {
+  const fetchRealEnergyData = useCallback(async (forceRefresh = false, page = 1, pageSize = 50) => {
     if (!user || !session || !hasMeterConnected || !meterNumber.current) {
       console.log('Skipping data fetch - no meter connected or not authenticated');
       setLoading(false);
@@ -295,13 +344,29 @@ export const useRealTimeEnergy = () => {
 
     // Check cache first unless force refresh
     const now = Date.now();
-    if (!forceRefresh && dataCache.current && (now - dataCache.current.timestamp) < CACHE_DURATION) {
-      console.log('Using cached energy data');
-      setEnergyData(dataCache.current.data);
-      setRecentReadings(dataCache.current.readings);
-      calculateAnalytics(dataCache.current.readings);
-      setLoading(false);
-      return;
+    if (!forceRefresh && dataCache.current) {
+      // Validate cache data before using it
+      const cacheAge = now - dataCache.current.timestamp;
+      const isCacheValid = cacheAge < CACHE_DURATION;
+
+      // Also check if the cache data is still relevant (e.g., same day)
+      const cacheDate = new Date(dataCache.current.data.daily_total > 0 ?
+        dataCache.current.readings[0]?.reading_date : now);
+      const today = new Date();
+      const isSameDay = cacheDate.getDate() === today.getDate() &&
+                        cacheDate.getMonth() === today.getMonth() &&
+                        cacheDate.getFullYear() === today.getFullYear();
+
+      if (isCacheValid && isSameDay) {
+        console.log('Using cached energy data (valid and relevant)');
+        setEnergyData(dataCache.current.data);
+        setRecentReadings(dataCache.current.readings);
+        calculateAnalytics(dataCache.current.readings);
+        setLoading(false);
+        return;
+      } else {
+        console.log(`Cache invalid: ${!isCacheValid ? 'expired' : 'not same day'}`);
+      }
     }
 
     // Prevent too frequent requests
@@ -309,37 +374,37 @@ export const useRealTimeEnergy = () => {
       console.log('Skipping fetch - too soon since last request');
       return;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
       lastFetchTime.current = now;
-      
+
       // Clear any existing loading timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
-      
+
       // Set a timeout to prevent infinite loading
       loadingTimeoutRef.current = setTimeout(() => {
         setLoading(false);
         setError('Request timeout - please try again');
       }, 10000);
-      
-      console.log(`Fetching real data for meter: ${meterNumber.current}`);
-      
-      // Fetch recent readings for the past week for this specific meter
+
+      console.log(`Fetching real data for meter: ${meterNumber.current}, page: ${page}, pageSize: ${pageSize}`);
+
+      // Fetch recent readings with pagination
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      
-      const { data: readings, error: readingsError } = await supabase
+
+      const { data: readings, error: readingsError, count } = await supabase
         .from('energy_readings')
-        .select('*')
+        .select('*', { count: 'exact', head: false })
         .eq('user_id', user.id)
         .eq('meter_number', meterNumber.current)
         .gte('reading_date', oneWeekAgo.toISOString())
         .order('reading_date', { ascending: false })
-        .limit(168); // One week of hourly readings
+        .range((page - 1) * pageSize, page * pageSize - 1);
       
       if (readingsError && readingsError.code !== 'PGRST116') {
         console.error('Error fetching energy readings:', readingsError);
@@ -446,11 +511,13 @@ export const useRealTimeEnergy = () => {
 
         setEnergyData(newEnergyData);
         
-        // Cache the data
+        // Cache the data with additional metadata for validation
         dataCache.current = {
           data: newEnergyData,
           readings: readings,
-          timestamp: now
+          timestamp: now,
+          meterNumber: meterNumber.current,
+          userId: user.id
         };
         
         // Calculate analytics
@@ -572,40 +639,89 @@ export const useRealTimeEnergy = () => {
     }
   }, [fetchRealEnergyData, hasMeterConnected]);
 
-  // Record a real reading in the database
+  // Record a real reading in the database with enhanced validation
   const recordRealReading = useCallback(async (
-    usage: number, 
-    costPerKwh: number = 25, 
+    usage: number,
+    costPerKwh: number = 25,
     totalCost: number = 0,
     readingDate: string = new Date().toISOString()
    ) => {
-    if (!user || !session || !hasMeterConnected || !meterNumber.current) return null;
-    
+    if (!user || !session || !hasMeterConnected || !meterNumber.current) {
+      console.error('Cannot record reading: missing required parameters');
+      return null;
+    }
+
+    // Validate input parameters
+    if (usage <= 0) {
+      throw new Error('Usage must be a positive number');
+    }
+
+    if (costPerKwh <= 0) {
+      throw new Error('Cost per kWh must be a positive number');
+    }
+
+    if (totalCost < 0) {
+      throw new Error('Total cost cannot be negative');
+    }
+
+    try {
+      // Validate reading date format
+      new Date(readingDate);
+    } catch (e) {
+      throw new Error('Invalid reading date format');
+    }
+
     // Calculate total cost if not provided
     const finalTotalCost = totalCost > 0 ? totalCost : usage * costPerKwh;
-    
+
+    // Validate calculated total cost
+    if (finalTotalCost <= 0) {
+      throw new Error('Calculated total cost must be positive');
+    }
+
     console.log(`Recording reading: ${usage} kWh at KSh ${costPerKwh}/kWh = KSh ${finalTotalCost}`);
-    
+
     try {
+      // Prepare the reading data
+      const readingData = {
+        user_id: user.id,
+        meter_number: meterNumber.current,
+        kwh_consumed: usage,
+        cost_per_kwh: costPerKwh,
+        total_cost: finalTotalCost,
+        reading_date: readingDate
+      };
+
+      // Validate the reading data before sending
+      if (!isValidEnergyReading({
+        ...readingData,
+        id: 'temp', // Temporary ID for validation
+        created_at: new Date().toISOString()
+      })) {
+        throw new Error('Invalid reading data');
+      }
+
       // Insert the reading into the database
       const { data, error } = await supabase
         .from('energy_readings')
-        .insert({
-          user_id: user.id,
-          meter_number: meterNumber.current,
-          kwh_consumed: usage,
-          cost_per_kwh: costPerKwh,
-          total_cost: finalTotalCost,
-          reading_date: readingDate
-        })
+        .insert(readingData)
         .select()
         .maybeSingle();
-      
+
       if (error && error.code !== 'PGRST116') {
         console.error('Error recording reading:', error);
-        throw error;
+
+        // Provide more specific error messages
+        let errorMessage = 'Failed to record reading';
+        if (error.message.includes('violates check constraint')) {
+          errorMessage = 'Invalid reading values';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error while recording reading';
+        }
+
+        throw new Error(`${errorMessage}: ${error.message}`);
       }
-      
+
       // Process the new reading immediately
       const newReading: EnergyReading = {
         id: data?.id || `temp-${Date.now()}`,
@@ -614,16 +730,30 @@ export const useRealTimeEnergy = () => {
         kwh_consumed: usage,
         total_cost: finalTotalCost,
         reading_date: readingDate,
-        cost_per_kwh: costPerKwh
+        cost_per_kwh: costPerKwh,
+        created_at: new Date().toISOString()
       };
-      
+
+      // Validate the new reading before processing
+      if (!isValidEnergyReading(newReading)) {
+        console.error('Validation failed for new reading:', newReading);
+        throw new Error('Validation failed for the created reading');
+      }
+
       processNewReading(newReading);
       return newReading;
     } catch (error) {
       console.error('Exception recording reading:', error);
-      throw error;
+
+      // Provide more detailed error information
+      let errorMessage = 'Failed to record reading';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      throw new Error(`Reading recording failed: ${errorMessage}`);
     }
-  }, [user, session, hasMeterConnected, processNewReading]);
+  }, [user, session, hasMeterConnected, meterNumber.current, processNewReading, isValidEnergyReading]);
 
   // Function to connect to meter
   const connectToMeter = useCallback(async (meter: string) => {
@@ -706,56 +836,101 @@ export const useRealTimeEnergy = () => {
   // Set up real-time data subscription (only when meter is connected)
   useEffect(() => {
     if (!user || !session || !hasMeterConnected || !meterNumber.current) return;
-    
-    // Set up a periodic refresh (every 10 minutes) - only when meter is connected
+
+    // Set up a periodic refresh (every 15 minutes) - only when meter is connected
     const refreshInterval = setInterval(async () => {
       try {
-        await refreshData();
+        // Only refresh if we haven't had recent activity
+        const now = Date.now();
+        if (now - lastFetchTime.current > 5 * 60 * 1000) { // Only if last fetch was more than 5 minutes ago
+          await refreshData();
+        }
       } catch (error) {
         console.error('Error refreshing data:', error);
       }
-    }, 10 * 60 * 1000);
-    
-    // Set up real-time data subscriptions
+    }, 15 * 60 * 1000); // 15 minutes instead of 10
+
+    // Set up real-time data subscriptions with better error handling
     let readingsSubscription: ReturnType<typeof supabase.channel> | null = null;
-    
+    let subscriptionActive = true;
+
     try {
-      // Subscribe to real-time updates for energy_readings table
+      // Subscribe to real-time updates for energy_readings table with a more specific filter
       readingsSubscription = supabase
-        .channel('energy_readings_changes')
-        .on('postgres_changes', { 
-          event: 'INSERT', 
-          schema: 'public', 
+        .channel(`energy_readings_${user.id}_${meterNumber.current}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
           table: 'energy_readings',
-          filter: `user_id=eq.${user.id}`
+          filter: `user_id=eq.${user.id}&meter_number=eq.${meterNumber.current}`
         }, (payload) => {
-          console.log('New energy reading received:', payload);
-          
+          if (!subscriptionActive) return;
+
+          console.log('New energy reading received:', payload.eventType);
+
           // Validate payload.new before processing
           if (isValidEnergyReading(payload.new)) {
-            processNewReading(payload.new);
+            // Throttle processing to avoid UI updates too frequently
+            const now = Date.now();
+            if (now - lastFetchTime.current > 1000) { // At least 1 second between updates
+              processNewReading(payload.new);
+              lastFetchTime.current = now;
+            }
           } else {
             console.warn('Invalid energy reading received from subscription:', payload.new);
           }
         })
-        .subscribe();
+        .on('subscription_error', (error) => {
+          console.error('Real-time subscription error:', error);
+          // Attempt to resubscribe after a delay
+          if (subscriptionActive) {
+            setTimeout(() => {
+              if (subscriptionActive) {
+                console.log('Attempting to resubscribe to energy readings...');
+                try {
+                  supabase.removeChannel(readingsSubscription!);
+                  readingsSubscription = supabase
+                    .channel(`energy_readings_${user.id}_${meterNumber.current}_retry`)
+                    .on('postgres_changes', {
+                      event: 'INSERT',
+                      schema: 'public',
+                      table: 'energy_readings',
+                      filter: `user_id=eq.${user.id}&meter_number=eq.${meterNumber.current}`
+                    }, (payload) => {
+                      if (isValidEnergyReading(payload.new)) {
+                        processNewReading(payload.new);
+                      }
+                    })
+                    .subscribe();
+                } catch (retryError) {
+                  console.error('Failed to resubscribe:', retryError);
+                }
+              }
+            }, 5000); // Retry after 5 seconds
+          }
+        })
+        .subscribe((status) => {
+          console.log(`Energy readings subscription status: ${status}`);
+        });
     } catch (error) {
       console.error('Error setting up real-time subscriptions:', error);
     }
-    
+
     // Clean up subscriptions and intervals
     return () => {
+      subscriptionActive = false;
       clearInterval(refreshInterval);
-      
+
       if (readingsSubscription) {
         try {
           supabase.removeChannel(readingsSubscription);
+          console.log('Successfully removed energy readings subscription');
         } catch (error) {
           console.error('Error removing readings subscription:', error);
         }
       }
     };
-  }, [user, session, hasMeterConnected, refreshData, processNewReading]);
+  }, [user, session, hasMeterConnected, meterNumber.current, refreshData, processNewReading]);
 
   // Cleanup on unmount
   useEffect(() => {

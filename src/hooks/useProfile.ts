@@ -15,8 +15,8 @@ export const useProfile = () => {
   const isInitialized = useRef(false);
   const fetchingRef = useRef(false);
 
-  // Fetch or create profile using safe database function
-  const fetchProfile = useCallback(async (showToasts = false) => {
+  // Fetch or create profile using safe database function with improved error handling
+  const fetchProfile = useCallback(async (showToasts: boolean = false) => {
     if (!user || !session) {
       setProfile(null);
       setLoading(false);
@@ -34,11 +34,11 @@ export const useProfile = () => {
       fetchingRef.current = true;
       setLoading(true);
       setError(null);
-      
+
       console.log('Fetching/creating profile for user:', user.id);
-      
+
       // Use the safe database function to get or create profile
-      const { data, error } = await supabase
+      const { data, error: createError } = await supabase
         .rpc('get_or_create_profile', {
           p_user_id: user.id,
           p_email: user.email,
@@ -47,14 +47,27 @@ export const useProfile = () => {
           p_meter_number: user.user_metadata?.meter_number
         });
 
-      if (error) {
-        console.error('Error fetching/creating profile:', error);
-        setError('Could not load user profile');
-        
+      if (createError) {
+        console.error('Error fetching/creating profile:', createError);
+
+        // Provide more specific error messages
+        let errorMessage = "Could not load user profile";
+        if (createError.code === 'PGRST116') {
+          errorMessage = "Profile not found";
+        } else if (createError.message.includes('network')) {
+          errorMessage = "Network error. Please check your connection.";
+        } else if (createError.message.includes('timeout')) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (createError.message.includes('auth')) {
+          errorMessage = "Authentication error. Please sign in again.";
+        }
+
+        setError(errorMessage);
+
         if (showToasts) {
           toast({
             title: "Profile Error",
-            description: "Could not load user profile. Some features may be limited.",
+            description: errorMessage,
             variant: "destructive"
           });
         }
@@ -66,7 +79,7 @@ export const useProfile = () => {
       } else {
         console.error('No profile data returned');
         setError('No profile data available');
-        
+
         if (showToasts) {
           toast({
             title: "Profile Error",
@@ -77,12 +90,25 @@ export const useProfile = () => {
       }
     } catch (error) {
       console.error('Unexpected error fetching profile:', error);
-      setError('Connection error loading profile');
-      
+
+      // Provide more specific error messages
+      let errorMessage = "Connection error loading profile";
+      if (error instanceof Error) {
+        if (error.message.includes('network')) {
+          errorMessage = "Network error. Please check your internet connection.";
+        } else if (error.message.includes('timeout')) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (error.message.includes('auth')) {
+          errorMessage = "Authentication error. Please sign in again.";
+        }
+      }
+
+      setError(errorMessage);
+
       if (showToasts) {
         toast({
           title: "Connection Error",
-          description: "Could not connect to profile service. Please check your connection.",
+          description: errorMessage,
           variant: "destructive"
         });
       }
@@ -108,7 +134,7 @@ export const useProfile = () => {
 
     try {
       console.log('Updating profile with:', updates);
-      
+
       // Use the safe update function
       const { data, error } = await supabase
         .rpc('safe_update_profile', {
@@ -188,9 +214,11 @@ export const useProfile = () => {
   useEffect(() => {
     if (user && session && !isInitialized.current) {
       // Delay initial fetch to avoid conflicts with auth
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         fetchProfile(false); // Don't show toasts on initial load
       }, 500); // Reduced delay
+
+      return () => clearTimeout(timer);
     } else if (!user) {
       // Clear profile when user logs out
       setProfile(null);
@@ -199,7 +227,7 @@ export const useProfile = () => {
       isInitialized.current = false;
       fetchingRef.current = false;
     }
-  }, [user, session, fetchProfile]);
+  }, [user, session]);
 
   return {
     profile,

@@ -99,20 +99,36 @@ const Settings = () => {
 
     try {
       console.log("Attempting to save settings with energyProvider:", energyProvider);
+
+      // Ensure session is valid
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        toast({
+          title: "Error",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive",
+          duration: 5000,
+        });
+        return;
+      }
+
       // Cache the current provider in localStorage as a fallback
       localStorage.setItem('energyProvider', energyProvider);
 
+      // Log the parameters being passed to the function
+      const params = {
+        p_user_id: user.id,
+        p_updates: {
+          energy_provider: energyProvider,
+          notifications_enabled: notifications,
+          auto_optimize: autoOptimize,
+          energy_rate: parseFloat(rate),
+        }
+      };
+      console.log("Parameters for safe_update_profile:", params);
+
       // Use RPC function to safely update profile
-      const { data: updatedProfile, error } = await supabase
-        .rpc('safe_update_profile', {
-          p_user_id: user.id,
-          p_updates: {
-            energy_provider: energyProvider,
-            notifications_enabled: notifications,
-            auto_optimize: autoOptimize,
-            energy_rate: parseFloat(rate),
-          }
-        });
+      const { data: updatedProfile, error } = await supabase.rpc('safe_update_profile', params);
 
       if (error) {
         console.error("Supabase error:", error);

@@ -630,97 +630,212 @@ export const useNotifications = () => {
     }
   }, [user, session, initialized, checkAndFetchNotifications, getNotificationPreferences]);
 
-  // Set up real-time subscription (only once per user)
+  // Set up real-time subscription with improved error handling and performance
   useEffect(() => {
     if (!user || !session || !initialized) return;
 
     // Clean up existing subscription
     if (subscriptionRef.current) {
       console.log('Cleaning up existing notification subscription');
-      supabase.removeChannel(subscriptionRef.current);
+      try {
+        supabase.removeChannel(subscriptionRef.current);
+      } catch (error) {
+        console.error('Error removing existing subscription:', error);
+      }
       subscriptionRef.current = null;
     }
 
     console.log('Setting up real-time notification subscription for user:', user.id);
 
-    // Subscribe to notifications changes
+    // Track subscription status
+    let subscriptionActive = true;
+    let lastNotificationTime = 0;
+    const MIN_NOTIFICATION_INTERVAL = 1000; // 1 second minimum between notifications
+
+    // Subscribe to notifications changes with better error handling
     subscriptionRef.current = supabase
-      .channel(`notifications_${user.id}`)
+      .channel(`notifications_${user.id}_${Date.now()}`) // Unique channel name with timestamp
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`
       }, (payload) => {
+        if (!subscriptionActive) return;
+
+        const now = Date.now();
         console.log('Notification change received:', payload.eventType, payload.new?.title);
-        
-        if (payload.eventType === 'INSERT' && payload.new) {
-          // Add new notification to state
-          const newNotification: Notification = {
-            id: payload.new.id,
-            title: payload.new.title,
-            message: payload.new.message,
-            type: payload.new.type,
-            severity: payload.new.severity,
-            isRead: payload.new.is_read,
-            tokenBalance: payload.new.token_balance,
-            estimatedDays: payload.new.estimated_days,
-            metadata: payload.new.metadata,
-            createdAt: payload.new.created_at,
-            updatedAt: payload.new.updated_at,
-            expiresAt: payload.new.expires_at,
-            sourceTable: 'notifications'
-          };
 
-          setNotifications(prev => {
-            // Check if notification already exists
-            if (prev.some(n => n.id === newNotification.id)) {
-              return prev;
+        try {
+          if (payload.eventType === 'INSERT' && payload.new) {
+            // Throttle notifications to avoid UI overload
+            if (now - lastNotificationTime < MIN_NOTIFICATION_INTERVAL) {
+              console.log('Throttling notification updates');
+              return;
             }
-            return [newNotification, ...prev];
-          });
+            lastNotificationTime = now;
 
-          if (!newNotification.isRead) {
-            setUnreadCount(prev => prev + 1);
-          }
+            // Add new notification to state
+            const newNotification: Notification = {
+              id: payload.new.id,
+              title: payload.new.title,
+              message: payload.new.message,
+              type: payload.new.type,
+              severity: payload.new.severity,
+              isRead: payload.new.is_read,
+              tokenBalance: payload.new.token_balance,
+              estimatedDays: payload.new.estimated_days,
+              metadata: payload.new.metadata,
+              createdAt: payload.new.created_at,
+              updatedAt: payload.new.updated_at,
+              expiresAt: payload.new.expires_at,
+              sourceTable: 'notifications'
+            };
 
-          // Show toast for new notifications (except welcome messages)
-          if (!newNotification.isRead && newNotification.type !== 'welcome') {
-            toast({
-              title: newNotification.title,
-              description: newNotification.message,
-              duration: 5000,
+            setNotifications(prev => {
+              // Check if notification already exists
+              if (prev.some(n => n.id === newNotification.id)) {
+                return prev;
+              }
+              // Limit the number of notifications to prevent memory issues
+              const limitedPrev = prev.slice(0, 99); // Keep max 100 notifications
+              return [newNotification, ...limitedPrev];
             });
+
+            if (!newNotification.isRead) {
+              setUnreadCount(prev => prev + 1);
+            }
+
+            // Show toast for important new notifications (except welcome messages)
+            if (!newNotification.isRead &&
+                newNotification.type !== 'welcome' &&
+                newNotification.severity !== 'low') {
+              toast({
+                title: newNotification.title,
+                description: newNotification.message,
+                duration: 5000,
+              });
+            }
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            // Update existing notification
+            setNotifications(prev =>
+              prev.map(notification =>
+                notification.id === payload.new.id
+                  ? {
+                      ...notification,
+                      isRead: payload.new.is_read,
+                      updatedAt: payload.new.updated_at
+                    }
+                  : notification
+              )
+            );
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            // Remove deleted notification
+            setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+            if (!payload.old.is_read) {
+              setUnreadCount(prev => Math.max(0, prev - 1));
+            }
           }
-        } else if (payload.eventType === 'UPDATE' && payload.new) {
-          // Update existing notification
-          setNotifications(prev => 
-            prev.map(notification => 
-              notification.id === payload.new.id 
-                ? {
-                    ...notification,
-                    isRead: payload.new.is_read,
-                    updatedAt: payload.new.updated_at
-                  }
-                : notification
-            )
-          );
-        } else if (payload.eventType === 'DELETE' && payload.old) {
-          // Remove deleted notification
-          setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
-          if (!payload.old.is_read) {
-            setUnreadCount(prev => Math.max(0, prev - 1));
+        } catch (error) {
+          console.error('Error processing notification update:', error);
+          // Log error but don't crash the subscription
+          try {
+            // In a real app, you might send this error to an error tracking service
+            console.error('Notification processing error details:', {
+              error: error,
+              payloadType: payload.eventType,
+              userId: user.id
+            });
+          } catch (logError) {
+            console.error('Error logging notification error:', logError);
           }
+        }
+      })
+      .on('subscription_error', (error) => {
+        console.error('Notification subscription error:', error);
+
+        // Attempt to recover from subscription errors
+        if (subscriptionActive && error.message.includes('network')) {
+          console.log('Network error in subscription, attempting to reconnect...');
+
+          // Try to reconnect after a delay
+          setTimeout(() => {
+            if (subscriptionActive) {
+              console.log('Reconnecting to notifications...');
+              try {
+                // Remove the old channel first
+                supabase.removeChannel(subscriptionRef.current);
+
+                // Create a new subscription
+                subscriptionRef.current = supabase
+                  .channel(`notifications_${user.id}_reconnect`)
+                  .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`
+                  }, (payload) => {
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                      const newNotification: Notification = {
+                        id: payload.new.id,
+                        title: payload.new.title,
+                        message: payload.new.message,
+                        type: payload.new.type,
+                        severity: payload.new.severity,
+                        isRead: payload.new.is_read,
+                        tokenBalance: payload.new.token_balance,
+                        estimatedDays: payload.new.estimated_days,
+                        metadata: payload.new.metadata,
+                        createdAt: payload.new.created_at,
+                        updatedAt: payload.new.updated_at,
+                        expiresAt: payload.new.expires_at,
+                        sourceTable: 'notifications'
+                      };
+
+                      setNotifications(prev => {
+                        if (prev.some(n => n.id === newNotification.id)) {
+                          return prev;
+                        }
+                        return [newNotification, ...prev.slice(0, 99)];
+                      });
+
+                      if (!newNotification.isRead) {
+                        setUnreadCount(prev => prev + 1);
+                      }
+                    }
+                  })
+                  .subscribe();
+              } catch (reconnectError) {
+                console.error('Failed to reconnect to notifications:', reconnectError);
+              }
+            }
+          }, 5000); // Try to reconnect after 5 seconds
         }
       })
       .subscribe((status) => {
         console.log('Notification subscription status:', status);
+
+        // Handle subscription status changes
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to notifications');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Channel error in notification subscription');
+        } else if (status === 'CLOSED') {
+          console.log('Notification subscription closed');
+        } else if (status === 'TIMED_OUT') {
+          console.log('Notification subscription timed out');
+        }
       });
 
     return () => {
+      subscriptionActive = false;
       if (subscriptionRef.current) {
-        console.log('Cleaning up notification subscription');
-        supabase.removeChannel(subscriptionRef.current);
+        try {
+          console.log('Cleaning up notification subscription');
+          supabase.removeChannel(subscriptionRef.current);
+        } catch (error) {
+          console.error('Error removing notification subscription:', error);
+        }
         subscriptionRef.current = null;
       }
     };
