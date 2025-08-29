@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import SolarPanel from '@/components/ui/SolarPanel';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,11 +13,16 @@ import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory, Zap, AlertTriangle } from 'lucide-react';
+import BatteryFull from '@/components/ui/BatteryFull';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
+
+interface MeterSetupProps {
+  energyProvider?: string;
+}
 
 const meterFormSchema = z.object({
   meterNumber: z.string().min(5, 'Meter number must be at least 5 characters'),
@@ -56,7 +62,7 @@ interface MeterHistory {
   industry_type?: string;
 }
 
-const MeterSetup = () => {
+const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [meterHistory, setMeterHistory] = useState<MeterHistory[]>([]);
   const [activeTab, setActiveTab] = useState('current');
@@ -390,7 +396,11 @@ const MeterSetup = () => {
                 )}
                 {profile.meter_category && (
                   <div className="flex items-center gap-2 text-sm">
-                    <Building className="h-4 w-4 text-green-600" />
+                    {energyProvider === 'KPLC' ? (
+                      <Building className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <SolarPanel className="h-4 w-4 text-green-600" />
+                    )}
                     <span className="font-medium">Category:</span> {profile.meter_category}
                   </div>
                 )}
@@ -403,7 +413,9 @@ const MeterSetup = () => {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg text-aurora-green-light">Connected Meter</CardTitle>
+                    <CardTitle className="text-lg text-aurora-green-light">
+                      {energyProvider === 'KPLC' ? 'Connected Meter' : 'Connected Inverter'}
+                    </CardTitle>
                     <div className="flex mt-1 space-x-2">
                       {profile?.meter_category && (
                         <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
@@ -442,7 +454,9 @@ const MeterSetup = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Meter Number</Label>
+                    <Label className="text-sm text-muted-foreground">
+                      {energyProvider === 'KPLC' ? 'Meter Number' : 'Inverter ID'}
+                    </Label>
                     <p className="font-mono text-lg text-aurora-green-light">
                       {profile.meter_number}
                     </p>
@@ -465,13 +479,19 @@ const MeterSetup = () => {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Meter Category</Label>
+                    <Label className="text-sm text-muted-foreground">
+                      {energyProvider === 'KPLC' ? 'Meter Category' : 'Inverter Category'}
+                    </Label>
                     <div className="flex items-center space-x-2">
-                      <Building className="h-4 w-4 text-amber-400" />
+                      {energyProvider === 'KPLC' ? (
+                        <Building className="h-4 w-4 text-amber-400" />
+                      ) : (
+                        <SolarPanel className="h-4 w-4 text-amber-400" />
+                      )}
                       <span className="text-lg">
-                        {profile.meter_category ? 
-                          METER_CATEGORIES.find(c => c.value === profile.meter_category)?.label || 
-                          profile.meter_category : 
+                        {profile.meter_category ?
+                          METER_CATEGORIES.find(c => c.value === profile.meter_category)?.label ||
+                          profile.meter_category :
                           'Household'}
                       </span>
                     </div>
@@ -482,8 +502,19 @@ const MeterSetup = () => {
                       <div className="flex items-center space-x-2">
                         <Factory className="h-4 w-4 text-orange-400" />
                         <span className="text-lg">
-                          {INDUSTRY_TYPES.find(t => t.value === profile.industry_type)?.label || 
+                          {INDUSTRY_TYPES.find(t => t.value === profile.industry_type)?.label ||
                            profile.industry_type}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {energyProvider !== 'KPLC' && profile.battery_count && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Battery Count</Label>
+                      <div className="flex items-center space-x-2">
+                        <BatteryFull className="h-4 w-4 text-amber-400" />
+                        <span className="text-lg">
+                          {profile.battery_count}
                         </span>
                       </div>
                     </div>
@@ -495,24 +526,30 @@ const MeterSetup = () => {
                   className="w-full border-aurora-blue/30 hover:bg-aurora-blue/10"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  {isMobile ? 'Change Meter' : 'Setup Different Meter'}
+                  {isMobile ? 'Change' : 'Setup Different'} {energyProvider === 'KPLC' ? 'Meter' : 'Inverter'}
                 </Button>
               </CardContent>
             </Card>
           ) : (
             <Card className="bg-aurora-card border-yellow-500/20">
               <CardContent className="p-6 text-center">
-                <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-                <h3 className="text-lg font-medium mb-2">No Meter Connected</h3>
+                {energyProvider === 'KPLC' ? (
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+                ) : (
+                  <SolarPanel className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
+                )}
+                <h3 className="text-lg font-medium mb-2">
+                  No {energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} Connected
+                </h3>
                 <p className="text-muted-foreground mb-4">
-                  Connect your smart meter to start monitoring your energy usage based on your category
+                  Connect your {energyProvider === 'KPLC' ? 'smart meter' : 'solar inverter'} to start monitoring your energy usage based on your category
                 </p>
                 <Button
                   onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
                   className="bg-aurora-green hover:bg-aurora-green/80"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Setup Meter
+                  Setup {energyProvider === 'KPLC' ? 'Meter' : 'Inverter'}
                 </Button>
               </CardContent>
             </Card>

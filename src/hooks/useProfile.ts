@@ -14,6 +14,7 @@ type Profile = BaseProfile & {
   notifications_enabled: boolean;
   auto_optimize: boolean;
   energy_rate: number;
+  battery_count?: number;
 };
 
 export const useProfile = () => {

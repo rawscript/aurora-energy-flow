@@ -86,6 +86,7 @@ const Settings = () => {
       };
 
       // Update profile using the useProfile hook
+      console.log("Updating profile with settings:", JSON.stringify(energySettings, null, 2));
       const success = await updateProfile(energySettings);
 
       if (success) {

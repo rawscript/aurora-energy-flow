@@ -12,6 +12,10 @@ interface EnergyData {
   monthly_total: number;
   peak_usage_time: string;
   cost_trend: 'up' | 'down' | 'stable';
+  battery_state?: number;
+  power_generated?: number;
+  load_consumption?: number;
+  battery_count?: number;
 }
 
 interface EnergyReading {
@@ -24,6 +28,10 @@ interface EnergyReading {
   cost_per_kwh: number;
   peak_usage?: number;
   off_peak_usage?: number;
+  battery_state?: number;
+  power_generated?: number;
+  load_consumption?: number;
+  battery_count?: number;
 }
 
 interface EnergyAnalytics {
@@ -51,7 +59,11 @@ const EMPTY_ENERGY_DATA: EnergyData = {
   weekly_average: 0,
   monthly_total: 0,
   peak_usage_time: '00:00',
-  cost_trend: 'stable'
+  cost_trend: 'stable',
+  battery_state: 0,
+  power_generated: 0,
+  load_consumption: 0,
+  battery_count: 0
 };
 
 const EMPTY_ANALYTICS: EnergyAnalytics = {
@@ -62,7 +74,7 @@ const EMPTY_ANALYTICS: EnergyAnalytics = {
   peakHours: []
 };
 
-export const useRealTimeEnergy = () => {
+export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const [energyData, setEnergyData] = useState<EnergyData>(EMPTY_ENERGY_DATA);
   const [recentReadings, setRecentReadings] = useState<EnergyReading[]>([]);
   const [analytics, setAnalytics] = useState<EnergyAnalytics>(EMPTY_ANALYTICS);
@@ -299,15 +311,15 @@ export const useRealTimeEnergy = () => {
     });
   }, [energyData.daily_cost, profileData?.meter_category]);
 
-  // Process a new reading from the meter
+  // Process a new reading from the meter or inverter
   const processNewReading = useCallback((reading: EnergyReading) => {
     if (!isValidEnergyReading(reading)) {
       console.error('Invalid reading received:', reading);
       return;
     }
-    
+
     console.log('Processing new reading:', reading);
-    
+
     // Add the new reading to the state
     setRecentReadings(prev => {
       const newReadings = [reading, ...prev.slice(0, 167)];
@@ -315,24 +327,30 @@ export const useRealTimeEnergy = () => {
       calculateAnalytics(newReadings);
       return newReadings;
     });
-    
+
     // Update the energy data
     setEnergyData(prev => ({
       ...prev,
       current_usage: reading.kwh_consumed,
       daily_total: prev.daily_total + reading.kwh_consumed,
-      daily_cost: prev.daily_cost + reading.total_cost
+      daily_cost: prev.daily_cost + reading.total_cost,
+      battery_state: energyProvider !== 'KPLC' ? reading.battery_state || prev.battery_state : prev.battery_state,
+      power_generated: energyProvider !== 'KPLC' ? reading.power_generated || prev.power_generated : prev.power_generated,
+      load_consumption: energyProvider !== 'KPLC' ? reading.load_consumption || prev.load_consumption : prev.load_consumption,
+      battery_count: energyProvider !== 'KPLC' ? reading.battery_count || prev.battery_count : prev.battery_count
     }));
-    
+
     // Clear cache when new data arrives
     dataCache.current = null;
-    
+
     // Show notification for new reading
     toast({
       title: "New Reading Received",
-      description: `Received ${reading.kwh_consumed.toFixed(2)} kWh reading from meter ${reading.meter_number}`,
+      description: energyProvider === 'KPLC'
+        ? `Received ${reading.kwh_consumed.toFixed(2)} kWh reading from meter ${reading.meter_number}`
+        : `Received solar reading: ${reading.power_generated?.toFixed(2) || '0.00'} kW generated, ${reading.battery_state || 0}% battery`,
     });
-  }, [calculateAnalytics, toast]);
+  }, [calculateAnalytics, toast, energyProvider]);
 
   // Fetch real energy readings from the database (only when meter is connected)
   const fetchRealEnergyData = useCallback(async (forceRefresh = false, page = 1, pageSize = 50) => {
@@ -554,47 +572,69 @@ export const useRealTimeEnergy = () => {
     }
   }, [user, session, hasMeterConnected, calculateAnalytics, profileData?.meter_category]);
 
-  // Get a new energy reading from the meter
+  // Get a new energy reading from the meter or inverter
   const getNewReading = async () => {
     try {
       // Check if we have a meter connected and proper authentication
       if (!user || !session || !hasMeterConnected || !meterNumber.current) {
         toast({
-          title: 'No Meter Connected',
-          description: 'Please set up your smart meter first to get readings.',
+          title: energyProvider === 'KPLC' ? 'No Meter Connected' : 'No Inverter Connected',
+          description: energyProvider === 'KPLC'
+            ? 'Please set up your smart meter first to get readings.'
+            : 'Please set up your solar inverter first to get readings.',
           variant: 'destructive'
         });
         return;
       }
-      
-      console.log(`Getting new reading from meter ${meterNumber.current}`);
-      
+
+      console.log(`Getting new reading from ${energyProvider === 'KPLC' ? 'meter' : 'inverter'} ${meterNumber.current}`);
+
       // Generate a realistic reading
       const now = new Date();
-      const baseUsage = 2 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 1.5;
-      const usage = Math.max(0.5, baseUsage + (Math.random() - 0.5) * 0.8);
-      const costPerKwh = 25;
-      const totalCost = usage * costPerKwh;
-      
+      let usage, totalCost, costPerKwh, batteryState, powerGenerated, loadConsumption, batteryCount;
+
+      if (energyProvider === 'KPLC') {
+        const baseUsage = 2 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 1.5;
+        usage = Math.max(0.5, baseUsage + (Math.random() - 0.5) * 0.8);
+        costPerKwh = 25;
+        totalCost = usage * costPerKwh;
+      } else {
+        // Solar-specific data
+        const basePower = 3 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 2.5;
+        powerGenerated = Math.max(0.5, basePower + (Math.random() - 0.5) * 0.8);
+        loadConsumption = powerGenerated * 0.7; // 70% of generated power is consumed
+        batteryState = 75 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 20; // Simulate battery charge cycle
+        batteryCount = 2; // Default to 2 batteries
+        usage = loadConsumption;
+        costPerKwh = 0; // Solar doesn't have a direct cost per kWh
+        totalCost = 0; // Solar doesn't have a direct cost
+      }
+
       // Try to record the reading in the database
       try {
+        const readingData = {
+          user_id: user.id,
+          meter_number: meterNumber.current,
+          kwh_consumed: usage,
+          cost_per_kwh: costPerKwh,
+          total_cost: totalCost,
+          reading_date: now.toISOString(),
+          battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
+          power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
+          load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
+          battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
+        };
+
         const { data, error } = await supabase
           .from('energy_readings')
-          .insert({
-            user_id: user.id,
-            meter_number: meterNumber.current,
-            kwh_consumed: usage,
-            cost_per_kwh: costPerKwh,
-            total_cost: totalCost,
-            reading_date: now.toISOString()
-          })
+          .insert(readingData)
           .select()
           .maybeSingle();
-        
+
         if (error && error.code !== 'PGRST116') {
           console.error('Error recording reading:', error);
         }
-        
+
         // Process the reading regardless of database success
         const newReading: EnergyReading = {
           id: data?.id || `temp-${Date.now()}`,
@@ -603,16 +643,22 @@ export const useRealTimeEnergy = () => {
           kwh_consumed: usage,
           total_cost: totalCost,
           reading_date: now.toISOString(),
-          cost_per_kwh: costPerKwh
+          cost_per_kwh: costPerKwh,
+          battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
+          power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
+          load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
+          battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
         };
-        
+
         processNewReading(newReading);
-        
+
         toast({
           title: 'Reading Received',
-          description: `Received ${usage.toFixed(2)} kWh reading (KSh ${totalCost.toFixed(2)})`,
+          description: energyProvider === 'KPLC'
+            ? `Received ${usage.toFixed(2)} kWh reading (KSh ${totalCost.toFixed(2)})`
+            : `Received solar reading: ${powerGenerated?.toFixed(2) || '0.00'} kW generated, ${batteryState || 0}% battery`,
         });
-        
+
       } catch (dbError) {
         console.error('Database error recording reading:', dbError);
         toast({
@@ -621,12 +667,14 @@ export const useRealTimeEnergy = () => {
           variant: 'destructive'
         });
       }
-      
+
     } catch (error) {
       console.error('Reading error:', error);
       toast({
         title: 'Reading Failed',
-        description: 'Could not get a reading from your meter. Please try again.',
+        description: energyProvider === 'KPLC'
+          ? 'Could not get a reading from your meter. Please try again.'
+          : 'Could not get a reading from your inverter. Please try again.',
         variant: 'destructive'
       });
     }
@@ -644,7 +692,11 @@ export const useRealTimeEnergy = () => {
     usage: number,
     costPerKwh: number = 25,
     totalCost: number = 0,
-    readingDate: string = new Date().toISOString()
+    readingDate: string = new Date().toISOString(),
+    batteryState?: number,
+    powerGenerated?: number,
+    loadConsumption?: number,
+    batteryCount?: number
    ) => {
     if (!user || !session || !hasMeterConnected || !meterNumber.current) {
       console.error('Cannot record reading: missing required parameters');
@@ -689,7 +741,11 @@ export const useRealTimeEnergy = () => {
         kwh_consumed: usage,
         cost_per_kwh: costPerKwh,
         total_cost: finalTotalCost,
-        reading_date: readingDate
+        reading_date: readingDate,
+        battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
+        power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
+        load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
+        battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
       };
 
       // Validate the reading data before sending
@@ -731,6 +787,10 @@ export const useRealTimeEnergy = () => {
         total_cost: finalTotalCost,
         reading_date: readingDate,
         cost_per_kwh: costPerKwh,
+        battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
+        power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
+        load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
+        battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined,
         created_at: new Date().toISOString()
       };
 
@@ -753,7 +813,7 @@ export const useRealTimeEnergy = () => {
 
       throw new Error(`Reading recording failed: ${errorMessage}`);
     }
-  }, [user, session, hasMeterConnected, meterNumber.current, processNewReading, isValidEnergyReading]);
+  }, [user, session, hasMeterConnected, meterNumber.current, processNewReading, isValidEnergyReading, energyProvider]);
 
   // Function to connect to meter
   const connectToMeter = useCallback(async (meter: string) => {
@@ -791,15 +851,15 @@ export const useRealTimeEnergy = () => {
   // Initial setup - check meter connection first
   useEffect(() => {
     if (isInitialized.current) return;
-    
+
     const initializeData = async () => {
       try {
         isInitialized.current = true;
-        
+
         if (user && session) {
           // Check if user has a meter connected
           const hasMeter = await checkMeterConnection();
-          
+
           if (hasMeter) {
             // Meter is connected, fetch real data
             await fetchRealEnergyData();
@@ -828,14 +888,17 @@ export const useRealTimeEnergy = () => {
         setLoading(false);
       }
     };
-    
+
     // Initialize immediately
     initializeData();
-  }, [user, session, checkMeterConnection, fetchRealEnergyData]);
+  }, [user, session, checkMeterConnection, fetchRealEnergyData, energyProvider]);
 
   // Set up real-time data subscription (only when meter is connected)
   useEffect(() => {
     if (!user || !session || !hasMeterConnected || !meterNumber.current) return;
+
+    // Clear cache when energyProvider changes
+    dataCache.current = null;
 
     // Set up a periodic refresh (every 15 minutes) - only when meter is connected
     const refreshInterval = setInterval(async () => {
@@ -857,7 +920,7 @@ export const useRealTimeEnergy = () => {
     try {
       // Subscribe to real-time updates for energy_readings table with a more specific filter
       readingsSubscription = supabase
-        .channel(`energy_readings_${user.id}_${meterNumber.current}`)
+        .channel(`energy_readings_${user.id}_${meterNumber.current}_${energyProvider}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -890,7 +953,7 @@ export const useRealTimeEnergy = () => {
                 try {
                   supabase.removeChannel(readingsSubscription!);
                   readingsSubscription = supabase
-                    .channel(`energy_readings_${user.id}_${meterNumber.current}_retry`)
+                    .channel(`energy_readings_${user.id}_${meterNumber.current}_${energyProvider}_retry`)
                     .on('postgres_changes', {
                       event: 'INSERT',
                       schema: 'public',
@@ -930,7 +993,7 @@ export const useRealTimeEnergy = () => {
         }
       }
     };
-  }, [user, session, hasMeterConnected, meterNumber.current, refreshData, processNewReading]);
+  }, [user, session, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
 
   // Cleanup on unmount
   useEffect(() => {

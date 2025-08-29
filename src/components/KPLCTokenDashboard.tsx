@@ -23,14 +23,23 @@ import {
   Wifi,
   WifiOff,
   Database,
-  Cloud
+  Cloud,
+  Sun,
+  BatteryFull,
+  BatteryLow,
+  BatteryMedium,
+  BatteryWarning
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useKPLCTokens } from '@/hooks/useKPLCTokens';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-const KPLCTokenDashboard: React.FC = () => {
+interface KPLCTokenDashboardProps {
+  energyProvider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
+}
+
+const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider = 'KPLC' }) => {
   const { 
     analytics, 
     transactions, 
@@ -42,7 +51,7 @@ const KPLCTokenDashboard: React.FC = () => {
     checkKPLCBalance,
     fetchTokenAnalytics,
     hasValidSession
-  } = useKPLCTokens();
+  } = useKPLCTokens(energyProvider);
   
   const isMobile = useIsMobile();
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
@@ -54,19 +63,19 @@ const KPLCTokenDashboard: React.FC = () => {
   // Handle token purchase
   const handlePurchaseTokens = useCallback(async () => {
     const amount = parseFloat(purchaseAmount);
-    
+
     if (isNaN(amount) || amount < 10) {
       return;
     }
 
-    const result = await purchaseTokens(amount, paymentMethod, phoneNumber);
-    
+    const result = await purchaseTokens(amount, paymentMethod, phoneNumber, energyProvider);
+
     if (result) {
       setPurchaseDialogOpen(false);
       setPurchaseAmount('200'); // Reset to default
       setPhoneNumber('');
     }
-  }, [purchaseAmount, paymentMethod, phoneNumber, purchaseTokens]);
+  }, [purchaseAmount, paymentMethod, phoneNumber, purchaseTokens, energyProvider]);
 
   // Handle manual refresh
   const handleRefresh = useCallback(async () => {
@@ -93,6 +102,8 @@ const KPLCTokenDashboard: React.FC = () => {
         return <Database className="h-4 w-4 text-blue-400" />;
       case 'kplc_api':
         return <Cloud className="h-4 w-4 text-green-400" />;
+      case 'solar_api':
+        return <Sun className="h-4 w-4 text-yellow-400" />;
       case 'database':
         return <Wifi className="h-4 w-4 text-purple-400" />;
       case 'no_meter':
@@ -129,14 +140,16 @@ const KPLCTokenDashboard: React.FC = () => {
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [hasValidSession, analytics, fetchTokenAnalytics]);
+  }, [hasValidSession, analytics, fetchTokenAnalytics, energyProvider]);
 
   if (loading && !analytics) {
     return (
       <div className="flex items-center justify-center h-32 sm:h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-aurora-green-light mx-auto mb-4"></div>
-          <p className="text-sm text-muted-foreground">Loading token data...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading {energyProvider === 'KPLC' ? 'token' : 'solar'} data...
+          </p>
         </div>
       </div>
     );
@@ -146,7 +159,9 @@ const KPLCTokenDashboard: React.FC = () => {
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-        <p className="text-muted-foreground">Please sign in to view token data</p>
+        <p className="text-muted-foreground">
+          Please sign in to view {energyProvider === 'KPLC' ? 'token' : 'solar'} data
+        </p>
       </div>
     );
   }
@@ -155,11 +170,13 @@ const KPLCTokenDashboard: React.FC = () => {
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-        <p className="text-muted-foreground">No token data available</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Set up your meter to start tracking token usage
+        <p className="text-muted-foreground">
+          No {energyProvider === 'KPLC' ? 'token' : 'solar'} data available
         </p>
-        <Button 
+        <p className="text-sm text-muted-foreground mt-2">
+          Set up your {energyProvider === 'KPLC' ? 'meter' : 'inverter'} to start tracking usage
+        </p>
+        <Button
           onClick={handleRefresh}
           disabled={refreshing}
           className="mt-4"
@@ -182,6 +199,18 @@ const KPLCTokenDashboard: React.FC = () => {
   }
 
   const balancePercentage = Math.min(100, (analytics.current_balance / 500) * 100);
+
+  // Get provider icon
+  const getProviderIcon = () => {
+    switch (energyProvider) {
+      case 'SunCulture':
+        return <Sun className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />;
+      case 'M-KOPA Solar':
+        return <BatteryFull className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />;
+      default:
+        return <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-aurora-green-light" />;
+    }
+  };
   
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -319,15 +348,17 @@ const KPLCTokenDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* KPLC Live Balance */}
+      {/* Provider Live Balance */}
       {kplcBalance && (
         <Card className="bg-aurora-card border-green-500/20">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <Cloud className="h-6 w-6 text-green-400" />
+                {getProviderIcon()}
                 <div>
-                  <p className="text-sm font-medium">Live KPLC Balance</p>
+                  <p className="text-sm font-medium">
+                    Live {energyProvider === 'KPLC' ? 'KPLC' : 'Solar'} Balance
+                  </p>
                   <p className="text-2xl font-bold text-green-400">
                     KSh {kplcBalance.balance.toFixed(2)}
                   </p>
@@ -351,19 +382,23 @@ const KPLCTokenDashboard: React.FC = () => {
             <div className="flex items-center space-x-3">
               <div className={`w-3 h-3 rounded-full ${analytics.current_balance > 100 ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
               <span className="text-sm">
-                {analytics.current_balance > 100 ? 'Token balance is healthy' : 'Low token balance - consider purchasing'}
+                {analytics.current_balance > 100
+                  ? `${energyProvider === 'KPLC' ? 'Token' : 'Solar'} balance is healthy`
+                  : `Low ${energyProvider === 'KPLC' ? 'token' : 'solar'} balance - consider purchasing`}
               </span>
             </div>
             <div className="flex space-x-2">
-              <Button
-                onClick={checkKPLCBalance}
-                size="sm"
-                variant="outline"
-                disabled={refreshing}
-              >
-                <Cloud className="h-4 w-4 mr-2" />
-                Check KPLC
-              </Button>
+              {energyProvider === 'KPLC' && (
+                <Button
+                  onClick={checkKPLCBalance}
+                  size="sm"
+                  variant="outline"
+                  disabled={refreshing}
+                >
+                  <Cloud className="h-4 w-4 mr-2" />
+                  Check KPLC
+                </Button>
+              )}
               <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
                 <DialogTrigger asChild>
                   <Button
@@ -372,18 +407,48 @@ const KPLCTokenDashboard: React.FC = () => {
                     disabled={purchasing}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    {purchasing ? 'Processing...' : 'Buy Tokens'}
+                    {purchasing ? 'Processing...' : `Buy ${energyProvider === 'KPLC' ? 'Tokens' : 'Credits'}`}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md bg-aurora-card border-aurora-green/20">
                   <DialogHeader>
-                    <DialogTitle className="text-aurora-green-light">Purchase KPLC Tokens</DialogTitle>
+                    <DialogTitle className="text-aurora-green-light">
+                      Purchase {energyProvider === 'KPLC' ? 'KPLC Tokens' : 'Solar Credits'}
+                    </DialogTitle>
                     <DialogDescription>
-                      Buy electricity tokens directly from KPLC. You'll receive a token code to enter in your meter.
+                      {energyProvider === 'KPLC'
+                        ? 'Buy electricity tokens directly from KPLC. You\'ll receive a token code to enter in your meter.'
+                        : 'Buy solar credits for your solar provider. You\'ll receive a transaction reference.'}
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <div className="space-y-4">
+                    {/* Provider Selection for Solar */}
+                    {energyProvider !== 'KPLC' && (
+                      <div>
+                        <Label className="text-sm font-medium">Solar Provider</Label>
+                        <Select value={energyProvider} onValueChange={(value) => { /* Handle provider change */ }}>
+                          <SelectTrigger className="mt-1 bg-slate-800 border-aurora-green/30">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-aurora-green/30">
+                            <SelectItem value="SunCulture">
+                              <div className="flex items-center space-x-2">
+                                <Sun className="h-4 w-4 text-yellow-500" />
+                                <span>SunCulture</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="M-KOPA Solar">
+                              <div className="flex items-center space-x-2">
+                                <BatteryFull className="h-4 w-4 text-yellow-500" />
+                                <span>M-KOPA Solar</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     {/* Quick Amount Buttons */}
                     <div>
                       <Label className="text-sm font-medium">Quick Amounts</Label>
@@ -469,13 +534,19 @@ const KPLCTokenDashboard: React.FC = () => {
                         <span className="font-medium">KSh {parseFloat(purchaseAmount || '0').toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm mt-1">
-                        <span>Token Units:</span>
+                        <span>{energyProvider === 'KPLC' ? 'Token Units' : 'Credits'}:</span>
                         <span className="font-medium">{parseFloat(purchaseAmount || '0').toFixed(2)} units</span>
                       </div>
                       <div className="flex justify-between items-center text-sm mt-1">
                         <span>Payment Method:</span>
                         <span className="font-medium">{paymentMethod}</span>
                       </div>
+                      {energyProvider !== 'KPLC' && (
+                        <div className="flex justify-between items-center text-sm mt-1">
+                          <span>Provider:</span>
+                          <span className="font-medium">{energyProvider}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -500,7 +571,7 @@ const KPLCTokenDashboard: React.FC = () => {
                       ) : (
                         <>
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          Purchase Tokens
+                          {energyProvider === 'KPLC' ? 'Purchase Tokens' : 'Buy Credits'}
                         </>
                       )}
                     </Button>
@@ -516,7 +587,9 @@ const KPLCTokenDashboard: React.FC = () => {
       {chartData.length > 0 && (
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">Token Balance History</CardTitle>
+            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
+              {energyProvider === 'KPLC' ? 'Token Balance History' : 'Solar Credit History'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
@@ -542,7 +615,7 @@ const KPLCTokenDashboard: React.FC = () => {
                       borderRadius: '8px',
                       fontSize: isMobile ? '12px' : '14px'
                     }}
-                    formatter={(value) => [`KSh ${Number(value).toFixed(2)}`, 'Balance']}
+                    formatter={(value) => [`KSh ${Number(value).toFixed(2)}`, energyProvider === 'KPLC' ? 'Balance' : 'Credits']}
                   />
                   <Area
                     type="monotone"
@@ -562,7 +635,9 @@ const KPLCTokenDashboard: React.FC = () => {
       {/* Recent Transactions */}
       <Card className="bg-aurora-card border-aurora-purple/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">Recent Transactions</CardTitle>
+          <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
+            Recent {energyProvider === 'KPLC' ? 'Transactions' : 'Solar Transactions'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
@@ -584,9 +659,13 @@ const KPLCTokenDashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      {transaction.transaction_type === 'purchase' ? 'Token Purchase' :
-                        transaction.transaction_type === 'consumption' ? 'Energy Consumption' :
-                        transaction.transaction_type === 'refund' ? 'Refund' : 'Adjustment'}
+                      {transaction.transaction_type === 'purchase'
+                        ? energyProvider === 'KPLC' ? 'Token Purchase' : 'Solar Credit Purchase'
+                        : transaction.transaction_type === 'consumption'
+                          ? 'Energy Consumption'
+                          : transaction.transaction_type === 'refund'
+                            ? 'Refund'
+                            : 'Adjustment'}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(transaction.transaction_date), { addSuffix: true })}
@@ -595,7 +674,9 @@ const KPLCTokenDashboard: React.FC = () => {
                       <p className="text-xs text-muted-foreground">Ref: {transaction.reference_number}</p>
                     )}
                     {transaction.token_code && (
-                      <p className="text-xs text-aurora-green-light font-mono">Code: {transaction.token_code}</p>
+                      <p className="text-xs text-aurora-green-light font-mono">
+                        {energyProvider === 'KPLC' ? 'Code' : 'Ref'}: {transaction.token_code}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -608,7 +689,7 @@ const KPLCTokenDashboard: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     Balance: KSh {transaction.balance_after.toFixed(2)}
                   </p>
-                  <Badge 
+                  <Badge
                     variant={transaction.status === 'completed' ? 'default' : 'secondary'}
                     className="text-xs mt-1"
                   >
@@ -621,9 +702,19 @@ const KPLCTokenDashboard: React.FC = () => {
 
           {transactions.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No transactions yet</p>
-              <p className="text-sm mt-2">Purchase your first tokens to get started</p>
+              {energyProvider === 'KPLC' ? (
+                <>
+                  <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No transactions yet</p>
+                  <p className="text-sm mt-2">Purchase your first tokens to get started</p>
+                </>
+              ) : (
+                <>
+                  <Sun className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No solar transactions yet</p>
+                  <p className="text-sm mt-2">Purchase your first solar credits to get started</p>
+                </>
+              )}
             </div>
           )}
         </CardContent>
@@ -637,7 +728,9 @@ const KPLCTokenDashboard: React.FC = () => {
               <div className="flex items-center space-x-3">
                 <Calendar className="h-5 w-5 text-emerald-400" />
                 <div>
-                  <p className="text-sm font-medium">Last Token Purchase</p>
+                  <p className="text-sm font-medium">
+                    Last {energyProvider === 'KPLC' ? 'Token' : 'Solar Credit'} Purchase
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(analytics.last_purchase_date), { addSuffix: true })}
                   </p>

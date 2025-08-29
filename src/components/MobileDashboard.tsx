@@ -2,14 +2,14 @@ import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Battery, 
-  House, 
-  Sun, 
-  Monitor, 
-  Zap, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Battery,
+  House,
+  Sun,
+  Monitor,
+  Zap,
+  TrendingUp,
+  TrendingDown,
   Bell,
   CreditCard,
   BarChart3,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useProfile } from '@/hooks/useProfile';
 import { format } from 'date-fns';
 
 interface MobileDashboardProps {
@@ -25,7 +26,8 @@ interface MobileDashboardProps {
 }
 
 const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
-  const { energyData, recentReadings, loading, simulateReading, useMockData } = useRealTimeEnergy();
+  const { profile } = useProfile();
+  const { energyData, recentReadings, loading, simulateReading, useMockData } = useRealTimeEnergy(profile?.energy_provider);
   const { unreadCount } = useNotifications();
 
   const handleNavigation = (tab: string) => {

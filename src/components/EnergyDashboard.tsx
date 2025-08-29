@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Battery, House, Sun, Monitor, Zap, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
+import SolarPanel from '@/components/ui/SolarPanel';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useProfile } from '@/hooks/useProfile';
@@ -40,7 +41,11 @@ const StatCard = memo(({ icon: Icon, title, value, color, trend, isEmpty = false
   </Card>
 ));
 
-const EnergyDashboard = () => {
+interface EnergyDashboardProps {
+  energyProvider?: string;
+}
+
+const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
   const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy();
   const { profile } = useProfile();
   const isMobile = useIsMobile();
@@ -462,7 +467,9 @@ const EnergyDashboard = () => {
         {/* Device Usage Breakdown */}
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">Device Usage Breakdown</CardTitle>
+            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
+              {energyProvider === 'KPLC' ? 'Device Usage Breakdown' : 'Solar Load Breakdown'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {safeAnalytics.deviceBreakdown.some(d => d.cost > 0) ? (
@@ -507,7 +514,9 @@ const EnergyDashboard = () => {
                       </div>
                       <div className="text-right">
                         <span className="text-sm font-medium">{device.percentage}%</span>
-                        <p className="text-xs text-muted-foreground">KSh {device.cost.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {energyProvider === 'KPLC' ? `KSh ${device.cost.toFixed(2)}` : `${device.cost.toFixed(2)} kWh`}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -516,9 +525,19 @@ const EnergyDashboard = () => {
             ) : (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  <House className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No device data yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Use energy to see device breakdown</p>
+                  {energyProvider === 'KPLC' ? (
+                    <>
+                      <House className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No device data yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use energy to see device breakdown</p>
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No solar load data yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use your solar system to see load breakdown</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -528,7 +547,9 @@ const EnergyDashboard = () => {
         {/* Weekly Trend Analysis */}
         <Card className="bg-aurora-card border-aurora-purple/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">Weekly Trend</CardTitle>
+            <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
+              {energyProvider === 'KPLC' ? 'Weekly Trend' : 'Solar Weekly Trend'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {safeAnalytics.weeklyTrend.length > 0 && safeAnalytics.weeklyTrend.some(d => d.usage > 0) ? (
@@ -553,30 +574,42 @@ const EnergyDashboard = () => {
                     <Line
                       type="monotone"
                       dataKey="usage"
-                      stroke="#a855f7"
+                      stroke={energyProvider === 'KPLC' ? "#a855f7" : "#f59e0b"}
                       strokeWidth={isMobile ? 2 : 3}
-                      dot={{ fill: '#a855f7', strokeWidth: 2, r: isMobile ? 3 : 4 }}
-                      activeDot={{ r: isMobile ? 4 : 6, stroke: '#a855f7', strokeWidth: 2 }}
-                      name="Usage (kWh)"
+                      dot={{ fill: energyProvider === 'KPLC' ? '#a855f7' : '#f59e0b', strokeWidth: 2, r: isMobile ? 3 : 4 }}
+                      activeDot={{ r: isMobile ? 4 : 6, stroke: energyProvider === 'KPLC' ? '#a855f7' : '#f59e0b', strokeWidth: 2 }}
+                      name={energyProvider === 'KPLC' ? "Usage (kWh)" : "Power (kW)"}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="efficiency"
-                      stroke="#10b981"
-                      strokeWidth={isMobile ? 2 : 3}
-                      dot={{ fill: '#10b981', strokeWidth: 2, r: isMobile ? 3 : 4 }}
-                      activeDot={{ r: isMobile ? 4 : 6, stroke: '#10b981', strokeWidth: 2 }}
-                      name="Efficiency (%)"
-                    />
+                    {energyProvider === 'KPLC' && (
+                      <Line
+                        type="monotone"
+                        dataKey="efficiency"
+                        stroke="#10b981"
+                        strokeWidth={isMobile ? 2 : 3}
+                        dot={{ fill: '#10b981', strokeWidth: 2, r: isMobile ? 3 : 4 }}
+                        activeDot={{ r: isMobile ? 4 : 6, stroke: '#10b981', strokeWidth: 2 }}
+                        name="Efficiency (%)"
+                      />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             ) : (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No weekly data yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Use your meter for a week to see trends</p>
+                  {energyProvider === 'KPLC' ? (
+                    <>
+                      <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No weekly data yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use your meter for a week to see trends</p>
+                    </>
+                  ) : (
+                    <>
+                      <SolarPanel className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No solar weekly data yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use your solar system for a week to see trends</p>
+                    </>
+                  )}
                 </div>
               </div>
             )}

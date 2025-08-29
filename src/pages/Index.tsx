@@ -3,7 +3,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
+import { Info } from "lucide-react";
 
 // Lazy load components for better performance
 const EnergyDashboard = lazy(() => import("@/components/EnergyDashboard"));
@@ -33,22 +35,34 @@ const TabLoadingSpinner = () => (
 // Cache for loaded components to prevent re-mounting
 const componentCache = new Map();
 
+interface TabConfig {
+  dashboard: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement) };
+  notifications: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+  insights: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+  calculator: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+  meter: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement) };
+  chat: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+  settings: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+  tokens?: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+}
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loadedTabs, setLoadedTabs] = useState(new Set(["dashboard"])); // Pre-load dashboard
   const isMobile = useIsMobile();
+  const { profile } = useProfile();
   const { unreadCount } = useNotifications();
   const { user } = useAuth();
   const [energyProvider, setEnergyProvider] = useState<string>('KPLC');
 
   // Memoize tab configuration to prevent re-renders
-  const tabConfig = useMemo(() => {
-    const config = {
+  const tabConfig: TabConfig = useMemo(() => {
+    const config: TabConfig = {
       dashboard: { label: isMobile ? "Home" : "Dashboard", component: isMobile ? MobileDashboard : EnergyDashboard },
       notifications: { label: isMobile ? "Alerts" : "Notifications", component: NotificationCenter },
       insights: { label: "Insights", component: EnergyInsights },
       calculator: { label: isMobile ? "Calc" : "Calculator", component: BillCalculator },
-      meter: { label: isMobile ? "Meter" : "Meter Setup", component: MeterSetup },
+      meter: { label: isMobile ? "Meter" : "Meter Setup", component: () => <MeterSetup energyProvider={energyProvider} /> },
       chat: { label: isMobile ? "AI Chat" : "AI Assistant", component: ChatInterface },
       settings: { label: "Settings", component: Settings }
     };
@@ -130,7 +144,7 @@ const Index = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
             <div className="lg:col-span-3">
-              <EnergyDashboard />
+              <EnergyDashboard energyProvider={energyProvider} />
             </div>
             <div className="lg:col-span-1">
               <SmartMeterStatus onNavigateToMeter={handleNavigateToMeter} />

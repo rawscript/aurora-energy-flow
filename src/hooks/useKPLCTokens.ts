@@ -11,7 +11,7 @@ interface TokenAnalytics {
   last_purchase_date: string | null;
   consumption_trend: 'increasing' | 'decreasing' | 'stable';
   last_updated: string | null;
-  data_source: 'cache' | 'database' | 'kplc_api' | 'no_meter';
+  data_source: 'cache' | 'database' | 'kplc_api' | 'solar_api' | 'no_meter';
   cache_hit: boolean;
 }
 
@@ -29,6 +29,7 @@ interface TokenTransaction {
   balance_after: number;
   status: string;
   metadata?: any;
+  provider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
 }
 
 interface KPLCBalance {
@@ -36,10 +37,10 @@ interface KPLCBalance {
   balance: number;
   meter_number: string;
   last_updated: string;
-  source: 'cache' | 'kplc_api' | 'mock';
+  source: 'cache' | 'kplc_api' | 'solar_api' | 'mock';
 }
 
-export const useKPLCTokens = () => {
+export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
   const [analytics, setAnalytics] = useState<TokenAnalytics | null>(null);
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
   const [kplcBalance, setKplcBalance] = useState<KPLCBalance | null>(null);
@@ -244,9 +245,10 @@ export const useKPLCTokens = () => {
 
   // Purchase tokens via KPLC API
   const purchaseTokens = useCallback(async (
-    amount: number, 
+    amount: number,
     paymentMethod: string = 'M-PESA',
-    phoneNumber?: string
+    phoneNumber?: string,
+    provider: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other' = 'KPLC'
   ) => {
     if (!hasValidSession() || purchasing) return null;
 
@@ -264,15 +266,27 @@ export const useKPLCTokens = () => {
         return null;
       }
 
-      console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber}`);
+      console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber} via ${provider}`);
 
-      // Call the enhanced purchase function
-      const { data, error } = await supabase.rpc('purchase_tokens_kplc', {
+      let purchaseFunction = 'purchase_tokens_kplc';
+      let successMessage = `Successfully purchased KSh ${amount} worth of tokens.`;
+      let tokenCodeField = 'token_code';
+
+      // Use the appropriate purchase function based on the provider
+      if (provider === 'SunCulture' || provider === 'M-KOPA Solar') {
+        purchaseFunction = 'purchase_tokens_solar';
+        successMessage = `Successfully purchased KSh ${amount} worth of solar credits.`;
+        tokenCodeField = 'transaction_reference';
+      }
+
+      // Call the appropriate purchase function
+      const { data, error } = await supabase.rpc(purchaseFunction, {
         p_user_id: user!.id,
         p_meter_number: meterNumber,
         p_amount: amount,
         p_payment_method: paymentMethod,
-        p_phone_number: phoneNumber
+        p_phone_number: phoneNumber,
+        p_provider: provider
       });
 
       if (error) {
@@ -287,15 +301,17 @@ export const useKPLCTokens = () => {
       console.log('Token purchase successful:', data);
 
       toast({
-        title: 'Token Purchase Successful! 🎉',
-        description: `Successfully purchased KSh ${amount} worth of tokens.`,
+        title: 'Purchase Successful! 🎉',
+        description: successMessage,
       });
 
-      // Show token code in a separate toast
+      // Show transaction reference or token code in a separate toast
       setTimeout(() => {
         toast({
-          title: 'Token Code Ready',
-          description: `Enter this code in your meter: ${data.token_code}`,
+          title: provider === 'KPLC' ? 'Token Code Ready' : 'Transaction Reference',
+          description: provider === 'KPLC'
+            ? `Enter this code in your meter: ${data[tokenCodeField]}`
+            : `Your transaction reference is: ${data[tokenCodeField]}`,
           duration: 15000, // Show for 15 seconds
         });
       }, 1000);
@@ -304,20 +320,20 @@ export const useKPLCTokens = () => {
       setTimeout(() => {
         fetchTokenAnalytics(true); // Force refresh
         fetchTransactions();
-        checkKPLCBalance();
+        if (provider === 'KPLC') checkKPLCBalance();
       }, 2000);
 
       return data;
     } catch (error) {
       console.error('Error purchasing tokens:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to purchase tokens. Please try again.';
-      
+
       toast({
         title: 'Purchase Failed',
         description: errorMessage,
         variant: 'destructive'
       });
-      
+
       setError(errorMessage);
       return null;
     } finally {
