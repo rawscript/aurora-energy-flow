@@ -26,7 +26,7 @@ serve(async (req) => {
     // Validate p_updates structure
     if (!p_updates || typeof p_updates !== 'object') {
       console.error("Invalid updates object:", p_updates);
-      return new Response(JSON.stringify({ error: "Invalid updates object provided" }), {
+      return new Response(JSON.stringify({ error: "Invalid updates object provided. Please check your input and try again." }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
@@ -37,7 +37,42 @@ serve(async (req) => {
     if (p_updates.energy_provider !== undefined && !validProviders.includes(p_updates.energy_provider)) {
       console.error("Invalid energy_provider value:", p_updates.energy_provider);
       return new Response(JSON.stringify({
-        error: "Invalid energy_provider value. Must be one of: KPLC, Solar, KenGEn, IPP, Other, or empty"
+        error: `Invalid energy provider "${p_updates.energy_provider}". Please select a valid provider from the dropdown.`
+      }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Validate energy_rate if provided
+    if (p_updates.energy_rate !== undefined) {
+      const rate = parseFloat(p_updates.energy_rate);
+      if (isNaN(rate) || rate < 0) {
+        console.error("Invalid energy_rate value:", p_updates.energy_rate);
+        return new Response(JSON.stringify({
+          error: `Invalid energy rate "${p_updates.energy_rate}". Please enter a valid positive number.`
+        }), {
+          headers: { "Content-Type": "application/json" },
+          status: 400,
+        });
+      }
+    }
+
+    // Validate boolean fields if provided
+    if (p_updates.notifications_enabled !== undefined && typeof p_updates.notifications_enabled !== 'boolean') {
+      console.error("Invalid notifications_enabled value:", p_updates.notifications_enabled);
+      return new Response(JSON.stringify({
+        error: "Invalid notification settings. Please try again."
+      }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    if (p_updates.auto_optimize !== undefined && typeof p_updates.auto_optimize !== 'boolean') {
+      console.error("Invalid auto_optimize value:", p_updates.auto_optimize);
+      return new Response(JSON.stringify({
+        error: "Invalid optimization settings. Please try again."
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
@@ -118,12 +153,12 @@ serve(async (req) => {
     console.error("Unexpected error:", {
       message: error.message,
       stack: error.stack,
-      input: { p_user_id, p_updates: body.p_updates }
+      input: body ? { p_user_id: body.p_user_id, p_updates: body.p_updates } : { p_user_id: undefined, p_updates: undefined }
     });
     return new Response(JSON.stringify({
-      error: error.message,
+      error: error.message || "An unexpected error occurred while updating your profile.",
       stack: error.stack,
-      input: { p_user_id: body.p_user_id, p_updates: body.p_updates }
+      input: body ? { p_user_id: body.p_user_id, p_updates: body.p_updates } : { p_user_id: undefined, p_updates: undefined }
     }), {
       headers: { "Content-Type": "application/json" },
       status: 500,

@@ -59,9 +59,22 @@ const Settings = () => {
 
   const handleSave = async () => {
     console.log("Current energyProvider before save:", energyProvider);
+    
+    // Validate energy rate
+    const rateValue = parseFloat(rate);
+    if (isNaN(rateValue) || rateValue < 0) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a valid energy rate (positive number).",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
     if (!user) {
       toast({
-        title: "Error",
+        title: "Authentication Error",
         description: "You must be logged in to save settings.",
         variant: "destructive",
         duration: 3000,
@@ -84,7 +97,7 @@ const Settings = () => {
         energy_provider: energyProvider,
         notifications_enabled: notifications,
         auto_optimize: autoOptimize,
-        energy_rate: parseFloat(rate),
+        energy_rate: rateValue,
       };
 
       // Update profile using the useProfile hook
@@ -95,8 +108,8 @@ const Settings = () => {
       if (success) {
         console.log("Settings saved successfully. Updated energyProvider:", energyProvider);
         toast({
-          title: "Settings saved",
-          description: "Your preferences have been updated successfully.",
+          title: "Settings Saved",
+          description: "Your energy settings have been updated successfully.",
           duration: 3000,
         });
         // Update the last saved provider
@@ -106,17 +119,32 @@ const Settings = () => {
       } else {
         console.error("Failed to save settings");
         toast({
-          title: "Error",
-          description: "Failed to save settings. Using cached values.",
+          title: "Save Failed",
+          description: "Unable to save your settings. Please check your connection and try again.",
           variant: "destructive",
           duration: 5000,
         });
       }
     } catch (error) {
       console.error("Unexpected error:", error);
+      let errorMessage = "An unknown error occurred while saving your settings.";
+      
+      if (error instanceof Error) {
+        // Provide more specific error messages based on error type
+        if (error.message.includes("network")) {
+          errorMessage = "Network error. Please check your internet connection and try again.";
+        } else if (error.message.includes("timeout")) {
+          errorMessage = "Request timed out. Please try again.";
+        } else if (error.message.includes("auth")) {
+          errorMessage = "Authentication error. Please sign in again.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "An unknown error occurred. Using cached values.",
+        title: "Save Error",
+        description: errorMessage,
         variant: "destructive",
         duration: 5000,
       });
@@ -148,6 +176,7 @@ const Settings = () => {
                   <SelectItem value="KPLC">Kenya Power</SelectItem>
                   <SelectItem value="KenGEn">KenGEn</SelectItem>
                   <SelectItem value="IPP">Independent Power Producers (IPPs)</SelectItem>
+                  <SelectItem value="Other">Other Provider</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -158,9 +187,17 @@ const Settings = () => {
                 id="rate"
                 type="number"
                 step="0.01"
+                min="0"
                 value={rate}
-                onChange={(e) => setRate(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow empty value or valid positive numbers
+                  if (value === '' || (parseFloat(value) >= 0)) {
+                    setRate(value);
+                  }
+                }}
                 className="bg-slate-800 border-aurora-blue/30"
+                placeholder="0.15"
               />
             </div>
           </div>
