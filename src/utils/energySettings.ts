@@ -59,7 +59,7 @@ export async function getEnergySettings(userId: string): Promise<EnergySettings 
       const userProfile = profile[0] as ProfileWithEnergySettings;
 
       const settings: EnergySettings = {
-        energy_provider: userProfile.energy_provider || 'KPLC',
+        energy_provider: userProfile.energy_provider || '',
         notifications_enabled: userProfile.notifications_enabled ?? true,
         auto_optimize: userProfile.auto_optimize ?? false,
         energy_rate: userProfile.energy_rate ?? 0.15

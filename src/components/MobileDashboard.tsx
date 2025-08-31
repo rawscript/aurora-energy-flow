@@ -27,7 +27,7 @@ interface MobileDashboardProps {
 
 const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
   const { profile } = useProfile();
-  const { energyData, recentReadings, loading, simulateReading, useMockData } = useRealTimeEnergy(profile?.energy_provider);
+  const { energyData, recentReadings, loading } = useRealTimeEnergy(profile?.energy_provider || 'KPLC');
   const { unreadCount } = useNotifications();
 
   const handleNavigation = (tab: string) => {

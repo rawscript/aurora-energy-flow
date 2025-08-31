@@ -39,7 +39,7 @@ interface KPLCTokenDashboardProps {
   energyProvider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
 }
 
-const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider = 'KPLC' }) => {
+const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider = '' }) => {
   const { 
     analytics, 
     transactions, 
@@ -68,7 +68,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
       return;
     }
 
-    const result = await purchaseTokens(amount, paymentMethod, phoneNumber, energyProvider);
+    const result = await purchaseTokens(amount, paymentMethod, phoneNumber, energyProvider as any);
 
     if (result) {
       setPurchaseDialogOpen(false);
@@ -203,10 +203,13 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   // Get provider icon
   const getProviderIcon = () => {
     switch (energyProvider) {
+      case 'Solar':
       case 'SunCulture':
         return <Sun className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />;
       case 'M-KOPA Solar':
         return <BatteryFull className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-400" />;
+      case 'KPLC':
+      case '':
       default:
         return <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-aurora-green-light" />;
     }
@@ -424,7 +427,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
 
                   <div className="space-y-4">
                     {/* Provider Selection for Solar */}
-                    {energyProvider !== 'KPLC' && (
+                    {(energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar') && (
                       <div>
                         <Label className="text-sm font-medium">Solar Provider</Label>
                         <Select value={energyProvider} onValueChange={(value) => { /* Handle provider change */ }}>
@@ -432,6 +435,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="bg-slate-800 border-aurora-green/30">
+                            <SelectItem value="Solar">Generic Solar</SelectItem>
                             <SelectItem value="SunCulture">
                               <div className="flex items-center space-x-2">
                                 <Sun className="h-4 w-4 text-yellow-500" />

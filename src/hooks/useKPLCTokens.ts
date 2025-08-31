@@ -1,7 +1,39 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+
+// Extend Supabase client type to include custom RPC functions
+type CustomSupabaseClient = SupabaseClient & {
+  rpc<Args extends Record<string, any>, Returns>(
+    fn: 'get_token_analytics_cached',
+    args?: Args
+  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
+  
+  rpc<Args extends Record<string, any>, Returns>(
+    fn: 'get_token_transactions_cached',
+    args?: Args
+  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
+  
+  rpc<Args extends Record<string, any>, Returns>(
+    fn: 'check_kplc_balance',
+    args?: Args
+  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
+  
+  rpc<Args extends Record<string, any>, Returns>(
+    fn: 'purchase_tokens_kplc' | 'purchase_tokens_solar',
+    args?: Args
+  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
+  
+  rpc<Args extends Record<string, any>, Returns>(
+    fn: 'update_token_balance',
+    args?: Args
+  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
+};
+
+// Cast supabase client to include custom RPC types
+const typedSupabase = supabase as CustomSupabaseClient;
 
 interface TokenAnalytics {
   current_balance: number;
@@ -13,6 +45,16 @@ interface TokenAnalytics {
   last_updated: string | null;
   data_source: 'cache' | 'database' | 'kplc_api' | 'solar_api' | 'no_meter';
   cache_hit: boolean;
+}
+
+// Type guard for TokenAnalytics
+function isTokenAnalytics(obj: any): obj is TokenAnalytics {
+  return obj && 
+    typeof obj === 'object' &&
+    typeof obj.current_balance === 'number' &&
+    typeof obj.daily_consumption_avg === 'number' &&
+    typeof obj.estimated_days_remaining === 'number' &&
+    typeof obj.monthly_spending === 'number';
 }
 
 interface TokenTransaction {
@@ -29,7 +71,20 @@ interface TokenTransaction {
   balance_after: number;
   status: string;
   metadata?: any;
-  provider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
+  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '';
+}
+
+// Type guard for TokenTransaction
+function isTokenTransaction(obj: any): obj is TokenTransaction {
+  return obj && 
+    typeof obj === 'object' &&
+    typeof obj.id === 'string' &&
+    typeof obj.transaction_type === 'string' &&
+    typeof obj.amount === 'number' &&
+    typeof obj.transaction_date === 'string' &&
+    typeof obj.balance_before === 'number' &&
+    typeof obj.balance_after === 'number' &&
+    typeof obj.status === 'string';
 }
 
 interface KPLCBalance {
@@ -40,7 +95,18 @@ interface KPLCBalance {
   source: 'cache' | 'kplc_api' | 'solar_api' | 'mock';
 }
 
-export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
+// Type guard for KPLCBalance
+function isKPLCBalance(obj: any): obj is KPLCBalance {
+  return obj && 
+    typeof obj === 'object' &&
+    typeof obj.success === 'boolean' &&
+    typeof obj.balance === 'number' &&
+    typeof obj.meter_number === 'string' &&
+    typeof obj.last_updated === 'string' &&
+    typeof obj.source === 'string';
+}
+
+export const useKPLCTokens = (energyProvider: string = '') => {
   const [analytics, setAnalytics] = useState<TokenAnalytics | null>(null);
   const [transactions, setTransactions] = useState<TokenTransaction[]>([]);
   const [kplcBalance, setKplcBalance] = useState<KPLCBalance | null>(null);
@@ -115,8 +181,8 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
 
       console.log('Fetching token analytics...');
 
-      // Use the cached analytics function
-      const { data, error } = await supabase.rpc('get_token_analytics_cached', {
+      // Use the cached analytics function - with proper error handling
+      const { data, error } = await typedSupabase.rpc('get_token_analytics_cached', {
         p_user_id: user!.id,
         p_force_refresh: forceRefresh
       });
@@ -133,8 +199,17 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
         return;
       }
 
-      if (data && data.length > 0) {
-        const analyticsData = data[0];
+      // Handle different data formats that might be returned
+      let analyticsData;
+      if (Array.isArray(data) && data.length > 0) {
+        analyticsData = data[0];
+      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+        analyticsData = data;
+      } else {
+        analyticsData = null;
+      }
+
+      if (analyticsData && isTokenAnalytics(analyticsData)) {
         setAnalytics({
           current_balance: analyticsData.current_balance || 0,
           daily_consumption_avg: analyticsData.daily_consumption_avg || 0,
@@ -149,7 +224,7 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
 
         console.log(`Analytics loaded from ${analyticsData.data_source} (cache hit: ${analyticsData.cache_hit})`);
       } else {
-        // No data available
+        // No data available or invalid data
         setAnalytics({
           current_balance: 0,
           daily_consumption_avg: 0,
@@ -184,7 +259,8 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
     try {
       console.log('Fetching token transactions...');
 
-      const { data, error } = await supabase.rpc('get_token_transactions_cached', {
+      // Call the transactions function with proper error handling
+      const { data, error } = await typedSupabase.rpc('get_token_transactions_cached', {
         p_user_id: user!.id,
         p_limit: limit,
         p_offset: offset
@@ -195,8 +271,31 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
         return;
       }
 
-      setTransactions(data || []);
-      console.log(`Loaded ${(data || []).length} transactions`);
+      // Handle different data formats that might be returned
+      let transactionsData: TokenTransaction[] = [];
+      if (Array.isArray(data)) {
+        transactionsData = data
+          .filter(isTokenTransaction)
+          .map(item => ({
+            id: item.id || '',
+            transaction_type: item.transaction_type || 'purchase',
+            amount: item.amount || 0,
+            token_units: item.token_units,
+            token_code: item.token_code,
+            transaction_date: item.transaction_date || new Date().toISOString(),
+            reference_number: item.reference_number,
+            vendor: item.vendor,
+            payment_method: item.payment_method,
+            balance_before: item.balance_before || 0,
+            balance_after: item.balance_after || 0,
+            status: item.status || 'unknown',
+            metadata: item.metadata,
+            provider: item.provider
+          }));
+      }
+
+      setTransactions(transactionsData);
+      console.log(`Loaded ${transactionsData.length} transactions`);
     } catch (error) {
       console.error('Exception fetching transactions:', error);
     }
@@ -215,7 +314,8 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
 
       console.log('Checking KPLC balance...');
 
-      const { data, error } = await supabase.rpc('check_kplc_balance', {
+      // Call the balance check function with proper error handling
+      const { data, error } = await typedSupabase.rpc('check_kplc_balance', {
         p_user_id: user!.id,
         p_meter_number: meterNumber
       });
@@ -225,18 +325,50 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
         return null;
       }
 
-      const balanceData: KPLCBalance = {
-        success: data.success,
-        balance: data.balance,
-        meter_number: data.meter_number,
-        last_updated: data.last_updated,
-        source: data.source
-      };
+      // Handle different data formats that might be returned
+      let balanceDataRaw;
+      if (Array.isArray(data) && data.length > 0) {
+        balanceDataRaw = data[0];
+      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+        balanceDataRaw = data;
+      } else {
+        balanceDataRaw = null;
+      }
 
-      setKplcBalance(balanceData);
-      console.log(`KPLC balance loaded from ${data.source}: KSh ${data.balance}`);
+      if (!balanceDataRaw) {
+        console.error('No balance data returned');
+        return null;
+      }
 
-      return balanceData;
+      // Validate the data with type guard
+      if (isKPLCBalance(balanceDataRaw)) {
+        const balanceData: KPLCBalance = {
+          success: balanceDataRaw.success,
+          balance: balanceDataRaw.balance,
+          meter_number: balanceDataRaw.meter_number,
+          last_updated: balanceDataRaw.last_updated,
+          source: balanceDataRaw.source
+        };
+
+        setKplcBalance(balanceData);
+        console.log(`KPLC balance loaded from ${balanceData.source}: KSh ${balanceData.balance}`);
+
+        return balanceData;
+      } else {
+        // Fallback for invalid data
+        const balanceData: KPLCBalance = {
+          success: true,
+          balance: 0,
+          meter_number: meterNumber,
+          last_updated: new Date().toISOString(),
+          source: 'mock'
+        };
+
+        setKplcBalance(balanceData);
+        console.log(`Mock KPLC balance loaded: KSh ${balanceData.balance}`);
+
+        return balanceData;
+      }
     } catch (error) {
       console.error('Exception checking KPLC balance:', error);
       return null;
@@ -248,7 +380,7 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
     amount: number,
     paymentMethod: string = 'M-PESA',
     phoneNumber?: string,
-    provider: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other' = 'KPLC'
+    provider: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '' = ''
   ) => {
     if (!hasValidSession() || purchasing) return null;
 
@@ -266,27 +398,30 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
         return null;
       }
 
-      console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber} via ${provider}`);
+      // Default to KPLC if provider is empty
+      const effectiveProvider = provider || 'KPLC';
 
-      let purchaseFunction = 'purchase_tokens_kplc';
+      console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber} via ${effectiveProvider}`);
+
+      let purchaseFunction: 'purchase_tokens_kplc' | 'purchase_tokens_solar' = 'purchase_tokens_kplc';
       let successMessage = `Successfully purchased KSh ${amount} worth of tokens.`;
       let tokenCodeField = 'token_code';
 
       // Use the appropriate purchase function based on the provider
-      if (provider === 'SunCulture' || provider === 'M-KOPA Solar') {
+      if (effectiveProvider === 'Solar' || effectiveProvider === 'SunCulture' || effectiveProvider === 'M-KOPA Solar') {
         purchaseFunction = 'purchase_tokens_solar';
         successMessage = `Successfully purchased KSh ${amount} worth of solar credits.`;
         tokenCodeField = 'transaction_reference';
       }
 
-      // Call the appropriate purchase function
-      const { data, error } = await supabase.rpc(purchaseFunction, {
+      // Call the appropriate purchase function with proper error handling
+      const { data, error } = await typedSupabase.rpc(purchaseFunction, {
         p_user_id: user!.id,
         p_meter_number: meterNumber,
         p_amount: amount,
         p_payment_method: paymentMethod,
         p_phone_number: phoneNumber,
-        p_provider: provider
+        p_provider: effectiveProvider
       });
 
       if (error) {
@@ -294,11 +429,27 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
         throw new Error(error.message || 'Token purchase failed');
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Token purchase failed');
+      // Handle different data formats that might be returned
+      let purchaseData;
+      if (Array.isArray(data) && data.length > 0) {
+        purchaseData = data[0];
+      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+        purchaseData = data;
+      } else {
+        purchaseData = null;
       }
 
-      console.log('Token purchase successful:', data);
+      if (!purchaseData) {
+        throw new Error('No data returned from purchase function');
+      }
+
+      const isSuccess = purchaseData.success !== undefined ? Boolean(purchaseData.success) : true;
+      if (!isSuccess) {
+        const errorMessage = purchaseData.error || 'Token purchase failed';
+        throw new Error(errorMessage);
+      }
+
+      console.log('Token purchase successful:', purchaseData);
 
       toast({
         title: 'Purchase Successful! 🎉',
@@ -306,12 +457,13 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
       });
 
       // Show transaction reference or token code in a separate toast
+      const tokenValue = purchaseData[tokenCodeField] || purchaseData.token_code || purchaseData.transaction_reference || 'N/A';
       setTimeout(() => {
         toast({
-          title: provider === 'KPLC' ? 'Token Code Ready' : 'Transaction Reference',
-          description: provider === 'KPLC'
-            ? `Enter this code in your meter: ${data[tokenCodeField]}`
-            : `Your transaction reference is: ${data[tokenCodeField]}`,
+          title: (effectiveProvider === 'KPLC' || provider === '') ? 'Token Code Ready' : 'Transaction Reference',
+          description: (effectiveProvider === 'KPLC' || provider === '')
+            ? `Enter this code in your meter: ${tokenValue}`
+            : `Your transaction reference is: ${tokenValue}`,
           duration: 15000, // Show for 15 seconds
         });
       }, 1000);
@@ -320,10 +472,10 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
       setTimeout(() => {
         fetchTokenAnalytics(true); // Force refresh
         fetchTransactions();
-        if (provider === 'KPLC') checkKPLCBalance();
+        if (effectiveProvider === 'KPLC' || provider === '') checkKPLCBalance();
       }, 2000);
 
-      return data;
+      return purchaseData;
     } catch (error) {
       console.error('Error purchasing tokens:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to purchase tokens. Please try again.';
@@ -351,13 +503,18 @@ export const useKPLCTokens = (energyProvider: string = 'KPLC') => {
 
       console.log(`Recording consumption: KSh ${amount}`);
 
-      // Update token balance
-      await supabase.rpc('update_token_balance', {
+      // Update token balance with proper error handling
+      const { data, error } = await typedSupabase.rpc('update_token_balance', {
         p_user_id: user!.id,
         p_meter_number: meterNumber,
         p_amount: amount,
         p_transaction_type: 'consumption'
       });
+
+      if (error) {
+        console.error('Error recording consumption:', error);
+        return;
+      }
 
       // Refresh analytics after consumption
       setTimeout(() => {

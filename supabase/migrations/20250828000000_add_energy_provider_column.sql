@@ -8,6 +8,6 @@ BEGIN
   ) THEN
     ALTER TABLE profiles ADD COLUMN energy_provider TEXT;
     COMMENT ON COLUMN profiles.energy_provider IS 'The energy provider for the user (e.g., KPLC, Solar)';
-    UPDATE profiles SET energy_provider = 'KPLC' WHERE energy_provider IS NULL;
+    UPDATE profiles SET energy_provider = '' WHERE energy_provider IS NULL;
   END IF;
 END $$;

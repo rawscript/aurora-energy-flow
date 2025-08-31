@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
+import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -66,8 +67,8 @@ const Index = () => {
       settings: { label: "Settings", component: Settings }
     };
 
-    // Only hide the tokens tab if the energy provider is Solar and settings are saved
-    if (energyProvider !== 'Solar') {
+    // Only hide the tokens tab if the energy provider is explicitly Solar and settings are saved
+    if (energyProvider !== 'Solar' && energyProvider !== '') {
       config.tokens = { label: isMobile ? "Tokens" : "KPLC Tokens", component: KPLCTokenDashboard };
     }
 
@@ -182,6 +183,7 @@ const Index = () => {
           .single();
 
         if (profile) {
+          // Set to 'KPLC' as default for UI display if provider is empty
           setEnergyProvider(profile.energy_provider || 'KPLC');
         }
       } catch (error) {
@@ -230,7 +232,7 @@ const Index = () => {
             <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
               {tabConfig.dashboard.label}
             </TabsTrigger>
-            {energyProvider === 'KPLC' && (
+            {(energyProvider === 'KPLC' || energyProvider === '') && (
               <TabsTrigger value="tokens" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
                 {tabConfig.tokens?.label}
               </TabsTrigger>
@@ -267,8 +269,18 @@ const Index = () => {
           {/* Mobile bottom navigation for hidden tabs */}
           {isMobile && (
             <div className="fixed bottom-0 left-0 right-0 bg-aurora-card border-t border-aurora-green/20 px-2 py-2 z-50">
-              <div className="grid grid-cols-3 gap-2">
-                {energyProvider === 'KPLC' && (
+              <div className="grid grid-cols-4 gap-1">
+                <button
+                  onClick={() => handleTabChange("dashboard")}
+                  className={`text-xs p-2 rounded transition-colors ${
+                    activeTab === "dashboard"
+                      ? "bg-aurora-green text-black"
+                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
+                  Home
+                </button>
+                {(energyProvider === 'KPLC' || energyProvider === '' || !energyProvider) && (
                   <button
                     onClick={() => handleTabChange("tokens")}
                     className={`text-xs p-2 rounded transition-colors ${
@@ -289,16 +301,6 @@ const Index = () => {
                   }`}
                 >
                   Meter
-                </button>
-                <button
-                  onClick={() => handleTabChange("chat")}
-                  className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "chat"
-                      ? "bg-aurora-green text-black"
-                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  AI Chat
                 </button>
                 <button
                   onClick={() => handleTabChange("settings")}

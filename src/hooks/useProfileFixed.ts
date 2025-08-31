@@ -90,7 +90,7 @@ export const useProfile = () => {
         // Create complete profile with default values for energy settings
         const completeProfile: Profile = {
           ...profileData,
-          energy_provider: energySettings?.energy_provider || 'KPLC',
+          energy_provider: energySettings?.energy_provider || '',
           notifications_enabled: energySettings?.notifications_enabled || true,
           auto_optimize: energySettings?.auto_optimize || false,
           energy_rate: energySettings?.energy_rate || 0.15

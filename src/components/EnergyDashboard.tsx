@@ -45,7 +45,7 @@ interface EnergyDashboardProps {
   energyProvider?: string;
 }
 
-const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
+const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
   const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy();
   const { profile } = useProfile();
   const isMobile = useIsMobile();
@@ -469,7 +469,9 @@ const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-              {energyProvider === 'KPLC' ? 'Device Usage Breakdown' : 'Solar Load Breakdown'}
+              {energyProvider === 'KPLC' ? 'Device Usage Breakdown' : 
+               energyProvider === 'Solar' ? 'Solar Load Breakdown' : 
+               'Device Usage Breakdown'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -574,7 +576,9 @@ const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
         <Card className="bg-aurora-card border-aurora-purple/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-              {energyProvider === 'KPLC' ? 'Weekly Trend' : 'Solar Weekly Trend'}
+              {energyProvider === 'KPLC' ? 'Weekly Trend' : 
+               energyProvider === 'Solar' ? 'Solar Weekly Trend' : 
+               'Weekly Trend'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -600,13 +604,21 @@ const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
                     <Line
                       type="monotone"
                       dataKey="usage"
-                      stroke={energyProvider === 'KPLC' ? "#a855f7" : "#f59e0b"}
+                      stroke={energyProvider === 'KPLC' ? "#a855f7" : 
+                             energyProvider === 'Solar' ? "#f59e0b" : 
+                             "#a855f7"}
                       strokeWidth={isMobile ? 2 : 3}
-                      dot={{ fill: energyProvider === 'KPLC' ? '#a855f7' : '#f59e0b', strokeWidth: 2, r: isMobile ? 3 : 4 }}
-                      activeDot={{ r: isMobile ? 4 : 6, stroke: energyProvider === 'KPLC' ? '#a855f7' : '#f59e0b', strokeWidth: 2 }}
-                      name={energyProvider === 'KPLC' ? "Usage (kWh)" : "Power (kW)"}
+                      dot={{ fill: energyProvider === 'KPLC' ? '#a855f7' : 
+                                   energyProvider === 'Solar' ? '#f59e0b' : 
+                                   '#a855f7', strokeWidth: 2, r: isMobile ? 3 : 4 }}
+                      activeDot={{ r: isMobile ? 4 : 6, stroke: energyProvider === 'KPLC' ? '#a855f7' : 
+                                   energyProvider === 'Solar' ? '#f59e0b' : 
+                                   '#a855f7', strokeWidth: 2 }}
+                      name={energyProvider === 'KPLC' ? "Usage (kWh)" : 
+                            energyProvider === 'Solar' ? "Power (kW)" : 
+                            "Usage (kWh)"}
                     />
-                    {energyProvider === 'KPLC' && (
+                    {(energyProvider === 'KPLC' || energyProvider === '') && (
                       <Line
                         type="monotone"
                         dataKey="efficiency"

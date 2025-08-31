@@ -33,11 +33,11 @@ serve(async (req) => {
     }
 
     // Check for valid energy_provider value
-    const validProviders = ['KPLC', 'Solar', 'Other'];
-    if (p_updates.energy_provider && !validProviders.includes(p_updates.energy_provider)) {
+    const validProviders = ['KPLC', 'Solar', 'KenGEn', 'IPP', 'Other', ''];
+    if (p_updates.energy_provider !== undefined && !validProviders.includes(p_updates.energy_provider)) {
       console.error("Invalid energy_provider value:", p_updates.energy_provider);
       return new Response(JSON.stringify({
-        error: "Invalid energy_provider value. Must be one of: KPLC, Solar, Other"
+        error: "Invalid energy_provider value. Must be one of: KPLC, Solar, KenGEn, IPP, Other, or empty"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,

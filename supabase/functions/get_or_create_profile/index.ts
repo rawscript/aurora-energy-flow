@@ -58,7 +58,7 @@ serve(async (req) => {
           full_name: p_full_name,
           phone_number: p_phone_number,
           meter_number: p_meter_number,
-          energy_provider: "KPLC",
+          energy_provider: "",
         })
         .select();
 

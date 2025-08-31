@@ -37,14 +37,16 @@ const Settings = () => {
   useEffect(() => {
     if (profile) {
       console.log("Initializing settings from profile:", profile);
-      setEnergyProvider(profile.energy_provider || 'KPLC');
+      setEnergyProvider(profile.energy_provider || '');
       setNotifications(profile.notifications_enabled || true);
       setAutoOptimize(profile.auto_optimize || false);
       setRate(profile.energy_rate ? profile.energy_rate.toString() : '0.15');
-      setLastSavedProvider(profile.energy_provider || 'KPLC');
+      setLastSavedProvider(profile.energy_provider || '');
 
       // Cache the provider locally as a fallback
-      localStorage.setItem('energyProvider', profile.energy_provider || 'KPLC');
+      if (profile.energy_provider) {
+        localStorage.setItem('energyProvider', profile.energy_provider);
+      }
     } else if (!loading && !error) {
       // Fallback to localStorage if no profile data
       const cachedProvider = localStorage.getItem('energyProvider');
@@ -137,7 +139,7 @@ const Settings = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="provider">Energy Provider</Label>
-              <Select value={energyProvider} onValueChange={setEnergyProvider}>
+              <Select value={energyProvider || undefined} onValueChange={setEnergyProvider}>
                 <SelectTrigger className="bg-slate-800 border-aurora-green/30">
                   <SelectValue placeholder="Select your provider" />
                 </SelectTrigger>
