@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { debounce } from 'lodash';
 
 interface EnergyData {
   current_usage: number;
@@ -913,9 +914,10 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       }
     }, 15 * 60 * 1000); // 15 minutes instead of 10
 
-    // Set up real-time data subscriptions with better error handling
+  // Set up real-time data subscriptions with better error handling
     let readingsSubscription: ReturnType<typeof supabase.channel> | null = null;
     let subscriptionActive = true;
+    const debouncedProcessReading = useRef<((payload: any) => void) | null>(null);
 
     try {
       // Subscribe to real-time updates for energy_readings table with a more specific filter
@@ -933,12 +935,12 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
           // Validate payload.new before processing
           if (isValidEnergyReading(payload.new)) {
-            // Throttle processing to avoid UI updates too frequently
-            const now = Date.now();
-            if (now - lastFetchTime.current > 1000) { // At least 1 second between updates
-              processNewReading(payload.new);
-              lastFetchTime.current = now;
+            if (!debouncedProcessReading.current) {
+              debouncedProcessReading.current = debounce((reading) => {
+                processNewReading(reading);
+              }, 500); // Debounce for 500ms
             }
+            debouncedProcessReading.current(payload.new);
           } else {
             console.warn('Invalid energy reading received from subscription:', payload.new);
           }
@@ -983,6 +985,11 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     return () => {
       subscriptionActive = false;
       clearInterval(refreshInterval);
+
+      // Cancel the debounced function to avoid memory leaks
+      if (debouncedProcessReading.current) {
+        debouncedProcessReading.current.cancel();
+      }
 
       if (readingsSubscription) {
         try {

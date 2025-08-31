@@ -207,6 +207,7 @@ export const useProfile = () => {
     meter_number: string;
     meter_category: string;
     industry_type?: string;
+    energy_provider?: string;
   }) => {
     console.log('Setting up meter:', meterData);
     return await updateProfile(meterData);

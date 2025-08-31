@@ -49,6 +49,7 @@ const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
   const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy();
   const { profile } = useProfile();
   const isMobile = useIsMobile();
+  const [showAllDevices, setShowAllDevices] = React.useState(false);
 
   // Safe energy data with fallbacks
   const safeEnergyData = {
@@ -503,12 +504,37 @@ const EnergyDashboard = ({ energyProvider = 'KPLC' }: EnergyDashboardProps) => {
                   </ResponsiveContainer>
                 </div>
                 <div className={`mt-4 space-y-2 ${isMobile ? 'text-sm' : ''}`}>
-                  {safeAnalytics.deviceBreakdown.map((device, index) => (
+                  {safeAnalytics.deviceBreakdown.slice(0, 5).map((device, index) => (
                     <div key={index} className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <div
                           className="w-3 h-3 rounded-full"
                           style={{ backgroundColor: ['#10b981', '#3b82f6', '#a855f7', '#f59e0b'][index] }}
+                        />
+                        <span className="text-sm">{device.device}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-medium">{device.percentage}%</span>
+                        <p className="text-xs text-muted-foreground">
+                          {energyProvider === 'KPLC' ? `KSh ${device.cost.toFixed(2)}` : `${device.cost.toFixed(2)} kWh`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {safeAnalytics.deviceBreakdown.length > 5 && (
+                    <button
+                      className="mt-2 text-sm text-blue-500 hover:underline"
+                      onClick={() => setShowAllDevices(!showAllDevices)}
+                    >
+                      {showAllDevices ? 'Show Less' : 'Show More'}
+                    </button>
+                  )}
+                  {showAllDevices && safeAnalytics.deviceBreakdown.slice(5).map((device, index) => (
+                    <div key={`extra-${index}`} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: ['#10b981', '#3b82f6', '#a855f7', '#f59e0b'][(index + 4) % 4] }}
                         />
                         <span className="text-sm">{device.device}</span>
                       </div>

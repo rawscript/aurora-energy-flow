@@ -23,6 +23,27 @@ serve(async (req) => {
     console.log("User ID:", p_user_id);
     console.log("Updates:", JSON.stringify(p_updates, null, 2));
 
+    // Validate p_updates structure
+    if (!p_updates || typeof p_updates !== 'object') {
+      console.error("Invalid updates object:", p_updates);
+      return new Response(JSON.stringify({ error: "Invalid updates object provided" }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Check for valid energy_provider value
+    const validProviders = ['KPLC', 'Solar', 'Other'];
+    if (p_updates.energy_provider && !validProviders.includes(p_updates.energy_provider)) {
+      console.error("Invalid energy_provider value:", p_updates.energy_provider);
+      return new Response(JSON.stringify({
+        error: "Invalid energy_provider value. Must be one of: KPLC, Solar, Other"
+      }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -42,7 +63,12 @@ serve(async (req) => {
 
     if (fetchError) {
       console.error("Error fetching profile:", fetchError);
-      return new Response(JSON.stringify({ error: fetchError.message }), {
+      return new Response(JSON.stringify({
+        error: fetchError.message,
+        details: fetchError.details,
+        hint: fetchError.hint,
+        code: fetchError.code
+      }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
@@ -64,12 +90,19 @@ serve(async (req) => {
       .select();
 
     if (error) {
-      console.error("Supabase update error:", error);
+      console.error("Supabase update error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        updates: p_updates
+      });
       return new Response(JSON.stringify({
         error: error.message,
         details: error.details,
         hint: error.hint,
-        code: error.code
+        code: error.code,
+        providedUpdates: p_updates
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
@@ -78,12 +111,20 @@ serve(async (req) => {
 
     console.log("Profile updated successfully:", data);
 
-    return new Response(JSON.stringify({ data }), {
+    return new Response(JSON.stringify({ success: true, data }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Unexpected error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("Unexpected error:", {
+      message: error.message,
+      stack: error.stack,
+      input: { p_user_id, p_updates: body.p_updates }
+    });
+    return new Response(JSON.stringify({
+      error: error.message,
+      stack: error.stack,
+      input: { p_user_id: body.p_user_id, p_updates: body.p_updates }
+    }), {
       headers: { "Content-Type": "application/json" },
       status: 500,
     });

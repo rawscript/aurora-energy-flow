@@ -24,16 +24,25 @@ interface MeterSetupProps {
   energyProvider?: string;
 }
 
-const meterFormSchema = z.object({
-  meterNumber: z.string().min(5, 'Meter number must be at least 5 characters'),
+const ENERGY_PROVIDERS = [
+  { value: 'KPLC', label: 'Kenya Power (KPLC)', meterLabel: 'Meter Number', placeholder: 'Enter your Kenya Power meter number' },
+  { value: 'Solar', label: 'Solar Provider', meterLabel: 'Inverter ID', placeholder: 'Enter your solar inverter ID' },
+  { value: 'Other', label: 'Other Provider', meterLabel: 'Meter/Inverter ID', placeholder: 'Enter your meter or inverter ID' },
+];
+
+const meterFormSchema = (energyProvider: string) => z.object({
+  meterNumber: energyProvider === 'KPLC'
+    ? z.string().min(11, 'KPLC meter number must be 11 digits').max(11, 'KPLC meter number must be 11 digits')
+    : z.string().min(5, 'Meter number must be at least 5 characters'),
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
   phoneNumber: z.string().min(10, 'Phone number must be at least 10 digits'),
   location: z.string().min(3, 'Location must be at least 3 characters'),
   meterCategory: z.enum(['household', 'SME', 'industry']),
   industryType: z.enum(['heavyduty', 'medium', 'light']).optional(),
+  energyProvider: z.string().min(1, 'Energy provider is required'),
 });
 
-type MeterFormValues = z.infer<typeof meterFormSchema>;
+type MeterFormValues = z.infer<ReturnType<typeof meterFormSchema>>;
 
 // Meter category options
 const METER_CATEGORIES = [
@@ -69,6 +78,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
   const [showIndustryType, setShowIndustryType] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState(energyProvider);
   const fetchingRef = useRef(false);
   
   const { user, session } = useAuth(); // Get both user and session for protected routes
@@ -78,7 +88,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
   const { connectToMeter, hasMeterConnected, meterNumber, loading: energyLoading } = useRealTimeEnergy();
 
   const form = useForm<MeterFormValues>({
-    resolver: zodResolver(meterFormSchema),
+    resolver: zodResolver(meterFormSchema(selectedProvider)),
     defaultValues: {
       meterNumber: '',
       fullName: '',
@@ -86,6 +96,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
       location: '',
       meterCategory: 'household',
       industryType: undefined,
+      energyProvider: selectedProvider,
     },
   });
   
@@ -187,13 +198,14 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
         location: '',
         meterCategory: (profile.meter_category as 'household' | 'SME' | 'industry') || 'household',
         industryType: (profile.industry_type as 'heavyduty' | 'medium' | 'light') || undefined,
+        energyProvider: profile.energy_provider || selectedProvider,
       });
-      
+
       // Set industry type visibility
       setShowIndustryType(profile.meter_category === 'industry');
       setIsInitialized(true);
     }
-  }, [profile, user, form, isInitialized]);
+  }, [profile, user, form, isInitialized, selectedProvider]);
 
   // Fetch meter history when user changes - only once
   useEffect(() => {
@@ -277,6 +289,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
         meter_number: data.meterNumber,
         meter_category: data.meterCategory,
         industry_type: data.meterCategory === 'industry' ? data.industryType : undefined,
+        energy_provider: data.energyProvider,
       });
 
       if (!success) {
@@ -289,6 +302,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
         .update({
           full_name: data.fullName,
           phone_number: data.phoneNumber,
+          energy_provider: data.energyProvider,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -300,20 +314,20 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
 
       // Connect to the meter using the real-time energy hook
       const meterSuccess = await connectToMeter(data.meterNumber);
-      
+
       if (meterSuccess) {
         toast({
-          title: "Meter Connected",
-          description: "Your smart meter has been successfully connected to Aurora Energy. Real-time data collection is now enabled.",
+          title: `${data.energyProvider} ${data.energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} Connected`,
+          description: `Your ${data.energyProvider === 'KPLC' ? 'smart meter' : 'inverter'} has been successfully connected to Aurora Energy. Real-time data collection is now enabled.`,
         });
-        
+
         // Refresh the meter history to show the new meter
         await fetchMeterHistory();
         setActiveTab('current');
       } else {
         toast({
           title: "Partial Setup",
-          description: "Meter details saved but real-time connection failed. Will retry automatically.",
+          description: `${data.energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} details saved but real-time connection failed. Will retry automatically.`,
           variant: "destructive",
         });
       }
@@ -680,26 +694,70 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
                   <FormField
                     control={form.control}
-                    name="meterNumber"
+                    name="energyProvider"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-aurora-green-light">Meter Number</FormLabel>
+                        <FormLabel className="text-aurora-purple-light">Energy Provider</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Gauge className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="Enter your Kenya Power meter number"
-                              className="pl-10 bg-slate-800 border-aurora-green/30 h-11"
-                              {...field}
-                            />
+                            <Zap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                            <Select
+                              value={field.value}
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                setSelectedProvider(value);
+                              }}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="pl-10 bg-slate-800 border-aurora-purple/30 h-11">
+                                  <SelectValue placeholder="Select energy provider" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="bg-slate-800 border-aurora-purple/30">
+                                {ENERGY_PROVIDERS.map((provider) => (
+                                  <SelectItem key={provider.value} value={provider.value}>
+                                    {provider.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </FormControl>
                         <FormDescription className="text-xs">
-                          Find this number on your electricity bill or meter display
+                          Select your energy provider
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="meterNumber"
+                    render={({ field }) => {
+                      const selectedProviderObj = ENERGY_PROVIDERS.find(p => p.value === form.watch('energyProvider')) || ENERGY_PROVIDERS[0];
+                      return (
+                        <FormItem>
+                          <FormLabel className="text-aurora-green-light">{selectedProviderObj.meterLabel}</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Gauge className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                              <Input
+                                placeholder={selectedProviderObj.placeholder}
+                                className="pl-10 bg-slate-800 border-aurora-green/30 h-11"
+                                {...field}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            {selectedProviderObj.placeholder.includes("KPLC")
+                              ? "Find this 11-digit number on your electricity bill or meter display"
+                              : "Find this number on your bill or device"}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField

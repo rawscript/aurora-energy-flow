@@ -3,27 +3,13 @@ CREATE OR REPLACE FUNCTION public.safe_update_profile(
   p_user_id UUID,
   p_updates JSONB
 )
-RETURNS TABLE (
-  id UUID,
-  email TEXT,
-  full_name TEXT,
-  phone_number TEXT,
-  meter_number TEXT,
-  meter_category TEXT,
-  industry_type TEXT,
-  energy_provider TEXT,
-  notifications_enabled BOOLEAN,
-  auto_optimize BOOLEAN,
-  energy_rate DECIMAL(10,4),
-  created_at TIMESTAMP WITH TIME ZONE,
-  updated_at TIMESTAMP WITH TIME ZONE
-)
+RETURNS SETOF public.profiles
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
   v_profile_exists BOOLEAN := FALSE;
-  v_profile_data RECORD;
+  v_profile_data public.profiles%ROWTYPE;
 BEGIN
   -- Check if profile exists
   SELECT EXISTS (
@@ -53,20 +39,7 @@ BEGIN
   RETURNING * INTO v_profile_data;
 
   -- Return updated profile with all fields
-  RETURN QUERY
-  SELECT
-    v_profile_data.id,
-    v_profile_data.email,
-    v_profile_data.full_name,
-    v_profile_data.phone_number,
-    v_profile_data.meter_number,
-    v_profile_data.meter_category,
-    v_profile_data.industry_type,
-    v_profile_data.energy_provider,
-    v_profile_data.notifications_enabled,
-    v_profile_data.auto_optimize,
-    v_profile_data.energy_rate,
-    v_profile_data.created_at,
-    v_profile_data.updated_at;
+  RETURN NEXT v_profile_data;
+  RETURN;
 END;
 $$;
