@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", // Use service role key for full access
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },
@@ -28,52 +28,27 @@ serve(async (req) => {
       }
     );
 
-    // Check if the user profile exists
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", p_user_id)
-      .maybeSingle();
+    // Use the database function instead of direct table access
+    const { data, error } = await supabase
+      .rpc('get_or_create_profile', {
+        p_user_id: p_user_id,
+        p_email: p_email,
+        p_full_name: p_full_name,
+        p_phone_number: p_phone_number,
+        p_meter_number: p_meter_number
+      });
 
-    if (fetchError) {
-      console.error("Error fetching profile:", fetchError);
-      return new Response(JSON.stringify({ error: fetchError.message }), {
+    if (error) {
+      console.error("Error calling get_or_create_profile function:", error);
+      return new Response(JSON.stringify({ error: error.message }), {
         headers: { "Content-Type": "application/json" },
-        status: 400,
+        status: 500,
       });
     }
 
-    if (existingProfile) {
-      // Profile exists, return it
-      return new Response(JSON.stringify([existingProfile]), {
-        headers: { "Content-Type": "application/json" },
-      });
-    } else {
-      // Profile does not exist, create it
-      const { data: newProfile, error: createError } = await supabase
-        .from("profiles")
-        .insert({
-          id: p_user_id,
-          email: p_email,
-          full_name: p_full_name,
-          phone_number: p_phone_number,
-          meter_number: p_meter_number,
-          energy_provider: "",
-        })
-        .select();
-
-      if (createError) {
-        console.error("Error creating profile:", createError);
-        return new Response(JSON.stringify({ error: createError.message }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
-      }
-
-      return new Response(JSON.stringify(newProfile), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    return new Response(JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error("Unexpected error:", error);
     return new Response(JSON.stringify({ error: error.message }), {

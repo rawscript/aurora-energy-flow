@@ -60,17 +60,20 @@ const Index = () => {
     const config: TabConfig = {
       dashboard: { label: isMobile ? "Home" : "Dashboard", component: isMobile ? MobileDashboard : EnergyDashboard },
       notifications: { label: isMobile ? "Alerts" : "Notifications", component: NotificationCenter },
-      insights: { label: "Insights", component: EnergyInsights },
+      insights: { label: "Insights", component: () => <EnergyInsights energyProvider={energyProvider} /> },
       calculator: { label: isMobile ? "Calc" : "Calculator", component: BillCalculator },
       meter: { label: isMobile ? "Meter" : "Meter Setup", component: () => <MeterSetup energyProvider={energyProvider} /> },
       chat: { label: isMobile ? "AI Chat" : "AI Assistant", component: ChatInterface },
       settings: { label: "Settings", component: Settings }
     };
 
-    // Only hide the tokens tab if the energy provider is explicitly Solar and settings are saved
-    if (energyProvider !== 'Solar' && energyProvider !== '') {
-      config.tokens = { label: isMobile ? "Tokens" : "KPLC Tokens", component: KPLCTokenDashboard };
-    }
+    // Always include the tokens tab, but rename it for solar providers
+    config.tokens = {
+      label: isMobile
+        ? (energyProvider === 'Solar' ? "PayGo" : "Tokens")
+        : (energyProvider === 'Solar' ? "Pay as You Go" : "KPLC Tokens"),
+      component: () => <KPLCTokenDashboard energyProvider={energyProvider} />
+    };
 
     return config;
   }, [isMobile, energyProvider]);

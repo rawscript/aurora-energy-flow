@@ -307,39 +307,74 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
 
       {/* Header Stats - Mobile Optimized */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard
-          icon={Battery}
-          title="Current Usage"
-          value={`${safeEnergyData.current_usage.toFixed(1)} kW`}
-          color="aurora-green-light"
-          trend={safeEnergyData.current_usage > 0 ? safeEnergyData.cost_trend : undefined}
-          isEmpty={safeEnergyData.current_usage === 0}
-        />
+        {energyProvider === 'Solar' ? (
+          <>
+            <StatCard
+              icon={Battery}
+              title="Battery State"
+              value={`${energyData?.battery_state || 0}%`}
+              color="aurora-green-light"
+              isEmpty={energyData?.battery_state === undefined || energyData?.battery_state === 0}
+            />
+            <StatCard
+              icon={Sun}
+              title="Power Generated"
+              value={`${energyData?.power_generated?.toFixed(1) || 0} kW`}
+              color="aurora-blue-light"
+              isEmpty={energyData?.power_generated === undefined || energyData?.power_generated === 0}
+            />
+            <StatCard
+              icon={House}
+              title="Batteries Connected"
+              value={`${energyData?.battery_count || 1}`}
+              color="aurora-purple-light"
+              isEmpty={energyData?.battery_count === undefined || energyData?.battery_count === 0}
+            />
+            <StatCard
+              icon={Monitor}
+              title="Load Consumption"
+              value={`${energyData?.load_consumption?.toFixed(1) || 0} kW`}
+              color="emerald-400"
+              isEmpty={energyData?.load_consumption === undefined || energyData?.load_consumption === 0}
+            />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={Battery}
+              title="Current Usage"
+              value={`${safeEnergyData.current_usage.toFixed(1)} kW`}
+              color="aurora-green-light"
+              trend={safeEnergyData.current_usage > 0 ? safeEnergyData.cost_trend : undefined}
+              isEmpty={safeEnergyData.current_usage === 0}
+            />
 
-        <StatCard
-          icon={House}
-          title="Daily Total"
-          value={`${safeEnergyData.daily_total.toFixed(1)} kWh`}
-          color="aurora-blue-light"
-          isEmpty={safeEnergyData.daily_total === 0}
-        />
+            <StatCard
+              icon={House}
+              title="Daily Total"
+              value={`${safeEnergyData.daily_total.toFixed(1)} kWh`}
+              color="aurora-blue-light"
+              isEmpty={safeEnergyData.daily_total === 0}
+            />
 
-        <StatCard
-          icon={Sun}
-          title="Cost Today"
-          value={`KSh ${safeEnergyData.daily_cost.toFixed(2)}`}
-          color="aurora-purple-light"
-          trend={safeEnergyData.daily_cost > 0 ? safeEnergyData.cost_trend : undefined}
-          isEmpty={safeEnergyData.daily_cost === 0}
-        />
+            <StatCard
+              icon={Sun}
+              title="Cost Today"
+              value={`KSh ${safeEnergyData.daily_cost.toFixed(2)}`}
+              color="aurora-purple-light"
+              trend={safeEnergyData.daily_cost > 0 ? safeEnergyData.cost_trend : undefined}
+              isEmpty={safeEnergyData.daily_cost === 0}
+            />
 
-        <StatCard
-          icon={Monitor}
-          title="Efficiency"
-          value={`${safeEnergyData.efficiency_score}%`}
-          color="emerald-400"
-          isEmpty={safeEnergyData.efficiency_score === 0}
-        />
+            <StatCard
+              icon={Monitor}
+              title="Efficiency"
+              value={`${safeEnergyData.efficiency_score}%`}
+              color="emerald-400"
+              isEmpty={safeEnergyData.efficiency_score === 0}
+            />
+          </>
+        )}
       </div>
 
       {/* Additional Mobile Stats */}

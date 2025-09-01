@@ -456,6 +456,10 @@ export type Database = {
           meter_number: string | null
           meter_category: string | null
           industry_type: string | null
+          energy_provider: string | null
+          notifications_enabled: boolean | null
+          auto_optimize: boolean | null
+          energy_rate: number | null
           created_at: string
           updated_at: string
         }[]

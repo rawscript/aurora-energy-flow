@@ -70,6 +70,8 @@ export const useProfile = () => {
           errorMessage = "Request timed out. Please try again.";
         } else if (createError.message.includes('auth')) {
           errorMessage = "Authentication error. Please sign in again.";
+        } else if (createError.message.includes('404')) {
+          errorMessage = "Profile service not available. Please contact support.";
         }
 
         setError(errorMessage);
@@ -82,22 +84,10 @@ export const useProfile = () => {
           });
         }
       } else if (data && data.length > 0) {
-        const profileData = data[0] as BaseProfile;
-
-        // Get energy settings
-        const energySettings = await getEnergySettings(user.id);
-
-        // Create complete profile with default values for energy settings
-        const completeProfile: Profile = {
-          ...profileData,
-          energy_provider: energySettings?.energy_provider || '',
-          notifications_enabled: energySettings?.notifications_enabled || true,
-          auto_optimize: energySettings?.auto_optimize || false,
-          energy_rate: energySettings?.energy_rate || 0.15
-        };
+        const profileData = data[0] as Profile;
 
         console.log('Profile loaded/created successfully');
-        setProfile(completeProfile);
+        setProfile(profileData);
         setError(null);
       } else {
         console.error('No profile data returned');
@@ -123,6 +113,8 @@ export const useProfile = () => {
           errorMessage = "Request timed out. Please try again.";
         } else if (error.message.includes('auth')) {
           errorMessage = "Authentication error. Please sign in again.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "Profile service not available. Please contact support.";
         }
       }
 
@@ -167,9 +159,22 @@ export const useProfile = () => {
 
       if (error) {
         console.error('Error updating profile:', error);
+        
+        // Provide more specific error messages
+        let errorMessage = error.message || "Could not update profile.";
+        if (error.message.includes('400')) {
+          errorMessage = "Invalid data provided. Please check your inputs.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "Profile service not available. Please contact support.";
+        } else if (error.message.includes('Invalid energy provider')) {
+          errorMessage = "Please select a valid energy provider from the dropdown.";
+        } else if (error.message.includes('Invalid energy rate')) {
+          errorMessage = "Please enter a valid energy rate (positive number).";
+        }
+
         toast({
           title: "Update Failed",
-          description: error.message || "Could not update profile.",
+          description: errorMessage,
           variant: "destructive"
         });
         return false;

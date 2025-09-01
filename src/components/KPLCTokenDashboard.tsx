@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import {
   Zap,
   CreditCard,
@@ -53,6 +54,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     hasValidSession
   } = useKPLCTokens(energyProvider);
   
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState('200');
@@ -64,18 +66,46 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   const handlePurchaseTokens = useCallback(async () => {
     const amount = parseFloat(purchaseAmount);
 
+    // Validate amount
     if (isNaN(amount) || amount < 10) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid amount (minimum KSh 10).",
+        variant: "destructive",
+      });
+      console.error("Invalid purchase amount:", purchaseAmount);
+      return;
+    }
+
+    // Validate phone number if using mobile money
+    if ((paymentMethod === 'M-PESA' || paymentMethod === 'Airtel Money') && (!phoneNumber || phoneNumber.length < 10)) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number for mobile money payments.",
+        variant: "destructive",
+      });
+      console.error("Invalid phone number for mobile money payment");
       return;
     }
 
     const result = await purchaseTokens(amount, paymentMethod, phoneNumber, energyProvider as any);
 
     if (result) {
+      toast({
+        title: "Purchase Successful",
+        description: `Successfully purchased KSh ${amount} worth of ${energyProvider === 'KPLC' ? 'tokens' : 'credits'}.`,
+      });
       setPurchaseDialogOpen(false);
       setPurchaseAmount('200'); // Reset to default
       setPhoneNumber('');
+    } else {
+      toast({
+        title: "Purchase Failed",
+        description: "Failed to process your purchase. Please try again.",
+        variant: "destructive",
+      });
     }
-  }, [purchaseAmount, paymentMethod, phoneNumber, purchaseTokens, energyProvider]);
+  }, [purchaseAmount, paymentMethod, phoneNumber, purchaseTokens, energyProvider, toast]);
 
   // Handle manual refresh
   const handleRefresh = useCallback(async () => {
@@ -430,7 +460,14 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                     {(energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar') && (
                       <div>
                         <Label className="text-sm font-medium">Solar Provider</Label>
-                        <Select value={energyProvider} onValueChange={(value) => { /* Handle provider change */ }}>
+                        <Select
+                          value={energyProvider}
+                          onValueChange={(value) => {
+                            // Update the energyProvider state (requires parent component to handle this)
+                            // For now, log the change (implementation depends on parent component)
+                            console.log("Selected solar provider:", value);
+                          }}
+                        >
                           <SelectTrigger className="mt-1 bg-slate-800 border-aurora-green/30">
                             <SelectValue />
                           </SelectTrigger>
@@ -564,7 +601,8 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                     </Button>
                     <Button
                       onClick={handlePurchaseTokens}
-                      disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10}
+                      disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10 || 
+                        ((paymentMethod === 'M-PESA' || paymentMethod === 'Airtel Money') && (!phoneNumber || phoneNumber.length < 10))}
                       className="bg-aurora-green hover:bg-aurora-green/80"
                     >
                       {purchasing ? (

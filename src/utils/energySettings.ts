@@ -83,6 +83,12 @@ export async function getEnergySettings(userId: string): Promise<EnergySettings 
  */
 export async function saveEnergySettings(userId: string, settings: EnergySettings): Promise<boolean> {
   try {
+    // Validate energy rate
+    if (typeof settings.energy_rate !== 'number' || settings.energy_rate < 0) {
+      console.error("Invalid energy rate:", settings.energy_rate);
+      throw new Error("Invalid energy rate. Please enter a valid positive number.");
+    }
+
     // Convert settings to the format expected by Supabase
     const updates: SafeUpdateProfileParams['p_updates'] = {
       energy_provider: settings.energy_provider,
@@ -101,12 +107,26 @@ export async function saveEnergySettings(userId: string, settings: EnergySetting
 
     if (error) {
       console.error("Error updating profile:", error);
+      
+      // Handle specific error cases
+      if (error.message.includes('404')) {
+        throw new Error("Profile service not available. Please try again later.");
+      } else if (error.message.includes('400')) {
+        throw new Error("Invalid data provided. Please check your inputs.");
+      } else if (error.message.includes('Invalid energy provider')) {
+        throw new Error("Please select a valid energy provider from the dropdown.");
+      } else if (error.message.includes('Invalid energy rate')) {
+        throw new Error("Please enter a valid energy rate (positive number).");
+      }
+      
       return false;
     }
 
     return true;
   } catch (error) {
     console.error("Unexpected error saving settings:", error);
-    return false;
+    
+    // Re-throw the error so it can be handled by the caller
+    throw error;
   }
 }

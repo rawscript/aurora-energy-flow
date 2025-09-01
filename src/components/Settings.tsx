@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,9 +59,20 @@ const Settings = () => {
   const handleSave = async () => {
     console.log("Current energyProvider before save:", energyProvider);
     
+    // Validate energy provider
+    if (!energyProvider || energyProvider.trim() === '') {
+      toast({
+        title: "Invalid Provider",
+        description: "Please select a valid energy provider.",
+        variant: "destructive",
+        duration: 3000,
+      });
+      return;
+    }
+    
     // Validate energy rate
     const rateValue = parseFloat(rate);
-    if (isNaN(rateValue) || rateValue < 0) {
+    if (rate === '' || isNaN(rateValue) || rateValue < 0) {
       toast({
         title: "Invalid Input",
         description: "Please enter a valid energy rate (positive number).",
@@ -128,6 +138,7 @@ const Settings = () => {
     } catch (error) {
       console.error("Unexpected error:", error);
       let errorMessage = "An unknown error occurred while saving your settings.";
+      let errorTitle = "Save Error";
       
       if (error instanceof Error) {
         // Provide more specific error messages based on error type
@@ -137,13 +148,26 @@ const Settings = () => {
           errorMessage = "Request timed out. Please try again.";
         } else if (error.message.includes("auth")) {
           errorMessage = "Authentication error. Please sign in again.";
+          errorTitle = "Authentication Required";
+        } else if (error.message.includes("Invalid energy provider")) {
+          errorMessage = "Please select a valid energy provider from the dropdown.";
+          errorTitle = "Invalid Provider";
+        } else if (error.message.includes("Invalid energy rate")) {
+          errorMessage = "Please enter a valid energy rate (positive number).";
+          errorTitle = "Invalid Rate";
+        } else if (error.message.includes("Profile service not available")) {
+          errorMessage = "Profile service is temporarily unavailable. Please try again later.";
+          errorTitle = "Service Unavailable";
+        } else if (error.message.includes("Invalid data provided")) {
+          errorMessage = "Invalid data provided. Please check your inputs and try again.";
+          errorTitle = "Invalid Data";
         } else {
           errorMessage = error.message;
         }
       }
       
       toast({
-        title: "Save Error",
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive",
         duration: 5000,
@@ -182,136 +206,60 @@ const Settings = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="rate">Energy Rate ($/kWh)</Label>
+              <Label htmlFor="rate">Energy Rate (KSh/kWh)</Label>
               <Input
                 id="rate"
                 type="number"
-                step="0.01"
                 min="0"
+                step="0.01"
                 value={rate}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // Allow empty value or valid positive numbers
-                  if (value === '' || (parseFloat(value) >= 0)) {
-                    setRate(value);
-                  }
-                }}
-                className="bg-slate-800 border-aurora-blue/30"
+                onChange={(e) => setRate(e.target.value)}
+                className="bg-slate-800 border-aurora-green/30"
                 placeholder="0.15"
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      <Card className="bg-aurora-card border-aurora-blue/20">
-        <CardHeader>
-          <CardTitle className="text-xl text-aurora-blue-light flex items-center space-x-2">
-            <Bell className="h-6 w-6" />
-            <span>Notifications</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Energy Alerts</p>
-              <p className="text-sm text-muted-foreground">Get notified about unusual usage patterns</p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Bell className="h-5 w-5 text-aurora-blue-light" />
+                <Label htmlFor="notifications">Notifications</Label>
+              </div>
+              <Switch
+                id="notifications"
+                checked={notifications}
+                onCheckedChange={setNotifications}
+              />
             </div>
-            <Switch checked={notifications} onCheckedChange={setNotifications} />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Bill Reminders</p>
-              <p className="text-sm text-muted-foreground">Receive monthly bill estimates</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Peak Hour Alerts</p>
-              <p className="text-sm text-muted-foreground">Notifications during peak pricing hours</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card className="bg-aurora-card border-aurora-purple/20">
-        <CardHeader>
-          <CardTitle className="text-xl text-aurora-purple-light flex items-center space-x-2">
-            <Sun className="h-6 w-6" />
-            <span>Optimization</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Auto-Optimize</p>
-              <p className="text-sm text-muted-foreground">Automatically adjust settings for efficiency</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sun className="h-5 w-5 text-aurora-yellow-light" />
+                <Label htmlFor="auto-optimize">Auto Optimize</Label>
+              </div>
+              <Switch
+                id="auto-optimize"
+                checked={autoOptimize}
+                onCheckedChange={setAutoOptimize}
+              />
             </div>
-            <Switch checked={autoOptimize} onCheckedChange={setAutoOptimize} />
           </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Peak Hour Management</p>
-              <p className="text-sm text-muted-foreground">Reduce usage during expensive hours</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Smart Scheduling</p>
-              <p className="text-sm text-muted-foreground">Schedule high-usage activities optimally</p>
-            </div>
-            <Switch />
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card className="bg-aurora-card border-emerald-500/20">
-        <CardHeader>
-          <CardTitle className="text-xl text-emerald-400 flex items-center space-x-2">
-            <Battery className="h-6 w-6" />
-            <span>Data & Privacy</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Data Sharing</p>
-              <p className="text-sm text-muted-foreground">Share anonymized data for research</p>
-            </div>
-            <Switch />
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Usage Analytics</p>
-              <p className="text-sm text-muted-foreground">Collect detailed usage patterns</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          
-          <div className="pt-4">
-            <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="w-full bg-gradient-to-r from-aurora-green to-aurora-blue hover:from-aurora-green/80 hover:to-aurora-blue/80 text-white"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Settings'
-              )}
-            </Button>
-          </div>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="w-full bg-aurora-green hover:bg-aurora-green/80"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Settings'
+            )}
+          </Button>
         </CardContent>
       </Card>
     </div>

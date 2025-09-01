@@ -32,56 +32,9 @@ serve(async (req) => {
       });
     }
 
-    // Check for valid energy_provider value
-    const validProviders = ['KPLC', 'Solar', 'KenGEn', 'IPP', 'Other', ''];
-    if (p_updates.energy_provider !== undefined && !validProviders.includes(p_updates.energy_provider)) {
-      console.error("Invalid energy_provider value:", p_updates.energy_provider);
-      return new Response(JSON.stringify({
-        error: `Invalid energy provider "${p_updates.energy_provider}". Please select a valid provider from the dropdown.`
-      }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    // Validate energy_rate if provided
-    if (p_updates.energy_rate !== undefined) {
-      const rate = parseFloat(p_updates.energy_rate);
-      if (isNaN(rate) || rate < 0) {
-        console.error("Invalid energy_rate value:", p_updates.energy_rate);
-        return new Response(JSON.stringify({
-          error: `Invalid energy rate "${p_updates.energy_rate}". Please enter a valid positive number.`
-        }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
-      }
-    }
-
-    // Validate boolean fields if provided
-    if (p_updates.notifications_enabled !== undefined && typeof p_updates.notifications_enabled !== 'boolean') {
-      console.error("Invalid notifications_enabled value:", p_updates.notifications_enabled);
-      return new Response(JSON.stringify({
-        error: "Invalid notification settings. Please try again."
-      }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    if (p_updates.auto_optimize !== undefined && typeof p_updates.auto_optimize !== 'boolean') {
-      console.error("Invalid auto_optimize value:", p_updates.auto_optimize);
-      return new Response(JSON.stringify({
-        error: "Invalid optimization settings. Please try again."
-      }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", // Use service role key for full access
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },
@@ -89,40 +42,12 @@ serve(async (req) => {
       }
     );
 
-    // Check if the user profile exists
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", p_user_id)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("Error fetching profile:", fetchError);
-      return new Response(JSON.stringify({
-        error: fetchError.message,
-        details: fetchError.details,
-        hint: fetchError.hint,
-        code: fetchError.code
-      }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    if (!existingProfile) {
-      console.error("Profile not found for user:", p_user_id);
-      return new Response(JSON.stringify({ error: "Profile not found" }), {
-        headers: { "Content-Type": "application/json" },
-        status: 404,
-      });
-    }
-
-    // Update the profile
+    // Use the database function instead of direct table access
     const { data, error } = await supabase
-      .from("profiles")
-      .update(p_updates)
-      .eq("id", p_user_id)
-      .select();
+      .rpc('safe_update_profile', {
+        p_user_id: p_user_id,
+        p_updates: p_updates
+      });
 
     if (error) {
       console.error("Supabase update error:", {

@@ -3,6 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { TokenAnalytics, TokenTransaction, KPLCBalance, isTokenAnalytics, isTokenTransaction, isKPLCBalance } from '@/integrations/supabase/tokenTypes';
 
 // Extend Supabase client type to include custom RPC functions
 type CustomSupabaseClient = SupabaseClient & {
@@ -34,77 +35,6 @@ type CustomSupabaseClient = SupabaseClient & {
 
 // Cast supabase client to include custom RPC types
 const typedSupabase = supabase as CustomSupabaseClient;
-
-interface TokenAnalytics {
-  current_balance: number;
-  daily_consumption_avg: number;
-  estimated_days_remaining: number;
-  monthly_spending: number;
-  last_purchase_date: string | null;
-  consumption_trend: 'increasing' | 'decreasing' | 'stable';
-  last_updated: string | null;
-  data_source: 'cache' | 'database' | 'kplc_api' | 'solar_api' | 'no_meter';
-  cache_hit: boolean;
-}
-
-// Type guard for TokenAnalytics
-function isTokenAnalytics(obj: any): obj is TokenAnalytics {
-  return obj && 
-    typeof obj === 'object' &&
-    typeof obj.current_balance === 'number' &&
-    typeof obj.daily_consumption_avg === 'number' &&
-    typeof obj.estimated_days_remaining === 'number' &&
-    typeof obj.monthly_spending === 'number';
-}
-
-interface TokenTransaction {
-  id: string;
-  transaction_type: 'purchase' | 'consumption' | 'refund' | 'adjustment';
-  amount: number;
-  token_units?: number;
-  token_code?: string;
-  transaction_date: string;
-  reference_number?: string;
-  vendor?: string;
-  payment_method?: string;
-  balance_before: number;
-  balance_after: number;
-  status: string;
-  metadata?: any;
-  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '';
-}
-
-// Type guard for TokenTransaction
-function isTokenTransaction(obj: any): obj is TokenTransaction {
-  return obj && 
-    typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.transaction_type === 'string' &&
-    typeof obj.amount === 'number' &&
-    typeof obj.transaction_date === 'string' &&
-    typeof obj.balance_before === 'number' &&
-    typeof obj.balance_after === 'number' &&
-    typeof obj.status === 'string';
-}
-
-interface KPLCBalance {
-  success: boolean;
-  balance: number;
-  meter_number: string;
-  last_updated: string;
-  source: 'cache' | 'kplc_api' | 'solar_api' | 'mock';
-}
-
-// Type guard for KPLCBalance
-function isKPLCBalance(obj: any): obj is KPLCBalance {
-  return obj && 
-    typeof obj === 'object' &&
-    typeof obj.success === 'boolean' &&
-    typeof obj.balance === 'number' &&
-    typeof obj.meter_number === 'string' &&
-    typeof obj.last_updated === 'string' &&
-    typeof obj.source === 'string';
-}
 
 export const useKPLCTokens = (energyProvider: string = '') => {
   const [analytics, setAnalytics] = useState<TokenAnalytics | null>(null);

@@ -28,21 +28,21 @@ serve(async (req) => {
       }
     );
 
-    // Use the database function instead of direct table access
+    // Use the database function
     const { data, error } = await supabase
-      .rpc('get_user_notifications_safe', {
+      .rpc('get_token_transactions_cached', {
         p_user_id: p_user_id
       });
 
     if (error) {
-      console.error("Error fetching notifications:", error);
+      console.error("Error fetching token transactions:", error);
       return new Response(JSON.stringify({ error: error.message }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    return new Response(JSON.stringify(data || []), {
+    return new Response(JSON.stringify(data), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
