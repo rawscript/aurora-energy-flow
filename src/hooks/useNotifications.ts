@@ -169,13 +169,49 @@ export const useNotifications = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .rpc('get_notification_preferences', {
-          p_user_id: user.id
-        });
+      let preferencesData = null;
+      let preferencesError = null;
 
-      if (error) {
-        console.error('Error getting notification preferences:', error);
+      try {
+        const { data, error } = await supabase
+          .rpc('get_notification_preferences', {
+            p_user_id: user.id
+          });
+
+        preferencesData = data;
+        preferencesError = error;
+      } catch (error) {
+        console.error('Error calling get_notification_preferences:', error);
+        preferencesError = error;
+      }
+
+      // If get_notification_preferences fails, use fallback logic
+      if (preferencesError) {
+        console.error('Error getting notification preferences:', preferencesError);
+
+        // Check if the error is a 404 (function not found)
+        if (preferencesError.code === 'PGRST202' || preferencesError.message.includes('404')) {
+          console.log('get_notification_preferences not found, using fallback logic');
+
+          // Use check_user_notification_initialization to determine if notifications need initialization
+          const { data: initData, error: initError } = await supabase
+            .rpc('check_user_notification_initialization', {
+              p_user_id: user.id
+            });
+
+          if (initError) {
+            console.error('Error checking notification initialization:', initError);
+          } else if (initData) {
+            const needsInitialization = initData as boolean;
+            if (needsInitialization) {
+              console.log('User needs notification initialization');
+              await supabase.rpc('initialize_user_notifications', {
+                p_user_id: user.id
+              });
+            }
+          }
+        }
+
         return null;
       }
 
@@ -264,21 +300,56 @@ export const useNotifications = () => {
       console.log('Fetching notifications using safe function for user:', user.id);
 
       // Use the safe function to get notifications
-      const { data: notificationsData, error: notificationsError } = await supabase
-        .rpc('get_user_notifications_safe', {
-          p_user_id: user.id,
-          p_limit: 50,
-          p_unread_only: false
-        });
+      let notificationsData = [];
+      let notificationsError = null;
 
+      try {
+        const { data, error } = await supabase
+          .rpc('get_user_notifications_safe', {
+            p_user_id: user.id,
+            p_limit: 50,
+            p_unread_only: false
+          });
+
+        notificationsData = data;
+        notificationsError = error;
+      } catch (error) {
+        console.error('Error calling get_user_notifications_safe:', error);
+        notificationsError = error;
+      }
+
+      // If get_user_notifications_safe fails, try using check_user_notification_initialization as fallback
       if (notificationsError) {
-        console.error('Error fetching notifications:', notificationsError);
+        console.error('Error fetching notifications with get_user_notifications_safe:', notificationsError);
+
+        // Check if the error is a 404 (function not found)
+        if (notificationsError.code === 'PGRST202' || notificationsError.message.includes('404')) {
+          console.log('get_user_notifications_safe not found, using fallback logic');
+
+          // Use check_user_notification_initialization to determine if notifications exist
+          const { data: initData, error: initError } = await supabase
+            .rpc('check_user_notification_initialization', {
+              p_user_id: user.id
+            });
+
+          if (initError) {
+            console.error('Error checking notification initialization:', initError);
+          } else if (initData) {
+            const needsInitialization = initData as boolean;
+            if (needsInitialization) {
+              console.log('User needs notification initialization');
+              await supabase.rpc('initialize_user_notifications', {
+                p_user_id: user.id
+              });
+            }
+          }
+        }
+
+        // Set empty state if fallback also fails or no notifications exist
         setError('Failed to load notifications');
-        
-        // Don't throw error, just set empty state
         setNotifications([]);
         setUnreadCount(0);
-        
+
         if (!initialized) {
           setInitialized(true);
         }

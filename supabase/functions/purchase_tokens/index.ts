@@ -17,40 +17,25 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { p_user_id, p_updates } = body;
 
-    console.log("Received request to safe_update_profile");
-    console.log("User ID:", p_user_id);
+    // Validate required parameters
+    const { user_id, meter_number, amount } = body;
 
-    // Validate p_updates structure
-    if (!p_updates || typeof p_updates !== 'object') {
-      console.error("Invalid updates object:", p_updates);
+    if (!user_id || !meter_number || amount === undefined) {
       return new Response(JSON.stringify({
-        error: "Invalid updates object provided. Please check your input and try again.",
-        code: "INVALID_UPDATES"
+        error: "Missing required parameters: user_id, meter_number, and amount are required",
+        code: "MISSING_PARAMETERS"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    // Validate specific fields
-    if (p_updates.energy_provider &&
-        !['', 'KPLC', 'Solar', 'KenGEn', 'IPP', 'Other'].includes(p_updates.energy_provider)) {
+    // Validate amount
+    if (typeof amount !== 'number' || amount <= 0 || amount < 10 || amount > 10000) {
       return new Response(JSON.stringify({
-        error: `Invalid energy provider: ${p_updates.energy_provider}`,
-        code: "INVALID_PROVIDER"
-      }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    if (p_updates.energy_rate !== undefined &&
-        (typeof p_updates.energy_rate !== 'number' || p_updates.energy_rate < 0)) {
-      return new Response(JSON.stringify({
-        error: `Invalid energy rate: ${p_updates.energy_rate}`,
-        code: "INVALID_RATE"
+        error: "Amount must be a number between 10 and 10000",
+        code: "INVALID_AMOUNT"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
@@ -67,29 +52,30 @@ serve(async (req) => {
       }
     );
 
-    // Use the improved database function
+    // Use the improved purchase tokens function
     const { data, error } = await supabase
-      .rpc('safe_update_profile', {
-        p_user_id: p_user_id,
-        p_updates: p_updates
+      .rpc('purchase_tokens_improved', {
+        p_user_id: user_id,
+        p_meter_number: meter_number,
+        p_amount: amount,
+        p_payment_method: body.payment_method || 'M-PESA',
+        p_vendor: body.vendor || 'M-PESA',
+        p_phone_number: body.phone_number
       });
 
     if (error) {
-      console.error("Supabase update error:", {
+      console.error("Token purchase error:", {
         message: error.message,
-        details: error.details,
-        hint: error.hint,
         code: error.code,
-        updates: p_updates
+        details: error.details,
+        user_id: user_id,
+        amount: amount
       });
 
-      // Enhanced error response with more context
       return new Response(JSON.stringify({
         error: error.message,
+        code: error.code || "PURCHASE_FAILED",
         details: error.details,
-        hint: error.hint,
-        code: error.code || "UPDATE_FAILED",
-        providedUpdates: Object.keys(p_updates).length,
         timestamp: new Date().toISOString()
       }), {
         headers: { "Content-Type": "application/json" },
@@ -97,31 +83,31 @@ serve(async (req) => {
       });
     }
 
-    console.log("Profile updated successfully:", {
-      user_id: p_user_id,
-      updated_fields: Object.keys(p_updates)
+    console.log("Token purchase successful:", {
+      user_id: user_id,
+      amount: amount,
+      transaction_id: data.transaction_id
     });
 
-    // Enhanced success response
     return new Response(JSON.stringify({
       success: true,
       data: data,
       metadata: {
         timestamp: new Date().toISOString(),
-        updated_fields: Object.keys(p_updates),
-        user_id: p_user_id
+        user_id: user_id,
+        amount: amount
       }
     }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Unexpected error:", {
+    console.error("Unexpected error in purchase_tokens:", {
       message: error.message,
       stack: error.stack,
-      input: body ? { p_user_id: body.p_user_id, update_fields: body.p_updates ? Object.keys(body.p_updates) : [] } : null
+      input: error.input || {}
     });
     return new Response(JSON.stringify({
-      error: error.message || "An unexpected error occurred while updating your profile.",
+      error: error.message || "An unexpected error occurred while processing your token purchase.",
       code: "UNEXPECTED_ERROR",
       timestamp: new Date().toISOString()
     }), {

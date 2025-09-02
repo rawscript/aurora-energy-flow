@@ -13,6 +13,8 @@ export interface TokenAnalytics {
   last_updated: string | null;
   data_source: 'cache' | 'database' | 'kplc_api' | 'solar_api' | 'no_meter';
   cache_hit: boolean;
+  weekly_kwh_consumed?: number;
+  weekly_cost?: number;
 }
 
 // Token transaction interface
@@ -30,7 +32,7 @@ export interface TokenTransaction {
   balance_after: number;
   status: string;
   metadata?: any;
-  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '';
+  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '' | string;
 }
 
 // KPLC balance interface
@@ -40,11 +42,12 @@ export interface KPLCBalance {
   meter_number: string;
   last_updated: string;
   source: 'cache' | 'kplc_api' | 'solar_api' | 'mock';
+  our_balance?: number;
 }
 
 // Type guard for TokenAnalytics
 export function isTokenAnalytics(obj: any): obj is TokenAnalytics {
-  return obj && 
+  return obj &&
     typeof obj === 'object' &&
     typeof obj.current_balance === 'number' &&
     typeof obj.daily_consumption_avg === 'number' &&
@@ -54,7 +57,7 @@ export function isTokenAnalytics(obj: any): obj is TokenAnalytics {
 
 // Type guard for TokenTransaction
 export function isTokenTransaction(obj: any): obj is TokenTransaction {
-  return obj && 
+  return obj &&
     typeof obj === 'object' &&
     typeof obj.id === 'string' &&
     typeof obj.transaction_type === 'string' &&
@@ -67,7 +70,7 @@ export function isTokenTransaction(obj: any): obj is TokenTransaction {
 
 // Type guard for KPLCBalance
 export function isKPLCBalance(obj: any): obj is KPLCBalance {
-  return obj && 
+  return obj &&
     typeof obj === 'object' &&
     typeof obj.success === 'boolean' &&
     typeof obj.balance === 'number' &&

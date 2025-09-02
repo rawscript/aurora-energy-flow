@@ -16,12 +16,13 @@ serve(async (req) => {
   }
 
   try {
-    const { p_user_id, p_force_refresh = false } = await req.json();
+    const body = await req.json();
+    const { user_id, meter_number } = body;
 
-    if (!p_user_id) {
+    if (!user_id || !meter_number) {
       return new Response(JSON.stringify({
-        error: "user_id is required",
-        code: "MISSING_USER_ID"
+        error: "user_id and meter_number are required",
+        code: "MISSING_PARAMETERS"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
@@ -38,23 +39,24 @@ serve(async (req) => {
       }
     );
 
-    // Use the improved database function with force refresh option
+    // Use the improved check KPLC balance function
     const { data, error } = await supabase
-      .rpc('get_token_analytics_improved', {
-        p_user_id: p_user_id,
-        p_force_refresh: p_force_refresh
+      .rpc('check_kplc_balance_improved', {
+        p_user_id: user_id,
+        p_meter_number: meter_number
       });
 
     if (error) {
-      console.error("Error fetching token analytics:", {
+      console.error("Error checking KPLC balance:", {
         error: error.message,
         code: error.code,
-        user_id: p_user_id
+        user_id: user_id,
+        meter_number: meter_number
       });
 
       return new Response(JSON.stringify({
         error: error.message,
-        code: error.code || "ANALYTICS_ERROR"
+        code: error.code || "BALANCE_CHECK_FAILED"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
@@ -66,8 +68,8 @@ serve(async (req) => {
       ...data,
       metadata: {
         timestamp: new Date().toISOString(),
-        force_refresh: p_force_refresh,
-        status: "success"
+        user_id: user_id,
+        meter_number: meter_number
       }
     };
 
@@ -75,13 +77,15 @@ serve(async (req) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Unexpected error:", {
+    console.error("Unexpected error in check_kplc_balance:", {
       message: error.message,
-      stack: error.stack
+      stack: error.stack,
+      input: error.input || {}
     });
     return new Response(JSON.stringify({
-      error: error.message || "An unexpected error occurred while fetching token analytics.",
-      code: "UNEXPECTED_ERROR"
+      error: error.message || "An unexpected error occurred while checking KPLC balance.",
+      code: "UNEXPECTED_ERROR",
+      timestamp: new Date().toISOString()
     }), {
       headers: { "Content-Type": "application/json" },
       status: 500,

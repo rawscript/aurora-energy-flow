@@ -6,7 +6,7 @@ serve(async (req) => {
   const headers = new Headers({
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type",
   });
 
@@ -16,11 +16,13 @@ serve(async (req) => {
   }
 
   try {
-    const { p_user_id, p_force_refresh = false } = await req.json();
+    const url = new URL(req.url);
+    const userId = url.searchParams.get('user_id');
+    const days = url.searchParams.get('days') || '7';
 
-    if (!p_user_id) {
+    if (!userId) {
       return new Response(JSON.stringify({
-        error: "user_id is required",
+        error: "user_id parameter is required",
         code: "MISSING_USER_ID"
       }), {
         headers: { "Content-Type": "application/json" },
@@ -38,36 +40,50 @@ serve(async (req) => {
       }
     );
 
-    // Use the improved database function with force refresh option
+    // Get energy data using the improved function
     const { data, error } = await supabase
-      .rpc('get_token_analytics_improved', {
-        p_user_id: p_user_id,
-        p_force_refresh: p_force_refresh
+      .rpc('get_latest_energy_data_improved', {
+        p_user_id: userId
       });
 
     if (error) {
-      console.error("Error fetching token analytics:", {
+      console.error("Error fetching energy data:", {
         error: error.message,
         code: error.code,
-        user_id: p_user_id
+        user_id: userId
       });
 
       return new Response(JSON.stringify({
         error: error.message,
-        code: error.code || "ANALYTICS_ERROR"
+        code: error.code || "ENERGY_DATA_ERROR"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    // Enhance the response with additional metadata
+    // Get additional readings for the specified period
+    const daysParam = parseInt(days);
+    const { data: readings, error: readingsError } = await supabase
+      .from('energy_readings')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('reading_date', new Date(Date.now() - daysParam * 24 * 60 * 60 * 1000).toISOString())
+      .order('reading_date', { ascending: false });
+
+    if (readingsError) {
+      console.error("Error fetching energy readings:", readingsError);
+    }
+
+    // Enhance the response with additional metadata and readings
     const enhancedResponse = {
-      ...data,
+      summary: data,
+      readings: readings || [],
       metadata: {
+        user_id: userId,
+        days: daysParam,
         timestamp: new Date().toISOString(),
-        force_refresh: p_force_refresh,
-        status: "success"
+        readings_count: readings ? readings.length : 0
       }
     };
 
@@ -75,13 +91,14 @@ serve(async (req) => {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Unexpected error:", {
+    console.error("Unexpected error in get_energy_data:", {
       message: error.message,
       stack: error.stack
     });
     return new Response(JSON.stringify({
-      error: error.message || "An unexpected error occurred while fetching token analytics.",
-      code: "UNEXPECTED_ERROR"
+      error: error.message || "An unexpected error occurred while fetching energy data.",
+      code: "UNEXPECTED_ERROR",
+      timestamp: new Date().toISOString()
     }), {
       headers: { "Content-Type": "application/json" },
       status: 500,
