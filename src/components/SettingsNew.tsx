@@ -11,16 +11,23 @@ import { useAuth } from '@/hooks/useAuth';
 import { getEnergySettings, saveEnergySettings } from '@/utils/energySettings';
 import { useProfileFixed as useProfile } from '@/hooks/useProfileFixed';
 import type { EnergySettings } from '@/utils/energySettings';
-import { NotificationSettings } from './NotificationSettings';
 
-const Settings = () => {
+interface NotificationPreferences {
+  token_low: boolean;
+  token_depleted: boolean;
+  power_restored: boolean;
+  energy_alert: boolean;
+  low_balance_alert: boolean;
+}
+
+const SettingsNew = () => {
   const [notifications, setNotifications] = useState(true);
   const [autoOptimize, setAutoOptimize] = useState(false);
   const [energyProvider, setEnergyProvider] = useState('');
   const [rate, setRate] = useState('0.15');
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedProvider, setLastSavedProvider] = useState('');
-  const [notificationPreferences, setNotificationPreferences] = useState({
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>({
     token_low: true,
     token_depleted: true,
     power_restored: true,
@@ -122,7 +129,7 @@ const Settings = () => {
       console.log("Attempting to save settings with energyProvider:", energyProvider);
 
       // Create properly typed energy settings object with notification preferences
-      const energySettings: EnergySettings & { notification_preferences: any } = {
+      const energySettings: EnergySettings & { notification_preferences: NotificationPreferences } = {
         energy_provider: energyProvider,
         notifications_enabled: notifications,
         auto_optimize: autoOptimize,
@@ -159,7 +166,7 @@ const Settings = () => {
       console.error("Unexpected error:", error);
       let errorMessage = "An unknown error occurred while saving your settings.";
       let errorTitle = "Save Error";
-      
+
       if (error instanceof Error) {
         // Provide more specific error messages based on error type
         if (error.message.includes("network")) {
@@ -185,7 +192,7 @@ const Settings = () => {
           errorMessage = error.message;
         }
       }
-      
+
       toast({
         title: errorTitle,
         description: errorMessage,
@@ -196,6 +203,13 @@ const Settings = () => {
       setIsSaving(false);
       console.log("Save operation completed. Current energyProvider:", energyProvider);
     }
+  };
+
+  const handlePreferenceChange = (key: keyof NotificationPreferences, value: boolean) => {
+    setNotificationPreferences(prev => ({
+      ...prev,
+      [key]: value
+    }));
   };
 
   return (
@@ -224,7 +238,7 @@ const Settings = () => {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="rate">Energy Rate (KSh/kWh)</Label>
               <Input
@@ -255,7 +269,7 @@ const Settings = () => {
 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Sun className="h-5 w-5 text-aurora-yellow-light" />
+                <Zap className="h-5 w-5 text-aurora-yellow-light" />
                 <Label htmlFor="auto-optimize">Auto Optimize</Label>
               </div>
               <Switch
@@ -264,12 +278,85 @@ const Settings = () => {
                 onCheckedChange={setAutoOptimize}
               />
             </div>
+
+            {/* Notification Preferences Section */}
+            {notifications && (
+              <Card className="bg-slate-800/50 border-aurora-green/20 mt-4">
+                <CardHeader>
+                  <CardTitle className="text-lg text-aurora-green-light flex items-center space-x-2">
+                    <Bell className="h-5 w-5" />
+                    <span>Notification Preferences</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                      <Label htmlFor="token-low">Low Token Alert</Label>
+                    </div>
+                    <Switch
+                      id="token-low"
+                      checked={notificationPreferences.token_low}
+                      onCheckedChange={(checked) => handlePreferenceChange('token_low', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Battery className="h-5 w-5 text-red-400" />
+                      <Label htmlFor="token-depleted">Token Depleted</Label>
+                    </div>
+                    <Switch
+                      id="token-depleted"
+                      checked={notificationPreferences.token_depleted}
+                      onCheckedChange={(checked) => handlePreferenceChange('token_depleted', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Zap className="h-5 w-5 text-green-400" />
+                      <Label htmlFor="power-restored">Power Restored</Label>
+                    </div>
+                    <Switch
+                      id="power-restored"
+                      checked={notificationPreferences.power_restored}
+                      onCheckedChange={(checked) => handlePreferenceChange('power_restored', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-400" />
+                      <Label htmlFor="energy-alert">Energy Alerts</Label>
+                    </div>
+                    <Switch
+                      id="energy-alert"
+                      checked={notificationPreferences.energy_alert}
+                      onCheckedChange={(checked) => handlePreferenceChange('energy_alert', checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <DollarSign className="h-5 w-5 text-blue-400" />
+                      <Label htmlFor="low-balance">Low Balance</Label>
+                    </div>
+                    <Switch
+                      id="low-balance"
+                      checked={notificationPreferences.low_balance_alert}
+                      onCheckedChange={(checked) => handlePreferenceChange('low_balance_alert', checked)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={isSaving}
-            className="w-full bg-aurora-green hover:bg-aurora-green/80"
+            className="w-full bg-aurora-green hover:bg-aurora-green/90 text-white"
           >
             {isSaving ? (
               <>
@@ -286,4 +373,35 @@ const Settings = () => {
   );
 };
 
-export default Settings;
+export default SettingsNew;
+    </rewrite_file>      </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>
+    </rewrite_file>

@@ -109,25 +109,84 @@ export const useProfile = () => {
 
         if (fallbackError) {
           console.error('Error fetching profile from profiles table:', fallbackError);
-          let errorMessage = "Could not load user profile";
+
+          // If profile doesn't exist, create a new one
           if (fallbackError.code === 'PGRST116') {
-            errorMessage = "Profile not found";
-          } else if (fallbackError.message.includes('network')) {
-            errorMessage = "Network error. Please check your connection.";
-          } else if (fallbackError.message.includes('timeout')) {
-            errorMessage = "Request timed out. Please try again.";
-          } else if (fallbackError.message.includes('auth')) {
-            errorMessage = "Authentication error. Please sign in again.";
-          }
+            console.log('Profile not found, creating a new one');
 
-          setError(errorMessage);
+            // Create a new profile with default values
+            const newProfile = {
+              id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || '',
+              phone_number: user.user_metadata?.phone_number || '',
+              meter_number: user.user_metadata?.meter_number || '',
+              meter_category: 'residential',
+              industry_type: 'home',
+              energy_provider: 'KPLC',
+              notifications_enabled: true,
+              auto_optimize: false,
+              energy_rate: 0.15,
+              notification_preferences: {
+                token_low: true,
+                token_depleted: true,
+                power_restored: true,
+                energy_alert: true,
+                low_balance_alert: true
+              },
+              kplc_meter_type: 'prepaid',
+              low_balance_threshold: 100
+            };
 
-          if (showToasts) {
-            toast({
-              title: "Profile Error",
-              description: errorMessage,
-              variant: "destructive"
-            });
+            // Insert the new profile
+            const { data: insertData, error: insertError } = await supabase
+              .from('profiles')
+              .insert(newProfile)
+              .select();
+
+            if (insertError) {
+              console.error('Error creating new profile:', insertError);
+              let errorMessage = "Could not create user profile";
+              if (insertError.message.includes('network')) {
+                errorMessage = "Network error. Please check your connection.";
+              } else if (insertError.message.includes('timeout')) {
+                errorMessage = "Request timed out. Please try again.";
+              } else if (insertError.message.includes('auth')) {
+                errorMessage = "Authentication error. Please sign in again.";
+              }
+
+              setError(errorMessage);
+
+              if (showToasts) {
+                toast({
+                  title: "Profile Error",
+                  description: errorMessage,
+                  variant: "destructive"
+                });
+              }
+            } else {
+              profileData = insertData;
+              console.log('New profile created successfully');
+            }
+          } else {
+            let errorMessage = "Could not load user profile";
+            if (fallbackError.message.includes('network')) {
+              errorMessage = "Network error. Please check your connection.";
+            } else if (fallbackError.message.includes('timeout')) {
+              errorMessage = "Request timed out. Please try again.";
+            } else if (fallbackError.message.includes('auth')) {
+              errorMessage = "Authentication error. Please sign in again.";
+            }
+
+            setError(errorMessage);
+
+            if (showToasts) {
+              toast({
+                title: "Profile Error",
+                description: errorMessage,
+                variant: "destructive"
+              });
+            }
           }
         } else if (fallbackData) {
           profileData = [fallbackData];
@@ -243,11 +302,10 @@ export const useProfile = () => {
         return false;
       }
 
-      // Use the safe update function with retry logic
+      // First try using the safe_update_profile function
       let retryCount = 0;
       const maxRetries = 3;
       let success = false;
-      let result;
 
       while (retryCount < maxRetries && !success) {
         try {
@@ -265,31 +323,18 @@ export const useProfile = () => {
               await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
               continue;
             } else {
-              // Don't retry on other errors
-              toast({
-                title: "Update Failed",
-                description: error.message || "Could not update profile.",
-                variant: "destructive"
-              });
-              return false;
+              // Don't retry on other errors, try direct update
+              break;
             }
           } else if (data && data.length > 0) {
             const updatedProfile = data[0] as Profile;
-            console.log('Profile updated successfully');
+            console.log('Profile updated successfully via RPC');
             setProfile(updatedProfile);
             toast({
               title: "Profile Updated",
               description: "Your profile has been updated successfully."
             });
-            success = true;
-            result = true;
-          } else {
-            toast({
-              title: "Update Failed",
-              description: "No data returned after update.",
-              variant: "destructive"
-            });
-            result = false;
+            return true;
           }
         } catch (error) {
           console.error(`Attempt ${retryCount + 1}: Unexpected error updating profile:`, error);
@@ -298,7 +343,49 @@ export const useProfile = () => {
         }
       }
 
-      return result;
+      // If RPC failed, try direct update
+      if (!success) {
+        console.log('RPC update failed, trying direct update');
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .update({
+              ...updates,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', user.id)
+            .select()
+            .single();
+
+          if (error) {
+            console.error('Error with direct profile update:', error);
+            toast({
+              title: "Update Failed",
+              description: error.message || "Could not update profile.",
+              variant: "destructive"
+            });
+            return false;
+          } else if (data) {
+            console.log('Profile updated successfully via direct update');
+            setProfile(data as Profile);
+            toast({
+              title: "Profile Updated",
+              description: "Your profile has been updated successfully."
+            });
+            return true;
+          }
+        } catch (error) {
+          console.error('Unexpected error with direct profile update:', error);
+          toast({
+            title: "Update Error",
+            description: "An unexpected error occurred while updating profile.",
+            variant: "destructive"
+          });
+          return false;
+        }
+      }
+
+      return false;
     } catch (error) {
       console.error('Unexpected error updating profile:', error);
       toast({

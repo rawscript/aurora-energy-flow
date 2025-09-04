@@ -20,7 +20,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    // Redirect to auth page with a state to indicate where to go after login
+    return <Navigate to="/auth" state={{ from: window.location.pathname }} replace />;
   }
 
   return <>{children}</>;

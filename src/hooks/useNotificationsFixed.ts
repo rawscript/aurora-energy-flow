@@ -857,15 +857,12 @@ export const useNotifications = () => {
 
     subscriptionRef.current = supabase
       .channel(`notifications_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload: { eventType: string; new?: any; old?: any }) => {
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`
+      }, (payload: { eventType: string; new?: any; old?: any }) => {
         try {
           const now = Date.now();
           if (now - lastNotificationTime.current < 1000) { // Throttle updates
@@ -950,6 +947,67 @@ export const useNotifications = () => {
           }
         }
       })
+      .on('subscription_error', (error: any) => {
+        console.error('Notification subscription error:', error);
+
+        // Attempt to recover from subscription errors
+        if (subscriptionActive && error.message.includes('network')) {
+          console.log('Network error in subscription, attempting to reconnect...');
+
+          // Try to reconnect after a delay
+          setTimeout(() => {
+            if (subscriptionActive) {
+              console.log('Reconnecting to notifications...');
+              try {
+                // Remove the old channel first
+                supabase.removeChannel(subscriptionRef.current);
+
+                // Create a new subscription
+                subscriptionRef.current = supabase
+                  .channel(`notifications_${user.id}_reconnect`)
+                  .on('postgres_changes', {
+                    event: '*',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${user.id}`
+                  }, (payload: { eventType: string; new?: any; old?: any }) => {
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                      const newNotification: Notification = {
+                        id: payload.new.id,
+                        title: payload.new.title,
+                        message: payload.new.message,
+                        type: payload.new.type,
+                        severity: payload.new.severity,
+                        isRead: payload.new.is_read,
+                        tokenBalance: payload.new.token_balance,
+                        estimatedDays: payload.new.estimated_days,
+                        metadata: payload.new.metadata,
+                        createdAt: payload.new.created_at,
+                        updatedAt: payload.new.updated_at,
+                        expiresAt: payload.new.expires_at,
+                        sourceTable: 'notifications'
+                      };
+
+                      setNotifications(prev => {
+                        if (prev.some(n => n.id === newNotification.id)) {
+                          return prev;
+                        }
+                        return [newNotification, ...prev.slice(0, 99)];
+                      });
+
+                      if (!newNotification.isRead) {
+                        setUnreadCount(prev => prev + 1);
+                      }
+                    }
+                  })
+                  .subscribe();
+              } catch (reconnectError) {
+                console.error('Failed to reconnect to notifications:', reconnectError);
+              }
+            }
+          }, 5000); // Try to reconnect after 5 seconds
+        }
+      })
       .subscribe((status: string) => {
         console.log('Notification subscription status:', status);
 
@@ -963,7 +1021,7 @@ export const useNotifications = () => {
         } else if (status === 'TIMED_OUT') {
           console.log('Notification subscription timed out');
         }
-      }, 5000);
+      });
 
     return () => {
       subscriptionActive = false;

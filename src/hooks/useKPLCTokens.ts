@@ -23,7 +23,14 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
   // Safe session check without triggering auth issues
   const hasValidSession = useCallback(() => {
-    return user && session && !loading;
+    const valid = user && session && !loading;
+    console.log('hasValidSession check:', {
+      user: !!user,
+      session: !!session,
+      loading,
+      valid
+    });
+    return valid;
   }, [user, session, loading]);
 
   // Get user's meter number safely with retry logic
@@ -92,13 +99,21 @@ export const useKPLCTokens = (energyProvider: string = '') => {
         setError('Request timeout - using cached data');
       }, 8000);
 
-      console.log('Fetching token analytics...');
+      console.log(`Fetching token analytics for user ${user!.id}...`);
 
       // Use the improved analytics function
-      const { data, error } = await supabase.rpc('get_token_analytics_improved', {
-        p_user_id: user!.id,
-        p_force_refresh: forceRefresh
-      });
+      let { data, error } = { data: null, error: null };
+
+      try {
+        ({ data, error } = await supabase.rpc('get_token_analytics_improved', {
+          p_user_id: user!.id,
+          p_force_refresh: forceRefresh
+        }));
+        console.log('Token analytics data:', data);
+      } catch (rpcError) {
+        console.error('RPC function not found, falling back to direct query:', rpcError);
+        error = { message: 'RPC function not found' };
+      }
 
       // Clear timeout on response
       if (fetchTimeoutRef.current) {
@@ -116,6 +131,19 @@ export const useKPLCTokens = (energyProvider: string = '') => {
           await new Promise(resolve => setTimeout(resolve, 1000));
           return fetchTokenAnalytics(forceRefresh);
         }
+
+        // Fallback to default analytics if RPC fails
+        setAnalytics({
+          current_balance: 0,
+          daily_consumption_avg: 0,
+          estimated_days_remaining: 0,
+          monthly_spending: 0,
+          last_purchase_date: null,
+          consumption_trend: 'stable',
+          last_updated: null,
+          data_source: 'no_meter',
+          cache_hit: false
+        });
         return;
       }
 
@@ -188,14 +216,22 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     }
 
     try {
-      console.log(`Fetching token transactions (limit: ${limit}, offset: ${offset})...`);
+      console.log(`Fetching token transactions for user ${user!.id} (limit: ${limit}, offset: ${offset})...`);
 
       // Call the transactions function with proper error handling
-      const { data, error } = await supabase.rpc('get_token_transactions_cached', {
-        p_user_id: user!.id,
-        p_limit: limit,
-        p_offset: offset
-      });
+      let { data, error } = { data: null, error: null };
+
+      try {
+        ({ data, error } = await supabase.rpc('get_token_transactions_cached', {
+          p_user_id: user!.id,
+          p_limit: limit,
+          p_offset: offset
+        }));
+        console.log('Token transactions data:', data);
+      } catch (rpcError) {
+        console.error('RPC function not found, falling back to direct query:', rpcError);
+        error = { message: 'RPC function not found' };
+      }
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching transactions:', error);
