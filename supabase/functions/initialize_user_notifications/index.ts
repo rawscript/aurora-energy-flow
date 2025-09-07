@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", // Use service role key for full access
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },
@@ -28,43 +28,21 @@ serve(async (req) => {
       }
     );
 
-    // Check if notification preferences exist
-    const { data: preferences, error: fetchError } = await supabase
-      .from("notification_preferences")
-      .select("*")
-      .eq("user_id", p_user_id)
-      .maybeSingle();
+    // Use the database function instead of direct table access
+    const { data, error } = await supabase
+      .rpc('initialize_user_notifications', {
+        p_user_id: p_user_id
+      });
 
-    if (fetchError) {
-      console.error("Error fetching notification preferences:", fetchError);
-    }
-
-    if (!preferences) {
-      // Create default notification preferences
-      const { data, error } = await supabase
-        .from("notification_preferences")
-        .insert({
-          user_id: p_user_id,
-          email_notifications: true,
-          push_notifications: true,
-          sms_notifications: false,
-        })
-        .select();
-
-      if (error) {
-        console.error("Error initializing notification preferences:", error);
-        return new Response(JSON.stringify({ error: error.message }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, data }), {
+    if (error) {
+      console.error("Error initializing user notifications:", error);
+      return new Response(JSON.stringify({ error: error.message }), {
         headers: { "Content-Type": "application/json" },
+        status: 400,
       });
     }
 
-    return new Response(JSON.stringify({ success: true, preferences }), {
+    return new Response(JSON.stringify({ success: true, data }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {

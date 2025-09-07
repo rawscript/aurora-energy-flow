@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo, useCallback, lazy, Suspense } from "react";
-import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useProfile";
+import { useEnergyProvider } from "@/contexts/EnergyProviderContext";
 import { Info } from "lucide-react";
 
 // Lazy load components for better performance
@@ -36,44 +35,94 @@ const TabLoadingSpinner = () => (
 const componentCache = new Map();
 
 interface TabConfig {
-  dashboard: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement) };
-  notifications: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
-  insights: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
-  calculator: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
-  meter: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement) };
-  chat: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
-  settings: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
-  tokens?: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> };
+  dashboard: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement); visible: boolean };
+  notifications: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
+  insights: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
+  calculator: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
+  meter: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement); visible: boolean };
+  chat: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
+  settings: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
+  tokens?: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
 }
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loadedTabs, setLoadedTabs] = useState(new Set(["dashboard"])); // Pre-load dashboard
   const isMobile = useIsMobile();
-  const { profile } = useProfile();
   const { unreadCount } = useNotifications();
   const { user } = useAuth();
-  const [energyProvider, setEnergyProvider] = useState<string>('KPLC');
+  const { provider, providerConfig, isLoading: providerLoading } = useEnergyProvider();
 
-  // Memoize tab configuration to prevent re-renders
+  // Memoize tab configuration to prevent re-renders and make it reactive to provider changes
   const tabConfig: TabConfig = useMemo(() => {
     const config: TabConfig = {
-      dashboard: { label: isMobile ? "Home" : "Dashboard", component: isMobile ? MobileDashboard : EnergyDashboard },
-      notifications: { label: isMobile ? "Alerts" : "Notifications", component: NotificationCenter },
-      insights: { label: "Insights", component: EnergyInsights },
-      calculator: { label: isMobile ? "Calc" : "Calculator", component: BillCalculator },
-      meter: { label: isMobile ? "Meter" : "Meter Setup", component: () => <MeterSetup energyProvider={energyProvider} /> },
-      chat: { label: isMobile ? "AI Chat" : "AI Assistant", component: ChatInterface },
-      settings: { label: "Settings", component: Settings }
+      dashboard: { 
+        label: isMobile ? "Home" : "Dashboard", 
+        component: isMobile ? MobileDashboard : EnergyDashboard,
+        visible: true
+      },
+      notifications: { 
+        label: isMobile ? "Alerts" : "Notifications", 
+        component: NotificationCenter,
+        visible: true
+      },
+      insights: { 
+        label: "Insights", 
+        component: EnergyInsights,
+        visible: true
+      },
+      calculator: { 
+        label: isMobile ? "Calc" : "Calculator", 
+        component: BillCalculator,
+        visible: true
+      },
+      meter: { 
+        label: isMobile 
+          ? (providerConfig.terminology.device === 'inverter' ? "Inverter" : "Meter")
+          : providerConfig.terminology.setup, 
+        component: MeterSetup,
+        visible: true
+      },
+      chat: { 
+        label: isMobile ? "AI Chat" : "AI Assistant", 
+        component: ChatInterface,
+        visible: !isMobile
+      },
+      settings: { 
+        label: "Settings", 
+        component: Settings,
+        visible: true
+      }
     };
 
-    // Only hide the tokens tab if the energy provider is explicitly Solar and settings are saved
-    if (energyProvider !== 'Solar' && energyProvider !== '') {
-      config.tokens = { label: isMobile ? "Tokens" : "KPLC Tokens", component: KPLCTokenDashboard };
+    // Add tokens/credits tab based on provider capabilities
+    if (providerConfig.settings.supportsTokens || providerConfig.settings.supportsPayAsYouGo) {
+      config.tokens = {
+        label: isMobile
+          ? (providerConfig.terminology.credits === 'credits' ? "Credits" : "Tokens")
+          : providerConfig.terminology.dashboard,
+        component: KPLCTokenDashboard,
+        visible: true
+      };
     }
 
     return config;
-  }, [isMobile, energyProvider]);
+  }, [isMobile, provider, providerConfig]);
+
+  // Listen for provider changes and clear cache
+  useEffect(() => {
+    const handleProviderChange = () => {
+      componentCache.clear();
+      // Force re-render of current tab
+      setLoadedTabs(prev => new Set([...prev]));
+    };
+
+    window.addEventListener('energyProviderChanged', handleProviderChange);
+    
+    return () => {
+      window.removeEventListener('energyProviderChanged', handleProviderChange);
+    };
+  }, []);
 
   // Optimized tab change handler with preloading
   const handleTabChange = useCallback((value: string) => {
@@ -84,7 +133,8 @@ const Index = () => {
       setLoadedTabs(prev => new Set([...prev, value]));
       
       // Preload adjacent tabs for better UX
-      const tabKeys = Object.keys(tabConfig);
+      const visibleTabs = Object.entries(tabConfig).filter(([_, config]) => config.visible);
+      const tabKeys = visibleTabs.map(([key]) => key);
       const currentIndex = tabKeys.indexOf(value);
       const nextTab = tabKeys[currentIndex + 1];
       const prevTab = tabKeys[currentIndex - 1];
@@ -116,8 +166,8 @@ const Index = () => {
       return <TabLoadingSpinner />;
     }
 
-    // Use cache to prevent re-mounting
-    const cacheKey = `${tabKey}-${isMobile}`;
+    // Use cache to prevent re-mounting, but include provider in cache key
+    const cacheKey = `${tabKey}-${isMobile}-${provider}`;
     if (componentCache.has(cacheKey)) {
       return componentCache.get(cacheKey);
     }
@@ -125,8 +175,8 @@ const Index = () => {
     let content;
     const config = tabConfig[tabKey];
 
-    if (!config) {
-      // Handle case where tab is not available (e.g., tokens tab for non-KPLC users)
+    if (!config || !config.visible) {
+      // Handle case where tab is not available
       return (
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
@@ -144,7 +194,7 @@ const Index = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
             <div className="lg:col-span-3">
-              <EnergyDashboard energyProvider={energyProvider} />
+              <EnergyDashboard />
             </div>
             <div className="lg:col-span-1">
               <SmartMeterStatus onNavigateToMeter={handleNavigateToMeter} />
@@ -155,6 +205,12 @@ const Index = () => {
       case 'insights':
         content = <EnergyInsights onNavigateToMeter={handleNavigateToMeter} />;
         break;
+      case 'meter':
+        content = <MeterSetup />;
+        break;
+      case 'tokens':
+        content = <KPLCTokenDashboard />;
+        break;
       default:
         const Component = config.component;
         content = <Component />;
@@ -163,46 +219,25 @@ const Index = () => {
     // Cache the content
     componentCache.set(cacheKey, content);
     return content;
-  }, [loadedTabs, tabConfig, isMobile, handleNavigate, handleNavigateToMeter]);
+  }, [loadedTabs, tabConfig, isMobile, handleNavigate, handleNavigateToMeter, provider]);
 
-  // Clear cache when mobile state changes
+  // Clear cache when mobile state or provider changes
   useEffect(() => {
     componentCache.clear();
-  }, [isMobile]);
-
-  // Fetch user's energy provider
-  useEffect(() => {
-    const fetchEnergyProvider = async () => {
-      if (!user) return;
-
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (profile) {
-          // Set to 'KPLC' as default for UI display if provider is empty
-          setEnergyProvider(profile.energy_provider || 'KPLC');
-        }
-      } catch (error) {
-        console.error("Error fetching energy provider:", error);
-      }
-    };
-
-    fetchEnergyProvider();
-  }, [user]);
+  }, [isMobile, provider]);
 
   // Preload critical tabs on mount
   useEffect(() => {
-    const criticalTabs = ['dashboard', 'tokens', 'notifications'];
+    const criticalTabs = ['dashboard', 'notifications'];
+    if (tabConfig.tokens?.visible) {
+      criticalTabs.push('tokens');
+    }
     setTimeout(() => {
       setLoadedTabs(prev => new Set([...prev, ...criticalTabs]));
     }, 500);
-  }, []);
+  }, [tabConfig.tokens?.visible]);
 
-  // Listen for global navigation events (fallback for components without navigation props)
+  // Listen for global navigation events
   useEffect(() => {
     const handleNavigateToMeter = () => {
       handleTabChange("meter");
@@ -215,6 +250,10 @@ const Index = () => {
     };
   }, [handleTabChange]);
 
+  // Get visible tabs for rendering
+  const visibleTabs = Object.entries(tabConfig).filter(([_, config]) => config.visible);
+  const visibleTabKeys = visibleTabs.map(([key]) => key);
+
   return (
     <div className="min-h-screen bg-aurora-dark">
       <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
@@ -223,101 +262,60 @@ const Index = () => {
             Aurora Energy Monitor
           </h1>
           <p className="text-sm md:text-base text-gray-400">
-            Real-time energy monitoring powered by Kenya Power smart meters
+            {provider ? `Real-time energy monitoring powered by ${providerConfig.name}` : 'Real-time energy monitoring'}
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 md:space-y-6">
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-5' : 'grid-cols-8'} bg-aurora-card border border-aurora-green/20`}>
-            <TabsTrigger value="dashboard" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-              {tabConfig.dashboard.label}
-            </TabsTrigger>
-            {(energyProvider === 'KPLC' || energyProvider === '') && (
-              <TabsTrigger value="tokens" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-                {tabConfig.tokens?.label}
+          <TabsList 
+            className={`grid w-full bg-aurora-card border border-aurora-green/20`}
+            style={{ gridTemplateColumns: `repeat(${Math.min(visibleTabKeys.length, isMobile ? 5 : 8)}, minmax(0, 1fr))` }}
+          >
+            {visibleTabs.slice(0, isMobile ? 5 : 8).map(([key, config]) => (
+              <TabsTrigger 
+                key={key}
+                value={key} 
+                className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm relative"
+                style={{
+                  backgroundColor: activeTab === key && provider ? providerConfig.colors.primary : undefined
+                }}
+              >
+                {config.label}
+                {key === 'notifications' && unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </div>
+                )}
               </TabsTrigger>
-            )}
-            <TabsTrigger value="notifications" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm relative">
-              {tabConfig.notifications.label}
-              {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </div>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="insights" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-              {tabConfig.insights.label}
-            </TabsTrigger>
-            <TabsTrigger value="calculator" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-              {tabConfig.calculator.label}
-            </TabsTrigger>
-            {!isMobile && (
-              <>
-                <TabsTrigger value="meter" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-                  {tabConfig.meter.label}
-                </TabsTrigger>
-                <TabsTrigger value="chat" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-                  {tabConfig.chat.label}
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm">
-                  {tabConfig.settings.label}
-                </TabsTrigger>
-              </>
-            )}
+            ))}
           </TabsList>
 
           {/* Mobile bottom navigation for hidden tabs */}
-          {isMobile && (
+          {isMobile && visibleTabKeys.length > 5 && (
             <div className="fixed bottom-0 left-0 right-0 bg-aurora-card border-t border-aurora-green/20 px-2 py-2 z-50">
               <div className="grid grid-cols-4 gap-1">
-                <button
-                  onClick={() => handleTabChange("dashboard")}
-                  className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "dashboard"
-                      ? "bg-aurora-green text-black"
-                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  Home
-                </button>
-                {(energyProvider === 'KPLC' || energyProvider === '' || !energyProvider) && (
+                {visibleTabs.slice(5, 9).map(([key, config]) => (
                   <button
-                    onClick={() => handleTabChange("tokens")}
+                    key={key}
+                    onClick={() => handleTabChange(key)}
                     className={`text-xs p-2 rounded transition-colors ${
-                      activeTab === "tokens"
+                      activeTab === key
                         ? "bg-aurora-green text-black"
                         : "text-gray-300 hover:text-white hover:bg-slate-700/50"
                     }`}
+                    style={{
+                      backgroundColor: activeTab === key && provider ? providerConfig.colors.primary : undefined
+                    }}
                   >
-                    Tokens
+                    {config.label}
                   </button>
-                )}
-                <button
-                  onClick={() => handleTabChange("meter")}
-                  className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "meter"
-                      ? "bg-aurora-green text-black"
-                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  Meter
-                </button>
-                <button
-                  onClick={() => handleTabChange("settings")}
-                  className={`text-xs p-2 rounded transition-colors ${
-                    activeTab === "settings"
-                      ? "bg-aurora-green text-black"
-                      : "text-gray-300 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  Settings
-                </button>
+                ))}
               </div>
             </div>
           )}
 
           {/* Render tab contents with Suspense for lazy loading */}
-          {Object.keys(tabConfig).map((tabKey) => (
+          {visibleTabKeys.map((tabKey) => (
             <TabsContent
               key={tabKey}
               value={tabKey}

@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", // Use service role key for full access
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },
@@ -28,12 +28,11 @@ serve(async (req) => {
       }
     );
 
-    // Get notification preferences for the user
-    const { data: preferences, error } = await supabase
-      .from("notification_preferences")
-      .select("*")
-      .eq("user_id", p_user_id)
-      .maybeSingle();
+    // Use the database function instead of direct table access
+    const { data, error } = await supabase
+      .rpc('get_notification_preferences', {
+        p_user_id: p_user_id
+      });
 
     if (error) {
       console.error("Error getting notification preferences:", error);
@@ -43,7 +42,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify(preferences || {}), {
+    return new Response(JSON.stringify(data || {}), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {

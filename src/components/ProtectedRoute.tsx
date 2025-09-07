@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
@@ -9,7 +9,14 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshSession } = useAuth();
+
+  // Refresh session when component mounts
+  useEffect(() => {
+    if (user) {
+      refreshSession().catch(console.error);
+    }
+  }, [user, refreshSession]);
 
   if (loading) {
     return (
@@ -20,7 +27,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    // Redirect to auth page with a state to indicate where to go after login
+    return <Navigate to="/auth" state={{ from: window.location.pathname }} replace />;
   }
 
   return <>{children}</>;

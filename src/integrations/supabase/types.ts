@@ -1,3 +1,5 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+
 export type Json =
   | string
   | number
@@ -456,6 +458,10 @@ export type Database = {
           meter_number: string | null
           meter_category: string | null
           industry_type: string | null
+          energy_provider: string | null
+          notifications_enabled: boolean | null
+          auto_optimize: boolean | null
+          energy_rate: number | null
           created_at: string
           updated_at: string
         }[]
@@ -585,6 +591,75 @@ export type Database = {
           p_transaction_type?: string
         }
         Returns: number
+      },
+      execute_transaction: {
+        Args: {
+          p_operations: Json[]
+          p_user_id: string
+        }
+        Returns: Json
+      },
+      purchase_tokens_improved: {
+        Args: {
+          p_user_id: string
+          p_meter_number: string
+          p_amount: number
+          p_payment_method?: string
+          p_vendor?: string
+          p_phone_number?: string
+        }
+        Returns: Json
+      },
+      get_token_analytics_improved: {
+        Args: {
+          p_user_id: string
+          p_force_refresh?: boolean
+        }
+        Returns: Json
+      },
+      insert_energy_reading_improved: {
+        Args: {
+          p_user_id: string
+          p_meter_number: string
+          p_kwh_consumed: number
+          p_cost_per_kwh?: number
+        }
+        Returns: string
+      },
+      get_energy_settings_history: {
+        Args: {
+          p_user_id: string
+          p_limit?: number
+        }
+        Returns: Json
+      },
+      revert_energy_settings: {
+        Args: {
+          p_user_id: string
+          p_version: number
+        }
+        Returns: Json
+      },
+      get_token_transactions_cached: {
+        Args: {
+          p_user_id: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      },
+      check_kplc_balance_improved: {
+        Args: {
+          p_user_id: string
+          p_meter_number: string
+        }
+        Returns: Json
+      }
+      process_notification_queue: {
+        Args: {
+          p_limit: number
+        }
+        Returns: Json
       }
     }
     Enums: {
@@ -706,3 +781,48 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+// Define a custom type that extends the default SupabaseClient
+export type CustomSupabaseClient = {
+  transaction: (operations: Array<{ query: string; params: any }>, user_id: string) => Promise<any>;
+  energy: {
+    purchaseTokens: (params: {
+      user_id: string;
+      meter_number: string;
+      amount: number;
+      payment_method?: string;
+      vendor?: string;
+      phone_number?: string;
+    }) => Promise<any>;
+    getTokenAnalytics: (user_id: string, forceRefresh?: boolean) => Promise<any>;
+    updateProfile: (params: {
+      p_user_id: string;
+      p_updates: {
+        energy_provider?: 'KPLC' | 'Solar' | 'KenGEn' | 'IPP' | 'Other' | '';
+        notifications_enabled?: boolean;
+        auto_optimize?: boolean;
+        energy_rate?: number;
+        email?: string;
+        full_name?: string;
+        phone_number?: string;
+        meter_number?: string;
+        meter_category?: string;
+        industry_type?: string;
+        notification_preferences?: Record<string, any>;
+        kplc_meter_type?: string;
+        low_balance_threshold?: number;
+      };
+    }) => Promise<any>;
+    insertEnergyReading: (params: {
+      user_id: string;
+      meter_number: string;
+      kwh_consumed: number;
+      cost_per_kwh?: number;
+    }) => Promise<any>;
+  };
+  notifications: {
+    processQueue: (limit?: number) => Promise<any>;
+    getHistory: (user_id: string, limit?: number) => Promise<any>;
+    revertSettings: (user_id: string, version: number) => Promise<any>;
+  };
+} & import('@supabase/supabase-js').SupabaseClient<Database>;

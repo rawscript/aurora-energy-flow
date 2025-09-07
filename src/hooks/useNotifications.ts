@@ -3,6 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
+interface ProfileData {
+  id: string;
+  notification_preferences?: Record<string, any>;
+  meter_category?: string;
+  notifications_enabled?: boolean;
+}
+
 interface Notification {
   id: string;
   title: string;
@@ -56,11 +63,12 @@ export const useNotifications = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, session } = useAuth();
   const { toast } = useToast();
-  
+
   // Refs to prevent multiple subscriptions and fetches
   const subscriptionRef = useRef<any>(null);
   const fetchingRef = useRef(false);
   const lastFetchTime = useRef<number>(0);
+  const lastNotificationTime = useRef<number>(0);
   const FETCH_COOLDOWN = 2000; // 2 seconds minimum between fetches
 
   // Check notification status first (safe check)
@@ -73,80 +81,93 @@ export const useNotifications = () => {
     try {
       console.log('Checking notification status for user:', user.id);
 
-      const { data, error } = await supabase
-        .rpc('check_user_notification_initialization', {
-          p_user_id: user.id
-        });
-
-      if (error) {
-        console.error('Error checking notification status:', error);
-        // Return default status instead of throwing
-        const defaultStatus: NotificationStatus = {
-          has_notifications: false,
-          total_count: 0,
-          unread_count: 0,
-          notification_types: [],
-          notifications_table_exists: false,
-          ai_alerts_table_exists: false,
-          status: 'empty'
-        };
-        setStatus(defaultStatus);
-        return defaultStatus;
-      }
-
-      // If the function returns a boolean, we need to fetch notifications separately
-      const needsInitialization = data as boolean;
-
-      if (needsInitialization) {
-        console.log('User needs notification initialization');
-        // Initialize notifications for the user
-        await supabase.rpc('initialize_user_notifications', {
-          p_user_id: user.id
-        });
-      }
-
-      // Fetch the actual notification status
-      const { data: statusData, error: statusError } = await supabase
-        .rpc('get_user_notifications_safe', {
-          p_user_id: user.id,
-          p_limit: 1,
-          p_unread_only: false
-        });
-
-      if (statusError) {
-        console.error('Error fetching notification status:', statusError);
-        const defaultStatus: NotificationStatus = {
-          has_notifications: false,
-          total_count: 0,
-          unread_count: 0,
-          notification_types: [],
-          notifications_table_exists: false,
-          ai_alerts_table_exists: false,
-          status: 'empty'
-        };
-        setStatus(defaultStatus);
-        return defaultStatus;
-      }
-
-      // If we got data, use it to set the status
-      const transformedStatus: NotificationStatus = {
-        has_notifications: statusData && statusData.length > 0,
-        total_count: statusData ? statusData.length : 0,
-        unread_count: statusData ? statusData.filter((n: any) => !n.is_read).length : 0,
-        last_notification_date: statusData && statusData.length > 0 ? statusData[0].created_at : undefined,
-        notification_types: statusData ? [...new Set(statusData.map((n: any) => n.type))] : [],
-        notifications_table_exists: true,
+      // Create default status - assume no notifications exist
+      const defaultStatus: NotificationStatus = {
+        has_notifications: false,
+        total_count: 0,
+        unread_count: 0,
+        notification_types: [],
+        notifications_table_exists: false,
         ai_alerts_table_exists: false,
-        status: statusData && statusData.length > 0 ? (statusData.some((n: any) => !n.is_read) ? 'has_unread' : 'all_read') : 'empty'
+        status: 'empty'
       };
 
-      setStatus(transformedStatus);
-      setUnreadCount(transformedStatus.unread_count);
+      // Try to check if notification functions exist, but don't fail if they don't
+      try {
+        const { data, error } = await supabase
+          .rpc('check_user_notification_initialization', {
+            p_user_id: user.id
+          });
 
-      console.log('Notification status:', transformedStatus);
-      return transformedStatus;
+        if (error) {
+          console.log('Notification functions not available:', error.message);
+          setStatus(defaultStatus);
+          setUnreadCount(0);
+          return defaultStatus;
+        }
+
+        // If the function exists and returns data, process it
+        const needsInitialization = data as boolean;
+
+        if (needsInitialization) {
+          console.log('User needs notification initialization');
+          // Try to initialize notifications for the user
+          try {
+            await supabase.rpc('initialize_user_notifications', {
+              p_user_id: user.id
+            });
+          } catch (initError) {
+            console.log('Could not initialize notifications:', initError);
+          }
+        }
+
+        // Try to fetch the actual notification status
+        try {
+          const { data: statusData, error: statusError } = await supabase
+            .rpc('get_user_notifications_safe', {
+              p_user_id: user.id,
+              p_limit: 1,
+              p_unread_only: false
+            });
+
+          if (statusError) {
+            console.log('Could not fetch notification status:', statusError.message);
+            setStatus(defaultStatus);
+            setUnreadCount(0);
+            return defaultStatus;
+          }
+
+          // If we got data, use it to set the status
+          const transformedStatus: NotificationStatus = {
+            has_notifications: statusData && statusData.length > 0,
+            total_count: statusData ? statusData.length : 0,
+            unread_count: statusData ? statusData.filter((n: any) => !n.is_read).length : 0,
+            last_notification_date: statusData && statusData.length > 0 ? statusData[0].created_at : undefined,
+            notification_types: statusData ? [...new Set(statusData.map((n: any) => n.type))] : [],
+            notifications_table_exists: true,
+            ai_alerts_table_exists: false,
+            status: statusData && statusData.length > 0 ? (statusData.some((n: any) => !n.is_read) ? 'has_unread' : 'all_read') : 'empty'
+          };
+
+          setStatus(transformedStatus);
+          setUnreadCount(transformedStatus.unread_count);
+
+          console.log('Notification status:', transformedStatus);
+          return transformedStatus;
+        } catch (fetchError) {
+          console.log('Error fetching notifications:', fetchError);
+          setStatus(defaultStatus);
+          setUnreadCount(0);
+          return defaultStatus;
+        }
+      } catch (checkError) {
+        console.log('Notification system not available:', checkError);
+        setStatus(defaultStatus);
+        setUnreadCount(0);
+        return defaultStatus;
+      }
     } catch (error) {
-      console.error('Exception checking notification status:', error);
+      console.log('Exception in notification status check:', error);
       const defaultStatus: NotificationStatus = {
         has_notifications: false,
         total_count: 0,
@@ -157,6 +178,7 @@ export const useNotifications = () => {
         status: 'empty'
       };
       setStatus(defaultStatus);
+      setUnreadCount(0);
       return defaultStatus;
     }
   }, [user, session]);
@@ -169,18 +191,152 @@ export const useNotifications = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .rpc('get_notification_preferences', {
-          p_user_id: user.id
-        });
+      let preferencesData = null;
+      let preferencesError = null;
 
-      if (error) {
-        console.error('Error getting notification preferences:', error);
+      try {
+        const { data, error } = await supabase
+          .rpc('get_notification_preferences', {
+            p_user_id: user.id
+          });
+
+        preferencesData = data;
+        preferencesError = error;
+      } catch (error) {
+        console.error('Error calling get_notification_preferences:', error);
+        preferencesError = error;
+      }
+
+      // If get_notification_preferences fails, use fallback logic
+      if (preferencesError) {
+        console.error('Error getting notification preferences:', preferencesError);
+
+        // Check if the error is a 404 (function not found)
+        if (preferencesError.code === 'PGRST202' || preferencesError.message.includes('404')) {
+          console.log('get_notification_preferences not found, using fallback logic');
+
+          // Try to fetch profile data to get notification preferences
+          try {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('notification_preferences, meter_category, notifications_enabled')
+              .eq('id', user.id)
+              .single() as { data: ProfileData | null, error: any | null };
+
+            if (profileError) {
+              console.error('Error fetching profile for notification preferences:', profileError);
+
+              // Create a fallback preferences object with default values
+              const fallbackPreferences: NotificationPreferences = {
+                preferences: {
+                  token_low: true,
+                  token_depleted: true,
+                  power_restored: true,
+                  energy_alert: true,
+                  low_balance_alert: true
+                },
+                has_meter: false,
+                meter_category: 'residential',
+                contact_methods: {
+                  email: true,
+                  push: true,
+                  sms: false
+                },
+                setup_status: {
+                  meter_setup: false,
+                  notifications_enabled: true
+                }
+              };
+
+              setPreferences(fallbackPreferences);
+              return fallbackPreferences;
+            } else if (profileData) {
+              // Create a fallback preferences object with data from the profile
+              const fallbackPreferences: NotificationPreferences = {
+                preferences: profileData.notification_preferences || {
+                  token_low: true,
+                  token_depleted: true,
+                  power_restored: true,
+                  energy_alert: true,
+                  low_balance_alert: true
+                },
+                has_meter: !!profileData.meter_category,
+                meter_category: profileData.meter_category || 'residential',
+                contact_methods: {
+                  email: true,
+                  push: true,
+                  sms: false
+                },
+                setup_status: {
+                  meter_setup: !!profileData.meter_category,
+                  notifications_enabled: profileData.notifications_enabled !== false // Default to true
+                }
+              };
+
+              setPreferences(fallbackPreferences);
+              return fallbackPreferences;
+            }
+          } catch (error) {
+            console.error('Error in fallback logic:', error);
+
+            // Create a fallback preferences object with default values
+            const fallbackPreferences: NotificationPreferences = {
+              preferences: {
+                token_low: true,
+                token_depleted: true,
+                power_restored: true,
+                energy_alert: true,
+                low_balance_alert: true
+              },
+              has_meter: false,
+              meter_category: 'residential',
+              contact_methods: {
+                email: true,
+                push: true,
+                sms: false
+              },
+              setup_status: {
+                meter_setup: false,
+                notifications_enabled: true
+              }
+            };
+
+            setPreferences(fallbackPreferences);
+            return fallbackPreferences;
+          }
+        }
+
         return null;
       }
 
-      setPreferences(data);
-      return data;
+      // Transform the data to match our NotificationPreferences interface
+      if (preferencesData && preferencesData.length > 0) {
+        const transformedPreferences: NotificationPreferences = {
+          preferences: {
+            token_low: preferencesData[0].token_low,
+            token_depleted: preferencesData[0].token_depleted,
+            power_restored: preferencesData[0].power_restored,
+            energy_alert: preferencesData[0].energy_alert,
+            low_balance_alert: preferencesData[0].low_balance_alert
+          },
+          has_meter: false, // Will be updated when we fetch profile data
+          meter_category: 'residential', // Default value
+          contact_methods: {
+            email: true,
+            push: true,
+            sms: false
+          },
+          setup_status: {
+            meter_setup: false,
+            notifications_enabled: true
+          }
+        };
+
+        setPreferences(transformedPreferences);
+        return transformedPreferences;
+      }
+
+      return null;
     } catch (error) {
       console.error('Exception getting notification preferences:', error);
       return null;
@@ -214,14 +370,14 @@ export const useNotifications = () => {
       fetchingRef.current = true;
       lastFetchTime.current = now;
       setError(null);
-      
+
       if (!initialized) {
         setLoading(true);
       }
 
       // First, check the status to see if we have any notifications
       const currentStatus = await checkNotificationStatus();
-      
+
       if (!currentStatus) {
         setLoading(false);
         setError('Unable to check notification status');
@@ -233,7 +389,7 @@ export const useNotifications = () => {
         console.log('No notifications found for user');
         setNotifications([]);
         setUnreadCount(0);
-        
+
         // Check if user needs initialization (new user)
         try {
           const { data: needsInit } = await supabase
@@ -246,14 +402,14 @@ export const useNotifications = () => {
             await supabase.rpc('initialize_user_notifications', {
               p_user_id: user.id
             });
-            
+
             // Recheck status after initialization
             setTimeout(() => checkNotificationStatus(), 1000);
           }
         } catch (initError) {
           console.error('Error checking/initializing user notifications:', initError);
         }
-        
+
         if (!initialized) {
           setInitialized(true);
         }
@@ -264,21 +420,56 @@ export const useNotifications = () => {
       console.log('Fetching notifications using safe function for user:', user.id);
 
       // Use the safe function to get notifications
-      const { data: notificationsData, error: notificationsError } = await supabase
-        .rpc('get_user_notifications_safe', {
-          p_user_id: user.id,
-          p_limit: 50,
-          p_unread_only: false
-        });
+      let notificationsData = [];
+      let notificationsError = null;
 
+      try {
+        const { data, error } = await supabase
+          .rpc('get_user_notifications_safe', {
+            p_user_id: user.id,
+            p_limit: 50,
+            p_unread_only: false
+          });
+
+        notificationsData = data;
+        notificationsError = error;
+      } catch (error) {
+        console.error('Error calling get_user_notifications_safe:', error);
+        notificationsError = error;
+      }
+
+      // If get_user_notifications_safe fails, try using check_user_notification_initialization as fallback
       if (notificationsError) {
-        console.error('Error fetching notifications:', notificationsError);
+        console.error('Error fetching notifications with get_user_notifications_safe:', notificationsError);
+
+        // Check if the error is a 404 (function not found)
+        if (notificationsError.code === 'PGRST202' || notificationsError.message.includes('404')) {
+          console.log('get_user_notifications_safe not found, using fallback logic');
+
+          // Use check_user_notification_initialization to determine if notifications exist
+          const { data: initData, error: initError } = await supabase
+            .rpc('check_user_notification_initialization', {
+              p_user_id: user.id
+            });
+
+          if (initError) {
+            console.error('Error checking notification initialization:', initError);
+          } else if (initData) {
+            const needsInitialization = initData as boolean;
+            if (needsInitialization) {
+              console.log('User needs notification initialization');
+              await supabase.rpc('initialize_user_notifications', {
+                p_user_id: user.id
+              });
+            }
+          }
+        }
+
+        // Set empty state if fallback also fails or no notifications exist
         setError('Failed to load notifications');
-        
-        // Don't throw error, just set empty state
         setNotifications([]);
         setUnreadCount(0);
-        
+
         if (!initialized) {
           setInitialized(true);
         }
@@ -327,7 +518,7 @@ export const useNotifications = () => {
     } catch (error) {
       console.error('Error in checkAndFetchNotifications:', error);
       setError('Failed to load notifications');
-      
+
       // Don't show error toast for every failure, just set error state
       if (!initialized) {
         setInitialized(true);
@@ -357,14 +548,14 @@ export const useNotifications = () => {
 
       if (data) {
         // Update local state immediately for better UX
-        setNotifications(prev => 
-          prev.map(notification => 
-            notification.id === notificationId 
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
               ? { ...notification, isRead: true, updatedAt: new Date().toISOString() }
               : notification
           )
         );
-        
+
         setUnreadCount(prev => Math.max(0, prev - 1));
         return true;
       }
@@ -402,14 +593,14 @@ export const useNotifications = () => {
       if (updatedCount > 0) {
         // Update local state immediately
         const now = new Date().toISOString();
-        setNotifications(prev => 
-          prev.map(notification => ({ 
-            ...notification, 
-            isRead: true, 
-            updatedAt: now 
+        setNotifications(prev =>
+          prev.map(notification => ({
+            ...notification,
+            isRead: true,
+            updatedAt: now
           }))
         );
-        
+
         setUnreadCount(0);
 
         toast({
@@ -453,7 +644,7 @@ export const useNotifications = () => {
         // Update local state immediately
         const deletedNotification = notifications.find(n => n.id === notificationId);
         setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
-        
+
         if (deletedNotification && !deletedNotification.isRead) {
           setUnreadCount(prev => Math.max(0, prev - 1));
         }
@@ -536,7 +727,7 @@ export const useNotifications = () => {
     try {
       console.log('Creating notification:', notification.title);
 
-      const { data, error } = await supabase
+      const { data: notificationData, error } = await supabase
         .rpc('create_notification', {
           p_user_id: user.id,
           p_title: notification.title,
@@ -553,9 +744,9 @@ export const useNotifications = () => {
         throw error;
       }
 
-      if (data) {
+      if (notificationData) {
         // The real-time subscription will handle adding the notification to state
-        console.log('Notification created with ID:', data);
+        console.log('Notification created with ID:', notificationData);
         return true;
       }
 
@@ -647,7 +838,7 @@ export const useNotifications = () => {
   useEffect(() => {
     if (user && session && !initialized) {
       console.log('Initializing notifications for user:', user.id);
-      
+
       // Get preferences first, then check notifications
       getNotificationPreferences().then(() => {
         checkAndFetchNotifications(true);
@@ -662,54 +853,42 @@ export const useNotifications = () => {
       setLoading(false);
       setInitialized(false);
       lastFetchTime.current = 0;
+      lastNotificationTime.current = 0;
     }
   }, [user, session, initialized, checkAndFetchNotifications, getNotificationPreferences]);
 
-  // Set up real-time subscription with improved error handling and performance
+  // Set up real-time subscription for notifications
   useEffect(() => {
     if (!user || !session || !initialized) return;
 
-    // Clean up existing subscription
+    let subscriptionActive = true;
+
+    // Clean up any existing subscription
     if (subscriptionRef.current) {
-      console.log('Cleaning up existing notification subscription');
-      try {
-        supabase.removeChannel(subscriptionRef.current);
-      } catch (error) {
-        console.error('Error removing existing subscription:', error);
-      }
+      supabase.removeChannel(subscriptionRef.current);
       subscriptionRef.current = null;
     }
 
-    console.log('Setting up real-time notification subscription for user:', user.id);
-
-    // Track subscription status
-    let subscriptionActive = true;
-    let lastNotificationTime = 0;
-    const MIN_NOTIFICATION_INTERVAL = 1000; // 1 second minimum between notifications
-
-    // Subscribe to notifications changes with better error handling
     subscriptionRef.current = supabase
-      .channel(`notifications_${user.id}_${Date.now()}`) // Unique channel name with timestamp
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user.id}`
-      }, (payload) => {
-        if (!subscriptionActive) return;
-
-        const now = Date.now();
-        console.log('Notification change received:', payload.eventType, payload.new?.title);
-
+      .channel(`notifications_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload: { eventType: string; new?: any; old?: any }) => {
         try {
-          if (payload.eventType === 'INSERT' && payload.new) {
-            // Throttle notifications to avoid UI overload
-            if (now - lastNotificationTime < MIN_NOTIFICATION_INTERVAL) {
-              console.log('Throttling notification updates');
-              return;
-            }
-            lastNotificationTime = now;
+          const now = Date.now();
+          if (now - lastNotificationTime.current < 1000) { // Throttle updates
+            console.log('Throttling notification updates');
+            return;
+          }
+          lastNotificationTime.current = now;
 
+          if (payload.eventType === 'INSERT' && payload.new) {
             // Add new notification to state
             const newNotification: Notification = {
               id: payload.new.id,
@@ -775,7 +954,6 @@ export const useNotifications = () => {
           console.error('Error processing notification update:', error);
           // Log error but don't crash the subscription
           try {
-            // In a real app, you might send this error to an error tracking service
             console.error('Notification processing error details:', {
               error: error,
               payloadType: payload.eventType,
@@ -786,68 +964,7 @@ export const useNotifications = () => {
           }
         }
       })
-      .on('subscription_error', (error) => {
-        console.error('Notification subscription error:', error);
-
-        // Attempt to recover from subscription errors
-        if (subscriptionActive && error.message.includes('network')) {
-          console.log('Network error in subscription, attempting to reconnect...');
-
-          // Try to reconnect after a delay
-          setTimeout(() => {
-            if (subscriptionActive) {
-              console.log('Reconnecting to notifications...');
-              try {
-                // Remove the old channel first
-                supabase.removeChannel(subscriptionRef.current);
-
-                // Create a new subscription
-                subscriptionRef.current = supabase
-                  .channel(`notifications_${user.id}_reconnect`)
-                  .on('postgres_changes', {
-                    event: '*',
-                    schema: 'public',
-                    table: 'notifications',
-                    filter: `user_id=eq.${user.id}`
-                  }, (payload) => {
-                    if (payload.eventType === 'INSERT' && payload.new) {
-                      const newNotification: Notification = {
-                        id: payload.new.id,
-                        title: payload.new.title,
-                        message: payload.new.message,
-                        type: payload.new.type,
-                        severity: payload.new.severity,
-                        isRead: payload.new.is_read,
-                        tokenBalance: payload.new.token_balance,
-                        estimatedDays: payload.new.estimated_days,
-                        metadata: payload.new.metadata,
-                        createdAt: payload.new.created_at,
-                        updatedAt: payload.new.updated_at,
-                        expiresAt: payload.new.expires_at,
-                        sourceTable: 'notifications'
-                      };
-
-                      setNotifications(prev => {
-                        if (prev.some(n => n.id === newNotification.id)) {
-                          return prev;
-                        }
-                        return [newNotification, ...prev.slice(0, 99)];
-                      });
-
-                      if (!newNotification.isRead) {
-                        setUnreadCount(prev => prev + 1);
-                      }
-                    }
-                  })
-                  .subscribe();
-              } catch (reconnectError) {
-                console.error('Failed to reconnect to notifications:', reconnectError);
-              }
-            }
-          }, 5000); // Try to reconnect after 5 seconds
-        }
-      })
-      .subscribe((status) => {
+      .subscribe((status: string) => {
         console.log('Notification subscription status:', status);
 
         // Handle subscription status changes
@@ -860,7 +977,7 @@ export const useNotifications = () => {
         } else if (status === 'TIMED_OUT') {
           console.log('Notification subscription timed out');
         }
-      });
+      }, 5000);
 
     return () => {
       subscriptionActive = false;

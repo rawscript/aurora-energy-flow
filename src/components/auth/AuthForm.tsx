@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,21 +22,20 @@ const AuthForm = () => {
     meterNumber: ''
   });
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading, setOnAuthSuccess } = useAuth();
   const isMobile = useIsMobile();
 
-  // Redirect if user is already authenticated
-  useEffect(() => {
-    if (user && !authLoading) {
-      console.log('User authenticated, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
-    }
-  }, [user, authLoading, navigate]);
+  // Get the redirect path from location state or default to dashboard
+  const from = location.state?.from || '/dashboard';
+
+  // No need to redirect here - useAuth hook will handle the auth flow
+  // and redirect when appropriate
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    
+
     setLoading(true);
 
     try {
@@ -72,6 +71,21 @@ const AuthForm = () => {
                 full_name: formData.fullName,
                 phone_number: formData.phoneNumber,
                 meter_number: formData.meterNumber || null,
+                meter_category: 'residential',
+                industry_type: 'home',
+                energy_provider: 'KPLC',
+                notifications_enabled: true,
+                auto_optimize: false,
+                energy_rate: 0.15,
+                notification_preferences: {
+                  token_low: true,
+                  token_depleted: true,
+                  power_restored: true,
+                  energy_alert: true,
+                  low_balance_alert: true
+                },
+                kplc_meter_type: 'prepaid',
+                low_balance_threshold: 100,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               });
@@ -84,16 +98,19 @@ const AuthForm = () => {
           }
         }
 
-        if (data.user && !data.session) {
+        // If user was created
+        if (data.user) {
           toast({
             title: "Account Created!",
-            description: "Check your email to verify your account. Your profile data has been saved."
+            description: data.session
+              ? "Welcome to Aurora Energy! Your profile has been set up."
+              : "Check your email to verify your account. Your profile data has been saved."
           });
-        } else if (data.session) {
-          toast({
-            title: "Account Created!",
-            description: "Welcome to Aurora Energy! Your profile has been set up."
-          });
+
+          // Redirect to the original path or dashboard if user is already signed in
+          if (data.session) {
+            navigate(from, { replace: true });
+          }
         }
       }
     } catch (error) {
@@ -133,6 +150,8 @@ const AuthForm = () => {
           title: "Welcome back!",
           description: "You have successfully signed in."
         });
+        // Redirect to the original path or dashboard after successful sign-in
+        navigate(from, { replace: true });
       }
     } catch (error) {
       console.error('Unexpected sign in error:', error);
@@ -152,6 +171,18 @@ const AuthForm = () => {
       [e.target.name]: e.target.value
     }));
   };
+
+  // Set up auth success callback
+  useEffect(() => {
+    setOnAuthSuccess && setOnAuthSuccess(() => {
+      toast({
+        title: "Welcome!",
+        description: "You have been signed in successfully."
+      });
+      // Redirect to the original path or dashboard after successful authentication
+      navigate(from, { replace: true });
+    });
+  }, [setOnAuthSuccess, navigate, from]);
 
   // Show loading while checking auth state
   if (authLoading) {

@@ -10,9 +10,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory, Zap, AlertTriangle } from 'lucide-react';
+import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory, Zap, AlertTriangle, Sun } from 'lucide-react';
 import BatteryFull from '@/components/ui/BatteryFull';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 
 interface MeterSetupProps {
-  energyProvider?: string;
+  // No props needed anymore as we use context
 }
 
 const ENERGY_PROVIDERS = [
@@ -71,24 +72,24 @@ interface MeterHistory {
   industry_type?: string;
 }
 
-const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
+const MeterSetup = ({}: MeterSetupProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [meterHistory, setMeterHistory] = useState<MeterHistory[]>([]);
   const [activeTab, setActiveTab] = useState('current');
   const [showIndustryType, setShowIndustryType] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState(energyProvider);
   const fetchingRef = useRef(false);
   
-  const { user, session } = useAuth(); // Get both user and session for protected routes
+  const { user, session } = useAuth();
   const { profile, loading: profileLoading, setupMeter } = useProfile();
+  const { provider, providerConfig, setProvider } = useEnergyProvider();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { connectToMeter, hasMeterConnected, meterNumber, loading: energyLoading } = useRealTimeEnergy();
 
   const form = useForm<MeterFormValues>({
-    resolver: zodResolver(meterFormSchema(selectedProvider)),
+    resolver: zodResolver(meterFormSchema(provider || 'KPLC')),
     defaultValues: {
       meterNumber: '',
       fullName: '',
@@ -96,7 +97,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
       location: '',
       meterCategory: 'household',
       industryType: undefined,
-      energyProvider: selectedProvider,
+      energyProvider: provider || 'KPLC',
     },
   });
   
@@ -198,14 +199,14 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
         location: '',
         meterCategory: (profile.meter_category as 'household' | 'SME' | 'industry') || 'household',
         industryType: (profile.industry_type as 'heavyduty' | 'medium' | 'light') || undefined,
-        energyProvider: profile.energy_provider || selectedProvider,
+        energyProvider: profile.energy_provider || provider || 'KPLC',
       });
 
       // Set industry type visibility
       setShowIndustryType(profile.meter_category === 'industry');
       setIsInitialized(true);
     }
-  }, [profile, user, form, isInitialized, selectedProvider]);
+  }, [profile, user, form, isInitialized, provider]);
 
   // Fetch meter history when user changes - only once
   useEffect(() => {
@@ -410,7 +411,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                 )}
                 {profile.meter_category && (
                   <div className="flex items-center gap-2 text-sm">
-                    {energyProvider === 'KPLC' ? (
+                    {provider === 'KPLC' ? (
                       <Building className="h-4 w-4 text-green-600" />
                     ) : (
                       <SolarPanel className="h-4 w-4 text-green-600" />
@@ -428,7 +429,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg text-aurora-green-light">
-                      {energyProvider === 'KPLC' ? 'Connected Meter' : 'Connected Inverter'}
+                      {provider === 'KPLC' ? 'Connected Meter' : 'Connected Inverter'}
                     </CardTitle>
                     <div className="flex mt-1 space-x-2">
                       {profile?.meter_category && (
@@ -469,7 +470,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">
-                      {energyProvider === 'KPLC' ? 'Meter Number' : 'Inverter ID'}
+                      {provider === 'KPLC' ? 'Meter Number' : 'Inverter ID'}
                     </Label>
                     <p className="font-mono text-lg text-aurora-green-light">
                       {profile.meter_number}
@@ -494,10 +495,10 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">
-                      {energyProvider === 'KPLC' ? 'Meter Category' : 'Inverter Category'}
+                      {provider === 'KPLC' ? 'Meter Category' : 'Inverter Category'}
                     </Label>
                     <div className="flex items-center space-x-2">
-                      {energyProvider === 'KPLC' ? (
+                      {provider === 'KPLC' ? (
                         <Building className="h-4 w-4 text-amber-400" />
                       ) : (
                         <SolarPanel className="h-4 w-4 text-amber-400" />
@@ -522,7 +523,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                       </div>
                     </div>
                   )}
-                  {energyProvider !== 'KPLC' && profile.battery_count && (
+                  {provider !== 'KPLC' && profile.battery_count && (
                     <div className="space-y-2">
                       <Label className="text-sm text-muted-foreground">Battery Count</Label>
                       <div className="flex items-center space-x-2">
@@ -540,30 +541,30 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                   className="w-full border-aurora-blue/30 hover:bg-aurora-blue/10"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  {isMobile ? 'Change' : 'Setup Different'} {energyProvider === 'KPLC' ? 'Meter' : 'Inverter'}
+                  {isMobile ? 'Change' : 'Setup Different'} {provider === 'KPLC' ? 'Meter' : 'Inverter'}
                 </Button>
               </CardContent>
             </Card>
           ) : (
             <Card className="bg-aurora-card border-yellow-500/20">
               <CardContent className="p-6 text-center">
-                {energyProvider === 'KPLC' ? (
+                {provider === 'KPLC' ? (
                   <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
                 ) : (
                   <SolarPanel className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
                 )}
                 <h3 className="text-lg font-medium mb-2">
-                  No {energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} Connected
+                  No {provider === 'KPLC' ? 'Meter' : 'Inverter'} Connected
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  Connect your {energyProvider === 'KPLC' ? 'smart meter' : 'solar inverter'} to start monitoring your energy usage based on your category
+                  Connect your {provider === 'KPLC' ? 'smart meter' : 'solar inverter'} to start monitoring your energy usage based on your category
                 </p>
                 <Button
                   onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
                   className="bg-aurora-green hover:bg-aurora-green/80"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Setup {energyProvider === 'KPLC' ? 'Meter' : 'Inverter'}
+                  Setup {provider === 'KPLC' ? 'Meter' : 'Inverter'}
                 </Button>
               </CardContent>
             </Card>
@@ -705,7 +706,7 @@ const MeterSetup = ({ energyProvider = 'KPLC' }: MeterSetupProps) => {
                               value={field.value}
                               onValueChange={(value) => {
                                 field.onChange(value);
-                                setSelectedProvider(value);
+                                setProvider(value);
                               }}
                             >
                               <FormControl>

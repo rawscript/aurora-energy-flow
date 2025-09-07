@@ -21,58 +21,36 @@ serve(async (req) => {
 
     console.log("Received request to safe_update_profile");
     console.log("User ID:", p_user_id);
-    console.log("Updates:", JSON.stringify(p_updates, null, 2));
 
     // Validate p_updates structure
     if (!p_updates || typeof p_updates !== 'object') {
       console.error("Invalid updates object:", p_updates);
-      return new Response(JSON.stringify({ error: "Invalid updates object provided. Please check your input and try again." }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    // Check for valid energy_provider value
-    const validProviders = ['KPLC', 'Solar', 'KenGEn', 'IPP', 'Other', ''];
-    if (p_updates.energy_provider !== undefined && !validProviders.includes(p_updates.energy_provider)) {
-      console.error("Invalid energy_provider value:", p_updates.energy_provider);
       return new Response(JSON.stringify({
-        error: `Invalid energy provider "${p_updates.energy_provider}". Please select a valid provider from the dropdown.`
+        error: "Invalid updates object provided. Please check your input and try again.",
+        code: "INVALID_UPDATES"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    // Validate energy_rate if provided
-    if (p_updates.energy_rate !== undefined) {
-      const rate = parseFloat(p_updates.energy_rate);
-      if (isNaN(rate) || rate < 0) {
-        console.error("Invalid energy_rate value:", p_updates.energy_rate);
-        return new Response(JSON.stringify({
-          error: `Invalid energy rate "${p_updates.energy_rate}". Please enter a valid positive number.`
-        }), {
-          headers: { "Content-Type": "application/json" },
-          status: 400,
-        });
-      }
-    }
-
-    // Validate boolean fields if provided
-    if (p_updates.notifications_enabled !== undefined && typeof p_updates.notifications_enabled !== 'boolean') {
-      console.error("Invalid notifications_enabled value:", p_updates.notifications_enabled);
+    // Validate specific fields
+    if (p_updates.energy_provider &&
+        !['', 'KPLC', 'Solar', 'KenGEn', 'IPP', 'Other'].includes(p_updates.energy_provider)) {
       return new Response(JSON.stringify({
-        error: "Invalid notification settings. Please try again."
+        error: `Invalid energy provider: ${p_updates.energy_provider}`,
+        code: "INVALID_PROVIDER"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    if (p_updates.auto_optimize !== undefined && typeof p_updates.auto_optimize !== 'boolean') {
-      console.error("Invalid auto_optimize value:", p_updates.auto_optimize);
+    if (p_updates.energy_rate !== undefined &&
+        (typeof p_updates.energy_rate !== 'number' || p_updates.energy_rate < 0)) {
       return new Response(JSON.stringify({
-        error: "Invalid optimization settings. Please try again."
+        error: `Invalid energy rate: ${p_updates.energy_rate}`,
+        code: "INVALID_RATE"
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
@@ -81,7 +59,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },
@@ -89,40 +67,12 @@ serve(async (req) => {
       }
     );
 
-    // Check if the user profile exists
-    const { data: existingProfile, error: fetchError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", p_user_id)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("Error fetching profile:", fetchError);
-      return new Response(JSON.stringify({
-        error: fetchError.message,
-        details: fetchError.details,
-        hint: fetchError.hint,
-        code: fetchError.code
-      }), {
-        headers: { "Content-Type": "application/json" },
-        status: 400,
-      });
-    }
-
-    if (!existingProfile) {
-      console.error("Profile not found for user:", p_user_id);
-      return new Response(JSON.stringify({ error: "Profile not found" }), {
-        headers: { "Content-Type": "application/json" },
-        status: 404,
-      });
-    }
-
-    // Update the profile
+    // Use the improved database function
     const { data, error } = await supabase
-      .from("profiles")
-      .update(p_updates)
-      .eq("id", p_user_id)
-      .select();
+      .rpc('safe_update_profile', {
+        p_user_id: p_user_id,
+        p_updates: p_updates
+      });
 
     if (error) {
       console.error("Supabase update error:", {
@@ -132,33 +82,48 @@ serve(async (req) => {
         code: error.code,
         updates: p_updates
       });
+
+      // Enhanced error response with more context
       return new Response(JSON.stringify({
         error: error.message,
         details: error.details,
         hint: error.hint,
-        code: error.code,
-        providedUpdates: p_updates
+        code: error.code || "UPDATE_FAILED",
+        providedUpdates: Object.keys(p_updates).length,
+        timestamp: new Date().toISOString()
       }), {
         headers: { "Content-Type": "application/json" },
         status: 400,
       });
     }
 
-    console.log("Profile updated successfully:", data);
+    console.log("Profile updated successfully:", {
+      user_id: p_user_id,
+      updated_fields: Object.keys(p_updates)
+    });
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    // Enhanced success response
+    return new Response(JSON.stringify({
+      success: true,
+      data: data,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        updated_fields: Object.keys(p_updates),
+        user_id: p_user_id
+      }
+    }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("Unexpected error:", {
       message: error.message,
       stack: error.stack,
-      input: body ? { p_user_id: body.p_user_id, p_updates: body.p_updates } : { p_user_id: undefined, p_updates: undefined }
+      input: body ? { p_user_id: body.p_user_id, update_fields: body.p_updates ? Object.keys(body.p_updates) : [] } : null
     });
     return new Response(JSON.stringify({
       error: error.message || "An unexpected error occurred while updating your profile.",
-      stack: error.stack,
-      input: body ? { p_user_id: body.p_user_id, p_updates: body.p_updates } : { p_user_id: undefined, p_updates: undefined }
+      code: "UNEXPECTED_ERROR",
+      timestamp: new Date().toISOString()
     }), {
       headers: { "Content-Type": "application/json" },
       status: 500,

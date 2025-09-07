@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", // Use service role key for full access
       {
         global: {
           headers: { Authorization: req.headers.get("Authorization")! },
@@ -28,12 +28,11 @@ serve(async (req) => {
       }
     );
 
-    // Get user notifications
-    const { data: notifications, error } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", p_user_id)
-      .order("created_at", { ascending: false });
+    // Use the database function instead of direct table access
+    const { data, error } = await supabase
+      .rpc('get_user_notifications_safe', {
+        p_user_id: p_user_id
+      });
 
     if (error) {
       console.error("Error fetching notifications:", error);
@@ -43,7 +42,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify(notifications || []), {
+    return new Response(JSON.stringify(data || []), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {

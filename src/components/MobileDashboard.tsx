@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,7 @@ import {
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useProfile } from '@/hooks/useProfile';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
 import { format } from 'date-fns';
 
 interface MobileDashboardProps {
@@ -27,14 +28,31 @@ interface MobileDashboardProps {
 
 const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
   const { profile } = useProfile();
-  const { energyData, recentReadings, loading } = useRealTimeEnergy(profile?.energy_provider || 'KPLC');
+  const { provider } = useEnergyProvider();
+  
+  // Use provider from context, fallback to profile, then to KPLC
+  const energyProvider = useMemo(() => {
+    return provider || profile?.energy_provider || 'KPLC';
+  }, [provider, profile?.energy_provider]);
+  
+  const { energyData, recentReadings, loading, hasMeterConnected, getNewReading } = useRealTimeEnergy(energyProvider);
   const { unreadCount } = useNotifications();
+  const [useMockData, setUseMockData] = useState(!hasMeterConnected);
 
   const handleNavigation = (tab: string) => {
     try {
       onNavigate(tab);
     } catch (error) {
       console.error('Navigation error:', error);
+    }
+  };
+
+  const simulateReading = () => {
+    if (hasMeterConnected) {
+      getNewReading();
+    } else {
+      // In a real implementation, this would simulate data
+      console.log("Simulating energy reading");
     }
   };
 

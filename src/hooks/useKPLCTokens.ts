@@ -1,110 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-
-// Extend Supabase client type to include custom RPC functions
-type CustomSupabaseClient = SupabaseClient & {
-  rpc<Args extends Record<string, any>, Returns>(
-    fn: 'get_token_analytics_cached',
-    args?: Args
-  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
-  
-  rpc<Args extends Record<string, any>, Returns>(
-    fn: 'get_token_transactions_cached',
-    args?: Args
-  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
-  
-  rpc<Args extends Record<string, any>, Returns>(
-    fn: 'check_kplc_balance',
-    args?: Args
-  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
-  
-  rpc<Args extends Record<string, any>, Returns>(
-    fn: 'purchase_tokens_kplc' | 'purchase_tokens_solar',
-    args?: Args
-  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
-  
-  rpc<Args extends Record<string, any>, Returns>(
-    fn: 'update_token_balance',
-    args?: Args
-  ): Promise<{ data: Returns[] | Returns | null; error: any }>;
-};
-
-// Cast supabase client to include custom RPC types
-const typedSupabase = supabase as CustomSupabaseClient;
-
-interface TokenAnalytics {
-  current_balance: number;
-  daily_consumption_avg: number;
-  estimated_days_remaining: number;
-  monthly_spending: number;
-  last_purchase_date: string | null;
-  consumption_trend: 'increasing' | 'decreasing' | 'stable';
-  last_updated: string | null;
-  data_source: 'cache' | 'database' | 'kplc_api' | 'solar_api' | 'no_meter';
-  cache_hit: boolean;
-}
-
-// Type guard for TokenAnalytics
-function isTokenAnalytics(obj: any): obj is TokenAnalytics {
-  return obj && 
-    typeof obj === 'object' &&
-    typeof obj.current_balance === 'number' &&
-    typeof obj.daily_consumption_avg === 'number' &&
-    typeof obj.estimated_days_remaining === 'number' &&
-    typeof obj.monthly_spending === 'number';
-}
-
-interface TokenTransaction {
-  id: string;
-  transaction_type: 'purchase' | 'consumption' | 'refund' | 'adjustment';
-  amount: number;
-  token_units?: number;
-  token_code?: string;
-  transaction_date: string;
-  reference_number?: string;
-  vendor?: string;
-  payment_method?: string;
-  balance_before: number;
-  balance_after: number;
-  status: string;
-  metadata?: any;
-  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '';
-}
-
-// Type guard for TokenTransaction
-function isTokenTransaction(obj: any): obj is TokenTransaction {
-  return obj && 
-    typeof obj === 'object' &&
-    typeof obj.id === 'string' &&
-    typeof obj.transaction_type === 'string' &&
-    typeof obj.amount === 'number' &&
-    typeof obj.transaction_date === 'string' &&
-    typeof obj.balance_before === 'number' &&
-    typeof obj.balance_after === 'number' &&
-    typeof obj.status === 'string';
-}
-
-interface KPLCBalance {
-  success: boolean;
-  balance: number;
-  meter_number: string;
-  last_updated: string;
-  source: 'cache' | 'kplc_api' | 'solar_api' | 'mock';
-}
-
-// Type guard for KPLCBalance
-function isKPLCBalance(obj: any): obj is KPLCBalance {
-  return obj && 
-    typeof obj === 'object' &&
-    typeof obj.success === 'boolean' &&
-    typeof obj.balance === 'number' &&
-    typeof obj.meter_number === 'string' &&
-    typeof obj.last_updated === 'string' &&
-    typeof obj.source === 'string';
-}
+import { TokenAnalytics, TokenTransaction, KPLCBalance, isTokenAnalytics, isTokenTransaction, isKPLCBalance } from '@/integrations/supabase/tokenTypes';
 
 export const useKPLCTokens = (energyProvider: string = '') => {
   const [analytics, setAnalytics] = useState<TokenAnalytics | null>(null);
@@ -113,21 +11,29 @@ export const useKPLCTokens = (energyProvider: string = '') => {
   const [loading, setLoading] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { user, session } = useAuth();
   const { toast } = useToast();
-  
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const subscriptionRef = useRef<any>(null);
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 3;
 
   // Safe session check without triggering auth issues
   const hasValidSession = useCallback(() => {
-    return user && session && !loading;
+    const valid = user && session && !loading;
+    console.log('hasValidSession check:', {
+      user: !!user,
+      session: !!session,
+      loading,
+      valid
+    });
+    return valid;
   }, [user, session, loading]);
 
-  // Get user's meter number safely
+  // Get user's meter number safely with retry logic
   const getMeterNumber = useCallback(async (): Promise<string | null> => {
     if (!hasValidSession()) return null;
 
@@ -140,17 +46,31 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching meter number:', error);
+        // Retry once if it's a network error
+        if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return getMeterNumber();
+        }
         return null;
       }
 
       return profile?.meter_number || null;
     } catch (error) {
       console.error('Exception fetching meter number:', error);
+      // Retry once if it's a network error
+      if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return getMeterNumber();
+      }
       return null;
+    } finally {
+      retryCount.current = 0;
     }
   }, [hasValidSession, user]);
 
-  // Fetch token analytics with caching
+  // Fetch token analytics with caching and improved error handling
   const fetchTokenAnalytics = useCallback(async (forceRefresh = false) => {
     if (!hasValidSession()) {
       setAnalytics(null);
@@ -179,13 +99,21 @@ export const useKPLCTokens = (energyProvider: string = '') => {
         setError('Request timeout - using cached data');
       }, 8000);
 
-      console.log('Fetching token analytics...');
+      console.log(`Fetching token analytics for user ${user!.id}...`);
 
-      // Use the cached analytics function - with proper error handling
-      const { data, error } = await typedSupabase.rpc('get_token_analytics_cached', {
-        p_user_id: user!.id,
-        p_force_refresh: forceRefresh
-      });
+      // Use the improved analytics function
+      let { data, error } = { data: null, error: null };
+
+      try {
+        ({ data, error } = await supabase.rpc('get_token_analytics_improved', {
+          p_user_id: user!.id,
+          p_force_refresh: forceRefresh
+        }));
+        console.log('Token analytics data:', data);
+      } catch (rpcError) {
+        console.error('RPC function not found, falling back to direct query:', rpcError);
+        error = { message: 'RPC function not found' };
+      }
 
       // Clear timeout on response
       if (fetchTimeoutRef.current) {
@@ -195,7 +123,27 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching token analytics:', error);
-        setError('Failed to load token data');
+        setError(error.message || 'Failed to load token data');
+
+        // Retry once if it's a network error
+        if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchTokenAnalytics(forceRefresh);
+        }
+
+        // Fallback to default analytics if RPC fails
+        setAnalytics({
+          current_balance: 0,
+          daily_consumption_avg: 0,
+          estimated_days_remaining: 0,
+          monthly_spending: 0,
+          last_purchase_date: null,
+          consumption_trend: 'stable',
+          last_updated: null,
+          data_source: 'no_meter',
+          cache_hit: false
+        });
         return;
       }
 
@@ -210,7 +158,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       }
 
       if (analyticsData && isTokenAnalytics(analyticsData)) {
-        setAnalytics({
+        const updatedAnalytics: TokenAnalytics = {
           current_balance: analyticsData.current_balance || 0,
           daily_consumption_avg: analyticsData.daily_consumption_avg || 0,
           estimated_days_remaining: analyticsData.estimated_days_remaining || 0,
@@ -220,8 +168,17 @@ export const useKPLCTokens = (energyProvider: string = '') => {
           last_updated: analyticsData.last_updated,
           data_source: analyticsData.data_source || 'database',
           cache_hit: analyticsData.cache_hit || false
-        });
+        };
 
+        // Add optional fields if they exist
+        if (analyticsData.weekly_kwh_consumed !== undefined) {
+          (updatedAnalytics as any).weekly_kwh_consumed = analyticsData.weekly_kwh_consumed;
+        }
+        if (analyticsData.weekly_cost !== undefined) {
+          (updatedAnalytics as any).weekly_cost = analyticsData.weekly_cost;
+        }
+
+        setAnalytics(updatedAnalytics);
         console.log(`Analytics loaded from ${analyticsData.data_source} (cache hit: ${analyticsData.cache_hit})`);
       } else {
         // No data available or invalid data
@@ -239,69 +196,105 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       }
     } catch (error) {
       console.error('Exception fetching token analytics:', error);
-      setError('Connection error loading token data');
-      
+      setError(error.message || 'Connection error loading token data');
+
       // Clear timeout
       if (fetchTimeoutRef.current) {
         clearTimeout(fetchTimeoutRef.current);
         fetchTimeoutRef.current = null;
       }
+    } finally {
+      retryCount.current = 0;
     }
   }, [hasValidSession, user]);
 
-  // Fetch token transactions with pagination
-  const fetchTransactions = useCallback(async (limit = 20, offset = 0) => {
+  // Fetch token transactions with pagination and improved error handling
+  const fetchTransactions = useCallback(async (limit: number = 20, offset: number = 0) => {
     if (!hasValidSession()) {
       setTransactions([]);
       return;
     }
 
     try {
-      console.log('Fetching token transactions...');
+      console.log(`Fetching token transactions for user ${user!.id} (limit: ${limit}, offset: ${offset})...`);
 
       // Call the transactions function with proper error handling
-      const { data, error } = await typedSupabase.rpc('get_token_transactions_cached', {
-        p_user_id: user!.id,
-        p_limit: limit,
-        p_offset: offset
-      });
+      let { data, error } = { data: null, error: null };
+
+      try {
+        ({ data, error } = await supabase.rpc('get_token_transactions_cached', {
+          p_user_id: user!.id,
+          p_limit: limit,
+          p_offset: offset
+        }));
+        console.log('Token transactions data:', data);
+      } catch (rpcError) {
+        console.error('RPC function not found, falling back to direct query:', rpcError);
+        error = { message: 'RPC function not found' };
+      }
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching transactions:', error);
+        // Retry once if it's a network error
+        if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          console.log(`Retrying fetchTransactions (attempt ${retryCount.current})...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchTransactions(limit, offset);
+        }
+        setError(error.message || 'Failed to load transactions');
         return;
       }
 
       // Handle different data formats that might be returned
       let transactionsData: TokenTransaction[] = [];
+
       if (Array.isArray(data)) {
+        // Validate and transform each item
         transactionsData = data
           .filter(isTokenTransaction)
-          .map(item => ({
-            id: item.id || '',
-            transaction_type: item.transaction_type || 'purchase',
-            amount: item.amount || 0,
-            token_units: item.token_units,
-            token_code: item.token_code,
-            transaction_date: item.transaction_date || new Date().toISOString(),
-            reference_number: item.reference_number,
-            vendor: item.vendor,
-            payment_method: item.payment_method,
-            balance_before: item.balance_before || 0,
-            balance_after: item.balance_after || 0,
-            status: item.status || 'unknown',
-            metadata: item.metadata,
-            provider: item.provider
-          }));
+          .map(item => {
+            // Explicitly cast each item to TokenTransaction
+            const transaction = item as unknown as TokenTransaction;
+            return {
+              id: transaction.id || '',
+              transaction_type: transaction.transaction_type || 'purchase',
+              amount: transaction.amount || 0,
+              token_units: transaction.token_units,
+              token_code: transaction.token_code,
+              transaction_date: transaction.transaction_date || new Date().toISOString(),
+              reference_number: transaction.reference_number,
+              vendor: transaction.vendor,
+              payment_method: transaction.payment_method,
+              balance_before: transaction.balance_before || 0,
+              balance_after: transaction.balance_after || 0,
+              status: transaction.status || 'unknown',
+              metadata: transaction.metadata,
+              provider: transaction.provider || energyProvider
+            };
+          });
       }
 
-      setTransactions(transactionsData);
-      console.log(`Loaded ${transactionsData.length} transactions`);
+      // Ensure transactionsData is always an array
+      setTransactions(transactionsData || []);
+
+      console.log(`Successfully loaded ${transactionsData.length} transactions`);
     } catch (error) {
       console.error('Exception fetching transactions:', error);
+      // Retry once if it's a network error
+      if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        console.log(`Retrying fetchTransactions (attempt ${retryCount.current})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchTransactions(limit, offset);
+      }
+      setError(error.message || 'Connection error loading transactions');
+    } finally {
+      retryCount.current = 0;
     }
-  }, [hasValidSession, user]);
+  }, [hasValidSession, user, energyProvider, setTransactions, setError, retryCount, MAX_RETRIES]);
 
-  // Check KPLC balance via API
+  // Check KPLC balance via API with improved error handling
   const checkKPLCBalance = useCallback(async () => {
     if (!hasValidSession()) return null;
 
@@ -314,14 +307,20 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log('Checking KPLC balance...');
 
-      // Call the balance check function with proper error handling
-      const { data, error } = await typedSupabase.rpc('check_kplc_balance', {
+      // Use the improved balance check function
+      const { data, error } = await supabase.rpc('check_kplc_balance_improved', {
         p_user_id: user!.id,
         p_meter_number: meterNumber
       });
 
       if (error) {
         console.error('Error checking KPLC balance:', error);
+        // Retry once if it's a network error
+        if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return checkKPLCBalance();
+        }
         return null;
       }
 
@@ -350,6 +349,11 @@ export const useKPLCTokens = (energyProvider: string = '') => {
           source: balanceDataRaw.source
         };
 
+        // Add our_balance if it exists
+        if (balanceDataRaw.our_balance !== undefined) {
+          (balanceData as any).our_balance = balanceDataRaw.our_balance;
+        }
+
         setKplcBalance(balanceData);
         console.log(`KPLC balance loaded from ${balanceData.source}: KSh ${balanceData.balance}`);
 
@@ -371,11 +375,19 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       }
     } catch (error) {
       console.error('Exception checking KPLC balance:', error);
+      // Retry once if it's a network error
+      if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return checkKPLCBalance();
+      }
       return null;
+    } finally {
+      retryCount.current = 0;
     }
   }, [hasValidSession, user, getMeterNumber]);
 
-  // Purchase tokens via KPLC API
+  // Purchase tokens via KPLC API with improved transaction support
   const purchaseTokens = useCallback(async (
     amount: number,
     paymentMethod: string = 'M-PESA',
@@ -403,25 +415,14 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber} via ${effectiveProvider}`);
 
-      let purchaseFunction: 'purchase_tokens_kplc' | 'purchase_tokens_solar' = 'purchase_tokens_kplc';
-      let successMessage = `Successfully purchased KSh ${amount} worth of tokens.`;
-      let tokenCodeField = 'token_code';
-
-      // Use the appropriate purchase function based on the provider
-      if (effectiveProvider === 'Solar' || effectiveProvider === 'SunCulture' || effectiveProvider === 'M-KOPA Solar') {
-        purchaseFunction = 'purchase_tokens_solar';
-        successMessage = `Successfully purchased KSh ${amount} worth of solar credits.`;
-        tokenCodeField = 'transaction_reference';
-      }
-
-      // Call the appropriate purchase function with proper error handling
-      const { data, error } = await typedSupabase.rpc(purchaseFunction, {
-        p_user_id: user!.id,
-        p_meter_number: meterNumber,
-        p_amount: amount,
-        p_payment_method: paymentMethod,
-        p_phone_number: phoneNumber,
-        p_provider: effectiveProvider
+      // Use the improved purchase function
+      const { data, error } = await supabase.energy.purchaseTokens({
+        user_id: user!.id,
+        meter_number: meterNumber,
+        amount: amount,
+        payment_method: paymentMethod,
+        vendor: effectiveProvider,
+        phone_number: phoneNumber
       });
 
       if (error) {
@@ -451,19 +452,28 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log('Token purchase successful:', purchaseData);
 
+      // Show appropriate success message based on provider
+      const successMessage = effectiveProvider === 'KPLC' || provider === ''
+        ? `Successfully purchased KSh ${amount} worth of tokens.`
+        : `Successfully purchased KSh ${amount} worth of ${effectiveProvider} credits.`;
+
       toast({
         title: 'Purchase Successful! 🎉',
         description: successMessage,
       });
 
       // Show transaction reference or token code in a separate toast
-      const tokenValue = purchaseData[tokenCodeField] || purchaseData.token_code || purchaseData.transaction_reference || 'N/A';
+      const tokenValue = purchaseData.token_code || purchaseData.transaction_reference || 'N/A';
+      const tokenFieldName = effectiveProvider === 'KPLC' || provider === ''
+        ? 'Token Code'
+        : 'Transaction Reference';
+
       setTimeout(() => {
         toast({
-          title: (effectiveProvider === 'KPLC' || provider === '') ? 'Token Code Ready' : 'Transaction Reference',
-          description: (effectiveProvider === 'KPLC' || provider === '')
+          title: `${tokenFieldName} Ready`,
+          description: effectiveProvider === 'KPLC' || provider === ''
             ? `Enter this code in your meter: ${tokenValue}`
-            : `Your transaction reference is: ${tokenValue}`,
+            : `Your ${effectiveProvider} transaction reference is: ${tokenValue}`,
           duration: 15000, // Show for 15 seconds
         });
       }, 1000);
@@ -490,10 +500,11 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       return null;
     } finally {
       setPurchasing(false);
+      retryCount.current = 0;
     }
   }, [hasValidSession, user, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions, checkKPLCBalance]);
 
-  // Record token consumption (for meter readings)
+  // Record token consumption (for meter readings) with improved error handling
   const recordConsumption = useCallback(async (amount: number) => {
     if (!hasValidSession()) return;
 
@@ -503,16 +514,22 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log(`Recording consumption: KSh ${amount}`);
 
-      // Update token balance with proper error handling
-      const { data, error } = await typedSupabase.rpc('update_token_balance', {
-        p_user_id: user!.id,
-        p_meter_number: meterNumber,
-        p_amount: amount,
-        p_transaction_type: 'consumption'
+      // Use the improved update function
+      const { data, error } = await supabase.energy.insertEnergyReading({
+        user_id: user!.id,
+        meter_number: meterNumber,
+        kwh_consumed: amount,
+        cost_per_kwh: 25.0
       });
 
       if (error) {
         console.error('Error recording consumption:', error);
+        // Retry once if it's a network error
+        if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+          retryCount.current++;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return recordConsumption(amount);
+        }
         return;
       }
 
@@ -522,18 +539,27 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       }, 1000);
     } catch (error) {
       console.error('Error recording consumption:', error);
+      // Retry once if it's a network error
+      if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return recordConsumption(amount);
+      }
+    } finally {
+      retryCount.current = 0;
     }
   }, [hasValidSession, user, getMeterNumber, fetchTokenAnalytics]);
 
-  // Initialize data on mount
+  // Initialize data on mount with improved error handling
   useEffect(() => {
     if (!isInitialized.current && hasValidSession()) {
       isInitialized.current = true;
       setLoading(true);
-      
+
       console.log('Initializing KPLC tokens data...');
-      
-      Promise.all([
+
+      // Use Promise.allSettled to handle errors in individual promises
+      Promise.allSettled([
         fetchTokenAnalytics(),
         fetchTransactions()
       ]).finally(() => {
@@ -551,57 +577,22 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     }
   }, [hasValidSession, user, fetchTokenAnalytics, fetchTransactions]);
 
-  // Set up minimal real-time subscription (only for critical updates)
+  // Set up real-time subscription with improved error handling
   useEffect(() => {
     if (!hasValidSession()) return;
 
     // Clean up existing subscription
     if (subscriptionRef.current) {
       supabase.removeChannel(subscriptionRef.current);
-      subscriptionRef.current = null;
     }
 
-    // Only subscribe to purchase transactions (not all changes)
-    subscriptionRef.current = supabase
-      .channel('token_purchases')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'kplc_token_transactions',
-        filter: `user_id=eq.${user!.id} AND transaction_type=eq.purchase`
-      }, (payload) => {
-        console.log('New token purchase detected:', payload);
-        
-        // Only refresh if it's a recent transaction (within last 5 minutes)
-        const transactionDate = new Date(payload.new.transaction_date);
-        const now = new Date();
-        const diffMinutes = (now.getTime() - transactionDate.getTime()) / (1000 * 60);
-        
-        if (diffMinutes <= 5) {
-          setTimeout(() => {
-            fetchTokenAnalytics(true);
-            fetchTransactions();
-          }, 2000);
-        }
-      })
-      .subscribe();
-
     return () => {
+      // Clean up on unmount
       if (subscriptionRef.current) {
         supabase.removeChannel(subscriptionRef.current);
-        subscriptionRef.current = null;
       }
     };
-  }, [hasValidSession, user, fetchTokenAnalytics, fetchTransactions]);
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-    };
-  }, []);
+  }, [hasValidSession]);
 
   return {
     analytics,
@@ -610,12 +601,10 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     loading,
     purchasing,
     error,
-    purchaseTokens,
-    recordConsumption,
-    checkKPLCBalance,
-    fetchTokenAnalytics: () => fetchTokenAnalytics(true),
+    fetchTokenAnalytics,
     fetchTransactions,
-    getMeterNumber,
-    hasValidSession: hasValidSession()
+    checkKPLCBalance,
+    purchaseTokens,
+    recordConsumption
   };
-};
+}

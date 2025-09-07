@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { debounce } from 'lodash';
+
+// Get the Supabase anon key from environment or use a fallback
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'fallback-key';
 
 interface EnergyData {
   current_usage: number;
@@ -91,7 +93,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
-  const dataCache = useRef<{ data: EnergyData; readings: EnergyReading[]; timestamp: number } | null>(null);
+  const dataCache = useRef<{ data: EnergyData; readings: EnergyReading[]; timestamp: number; userId?: string } | null>(null);
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
   // Helper function to get authenticated headers for protected routes
@@ -530,14 +532,12 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
         setEnergyData(newEnergyData);
         
-        // Cache the data with additional metadata for validation
-        dataCache.current = {
-          data: newEnergyData,
-          readings: readings,
-          timestamp: now,
-          meterNumber: meterNumber.current,
-          userId: user.id
-        };
+    // Cache the data with additional metadata for validation
+    dataCache.current = {
+      data: newEnergyData,
+      readings: readings,
+      timestamp: now
+    };
         
         // Calculate analytics
         calculateAnalytics(readings);
@@ -791,8 +791,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
         power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
         load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
-        battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined,
-        created_at: new Date().toISOString()
+        battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
       };
 
       // Validate the new reading before processing
@@ -914,13 +913,13 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       }
     }, 15 * 60 * 1000); // 15 minutes instead of 10
 
-  // Set up real-time data subscriptions with better error handling
+    // Set up real-time data subscriptions with better error handling
     let readingsSubscription: ReturnType<typeof supabase.channel> | null = null;
     let subscriptionActive = true;
-    const debouncedProcessReading = useRef<((payload: any) => void) | null>(null);
+    let debounceTimeout: NodeJS.Timeout | null = null;
 
     try {
-      // Subscribe to real-time updates for energy_readings table with a more specific filter
+        // Subscribe to real-time updates for energy_readings table with a more specific filter
       readingsSubscription = supabase
         .channel(`energy_readings_${user.id}_${meterNumber.current}_${energyProvider}`)
         .on('postgres_changes', {
@@ -935,12 +934,32 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
           // Validate payload.new before processing
           if (isValidEnergyReading(payload.new)) {
-            if (!debouncedProcessReading.current) {
-              debouncedProcessReading.current = debounce((reading) => {
-                processNewReading(reading);
-              }, 500); // Debounce for 500ms
+            // Cancel any pending debounce
+            if (debounceTimeout) {
+              clearTimeout(debounceTimeout);
             }
-            debouncedProcessReading.current(payload.new);
+
+            // Create a properly typed EnergyReading object
+            const reading: EnergyReading = {
+              id: payload.new.id,
+              user_id: payload.new.user_id,
+              meter_number: payload.new.meter_number,
+              kwh_consumed: payload.new.kwh_consumed,
+              total_cost: payload.new.total_cost,
+              reading_date: payload.new.reading_date,
+              cost_per_kwh: payload.new.cost_per_kwh,
+              peak_usage: payload.new.peak_usage,
+              off_peak_usage: payload.new.off_peak_usage,
+              battery_state: payload.new.battery_state,
+              power_generated: payload.new.power_generated,
+              load_consumption: payload.new.load_consumption,
+              battery_count: payload.new.battery_count
+            };
+
+            // Set up a new debounce
+            debounceTimeout = setTimeout(() => {
+              processNewReading(reading);
+            }, 500); // Debounce for 500ms
           } else {
             console.warn('Invalid energy reading received from subscription:', payload.new);
           }
@@ -963,10 +982,28 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
                       filter: `user_id=eq.${user.id}&meter_number=eq.${meterNumber.current}`
                     }, (payload) => {
                       if (isValidEnergyReading(payload.new)) {
-                        processNewReading(payload.new);
+                        // Create a properly typed EnergyReading object for retry
+                        const reading: EnergyReading = {
+                          id: payload.new.id,
+                          user_id: payload.new.user_id,
+                          meter_number: payload.new.meter_number,
+                          kwh_consumed: payload.new.kwh_consumed,
+                          total_cost: payload.new.total_cost,
+                          reading_date: payload.new.reading_date,
+                          cost_per_kwh: payload.new.cost_per_kwh,
+                          peak_usage: payload.new.peak_usage,
+                          off_peak_usage: payload.new.off_peak_usage,
+                          battery_state: payload.new.battery_state,
+                          power_generated: payload.new.power_generated,
+                          load_consumption: payload.new.load_consumption,
+                          battery_count: payload.new.battery_count
+                        };
+                        processNewReading(reading);
                       }
                     })
-                    .subscribe();
+        .subscribe((status: string) => {
+          console.log(`Energy readings subscription status: ${status}`);
+        });
                 } catch (retryError) {
                   console.error('Failed to resubscribe:', retryError);
                 }
@@ -974,9 +1011,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
             }, 5000); // Retry after 5 seconds
           }
         })
-        .subscribe((status) => {
-          console.log(`Energy readings subscription status: ${status}`);
-        });
+        .subscribe();
     } catch (error) {
       console.error('Error setting up real-time subscriptions:', error);
     }
@@ -986,9 +1021,9 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       subscriptionActive = false;
       clearInterval(refreshInterval);
 
-      // Cancel the debounced function to avoid memory leaks
-      if (debouncedProcessReading.current) {
-        debouncedProcessReading.current.cancel();
+      // Clear any pending debounce
+      if (debounceTimeout) {
+        clearTimeout(debounceTimeout);
       }
 
       if (readingsSubscription) {
