@@ -167,9 +167,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Prevent too frequent refresh calls (5 minutes minimum between checks)
-      const now = Date.now();
-      if (now - lastSessionCheck.current < 300000) { // 5 minutes cooldown
+    // Prevent too frequent refresh calls (10 minutes minimum between checks)
+    const now = Date.now();
+    if (now - lastSessionCheck.current < 600000) { // 10 minutes cooldown
         console.log('Session refresh called too frequently, skipping');
         sessionRefreshQueue.current.forEach(item => item.resolve());
         sessionRefreshQueue.current = [];
@@ -288,11 +288,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(refreshedSession.user);
             console.log('Session refreshed successfully');
 
-            // Calculate dynamic interval: check 5 minutes before token expiry
-            const expiresAt = refreshedSession.expires_at;
-            const now = Math.floor(Date.now() / 1000);
-            const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
-            const checkInterval = Math.max(timeUntilExpiry - 300, 300) * 1000; // Check 5 minutes before expiry, minimum 5 minutes
+    // Calculate dynamic interval: check 10 minutes before token expiry, minimum 10 minutes
+    const expiresAt = refreshedSession.expires_at;
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
+    const checkInterval = Math.max(timeUntilExpiry - 600, 600) * 1000; // Check 10 minutes before expiry, minimum 10 minutes
 
             console.log(`Updating session check interval: ${Math.floor(checkInterval / 60000)} minutes`);
 
@@ -336,7 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const now = Math.floor(Date.now() / 1000);
       const timeUntilExpiry = expiresAt ? expiresAt - now : 0;
 
-      // Only refresh if session expires in less than 15 minutes
+        // Only refresh if session expires in less than 15 minutes
       if (timeUntilExpiry < 900) {
         console.log(`Session expiring in ${timeUntilExpiry} seconds, refreshing...`);
 
@@ -344,20 +344,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let retryCount = 0;
         const maxRetries = 3;
         let success = false;
+        let refreshError: any;
 
         while (retryCount < maxRetries && !success) {
           try {
             await refreshSession();
             success = true;
-          } catch (refreshError) {
+          } catch (error) {
+            refreshError = error;
             retryCount++;
             console.error(`Session refresh attempt ${retryCount} failed:`, refreshError);
 
-            // Only retry on network errors, timeouts, or rate limit errors
-            if (refreshError.message.includes('network') ||
-                refreshError.message.includes('timeout') ||
-                refreshError.message.includes('fetch') ||
-                refreshError.message.includes('429')) {
+            // Skip retries for 429 errors and wait for next interval
+            if (refreshError.message.includes('429')) {
+              console.log('Rate limited. Skipping retry until next interval.');
+              break;
+            }
+            // Only retry on network errors or timeouts
+            else if (refreshError.message.includes('network') ||
+                     refreshError.message.includes('timeout') ||
+                     refreshError.message.includes('fetch')) {
               const delay = Math.min(1000 * Math.pow(2, retryCount) + Math.random() * 1000, 10000); // Max 10 seconds with jitter
               console.log(`Waiting ${delay}ms before retry attempt ${retryCount + 1}...`);
               await new Promise(resolve => setTimeout(resolve, delay));
@@ -370,8 +376,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!success) {
           console.error('Failed to refresh session after retries');
-          // Force sign out if we can't refresh the session
-          await signOut();
+          // Force sign out if we can't refresh the session (except for 429 errors)
+          if (!refreshError.message.includes('429')) {
+            await signOut();
+          }
         }
       } else {
         console.log(`Session valid for ${Math.floor(timeUntilExpiry / 60)} more minutes`);

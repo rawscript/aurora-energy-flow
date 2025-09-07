@@ -1001,9 +1001,9 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
                         processNewReading(reading);
                       }
                     })
-        .subscribe((status: string) => {
+        .subscribe((status: string, err?: Error, ref?: any) => {
           console.log(`Energy readings subscription status: ${status}`);
-        });
+        }, 1000);
                 } catch (retryError) {
                   console.error('Failed to resubscribe:', retryError);
                 }
