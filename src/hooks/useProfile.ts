@@ -324,7 +324,7 @@ export const useProfile = () => {
       fetchingRef.current = false;
       lastUserIdRef.current = null;
     }
-  }, [currentUserId, hasValidSession, userId, fetchProfile]); // Updated dependencies
+  }, [currentUserId, hasValidSession(), userId, fetchProfile]); // Updated dependencies
 
   // Cleanup on unmount
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { useToast } from '@/hooks/use-toast';
 import { TokenAnalytics, TokenTransaction, KPLCBalance, isTokenAnalytics, isTokenTransaction, isKPLCBalance } from '@/integrations/supabase/tokenTypes';
 
@@ -12,7 +12,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, session, isAuthenticated } = useAuth();
+  const { user, session, isAuthenticated, hasValidSession } = useAuthenticatedApi();
   const { toast } = useToast();
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
@@ -20,19 +20,6 @@ export const useKPLCTokens = (energyProvider: string = '') => {
   const subscriptionRef = useRef<any>(null);
   const retryCount = useRef(0);
   const MAX_RETRIES = 3;
-
-  // Safe session check without triggering auth issues
-  const hasValidSession = useCallback(() => {
-    const valid = isAuthenticated && user && session && !loading;
-    console.log('hasValidSession check:', {
-      isAuthenticated,
-      user: !!user,
-      session: !!session,
-      loading,
-      valid
-    });
-    return valid;
-  }, [isAuthenticated, user, session, loading]);
 
   // Get user's meter number safely with retry logic
   const getMeterNumber = useCallback(async (): Promise<string | null> => {
@@ -69,7 +56,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     } finally {
       retryCount.current = 0;
     }
-  }, [hasValidSession, user]);
+  }, [hasValidSession(), user]);
 
   // Fetch token analytics with caching and improved error handling
   const fetchTokenAnalytics = useCallback(async (forceRefresh = false) => {
@@ -207,7 +194,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     } finally {
       retryCount.current = 0;
     }
-  }, [hasValidSession, user]);
+  }, [hasValidSession(), user]);
 
   // Fetch token transactions with pagination and improved error handling
   const fetchTransactions = useCallback(async (limit: number = 20, offset: number = 0) => {
@@ -293,7 +280,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     } finally {
       retryCount.current = 0;
     }
-  }, [hasValidSession, user, energyProvider, setTransactions, setError, retryCount, MAX_RETRIES]);
+  }, [hasValidSession(), user, energyProvider, setTransactions, setError, retryCount, MAX_RETRIES]);
 
   // Check KPLC balance via API with improved error handling
   const checkKPLCBalance = useCallback(async () => {
@@ -386,7 +373,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     } finally {
       retryCount.current = 0;
     }
-  }, [hasValidSession, user, getMeterNumber]);
+  }, [hasValidSession(), user, getMeterNumber]);
 
   // Purchase tokens via KPLC API with improved transaction support
   const purchaseTokens = useCallback(async (
@@ -503,7 +490,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       setPurchasing(false);
       retryCount.current = 0;
     }
-  }, [hasValidSession, user, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions, checkKPLCBalance]);
+  }, [hasValidSession(), user, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions, checkKPLCBalance]);
 
   // Record token consumption (for meter readings) with improved error handling
   const recordConsumption = useCallback(async (amount: number) => {
@@ -549,7 +536,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     } finally {
       retryCount.current = 0;
     }
-  }, [hasValidSession, user, getMeterNumber, fetchTokenAnalytics]);
+  }, [hasValidSession(), user, getMeterNumber, fetchTokenAnalytics]);
 
   // Initialize data on mount with improved error handling
   useEffect(() => {
@@ -576,7 +563,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       isInitialized.current = false;
       lastFetchTime.current = 0;
     }
-  }, [hasValidSession, user, fetchTokenAnalytics, fetchTransactions]);
+  }, [hasValidSession(), user, fetchTokenAnalytics, fetchTransactions]);
 
   // Set up real-time subscription with improved error handling
   useEffect(() => {
@@ -593,7 +580,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [hasValidSession]);
+  }, [hasValidSession()]);
 
   return {
     analytics,

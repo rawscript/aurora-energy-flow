@@ -940,11 +940,20 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
     // Initialize immediately
     initializeData();
-  }, [userId, hasValidSession, checkMeterConnection, fetchRealEnergyData, energyProvider]);
+  }, [userId, hasValidSession(), checkMeterConnection, fetchRealEnergyData, energyProvider]);
 
-  // Set up real-time data subscription (only when meter is connected)
+  // Set up real-time data subscription (only when meter is connected) - FIXED VERSION
   useEffect(() => {
-    if (!userId || !hasValidSession() || !hasMeterConnected || !meterNumber.current) return;
+    // Only set up subscription if we have all required conditions
+    if (!userId || !hasValidSession() || !hasMeterConnected || !meterNumber.current) {
+      console.log('Skipping energy subscription setup - not ready', { 
+        userId, 
+        hasValidSession: hasValidSession(), 
+        hasMeterConnected, 
+        meterNumber: meterNumber.current 
+      });
+      return;
+    }
 
     // Clear cache when energyProvider changes
     dataCache.current = null;
@@ -966,9 +975,19 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     let readingsSubscription: ReturnType<typeof supabase.channel> | null = null;
     let subscriptionActive = true;
     let debounceTimeout: NodeJS.Timeout | null = null;
+    let subscriptionSetupInProgress = false;
+
+    // Prevent multiple concurrent subscription setups
+    if (subscriptionSetupInProgress) {
+      console.log('Energy subscription setup already in progress, skipping');
+      clearInterval(refreshInterval);
+      return;
+    }
+
+    subscriptionSetupInProgress = true;
 
     try {
-        // Subscribe to real-time updates for energy_readings table with a more specific filter
+      // Subscribe to real-time updates for energy_readings table with a more specific filter
       readingsSubscription = supabase
         .channel(`energy_readings_${userId}_${meterNumber.current}_${energyProvider}`)
         .on('postgres_changes', {
@@ -1082,14 +1101,17 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         })
         .subscribe((status: string) => {
           console.log(`Energy readings subscription status: ${status}`);
+          subscriptionSetupInProgress = false;
         });
     } catch (error) {
-      console.error('Error setting up real-time subscriptions:', error);
+      console.error('Error setting up real-time energy subscriptions:', error);
+      subscriptionSetupInProgress = false;
     }
 
     // Clean up subscriptions and intervals
     return () => {
       subscriptionActive = false;
+      subscriptionSetupInProgress = false;
       clearInterval(refreshInterval);
 
       // Clear any pending debounce
@@ -1102,11 +1124,11 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
           supabase.removeChannel(readingsSubscription);
           console.log('Successfully removed energy readings subscription');
         } catch (error) {
-          console.error('Error removing readings subscription:', error);
+          console.error('Error removing energy readings subscription:', error);
         }
       }
     };
-  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
+  }, [userId, hasValidSession(), hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
 
   // Cleanup on unmount
   useEffect(() => {

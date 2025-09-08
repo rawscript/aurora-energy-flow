@@ -90,6 +90,7 @@ export const useNotifications = () => {
   const lastUpdateTime = useRef<number>(0);
   const isOperationInProgress = useRef(false);
   const initializationAttempted = useRef(false);
+  const subscriptionSetupInProgress = useRef(false);
 
   // Optimized fetch notifications using centralized auth
   const fetchNotificationData = useCallback(async (force = false) => {
@@ -169,7 +170,7 @@ export const useNotifications = () => {
     } finally {
       isOperationInProgress.current = false;
     }
-  }, [userId, hasValidSession, callRpc]);
+  }, [userId, hasValidSession(), callRpc]);
 
   // Process fetched data and update state
   const processNotificationData = useCallback((data: any) => {
@@ -253,8 +254,8 @@ export const useNotifications = () => {
 
   // Main initialization function with retry logic
   const initializeNotifications = useCallback(async (force = false) => {
-    if (!userId || !hasValidSession) return;
-    
+    if (!userId || !hasValidSession()) return;
+
     if (!force && (initialized || initializationAttempted.current)) return;
 
     console.log('Initializing notifications for user:', userId);
@@ -296,11 +297,11 @@ export const useNotifications = () => {
     setError('Failed to load notifications');
     setInitialized(true); // Mark as initialized even if failed to prevent infinite retries
     setLoading(false);
-  }, [userId, hasValidSession, initialized, fetchNotificationData, processNotificationData]);
+  }, [userId, hasValidSession(), initialized, fetchNotificationData, processNotificationData]);
 
   // Refresh notifications (public method)
   const refreshNotifications = useCallback(async () => {
-    if (!userId || !hasValidSession) return;
+    if (!userId || !hasValidSession()) return;
 
     try {
       setLoading(true);
@@ -315,7 +316,7 @@ export const useNotifications = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId, hasValidSession, fetchNotificationData, processNotificationData]);
+  }, [userId, hasValidSession(), fetchNotificationData, processNotificationData]);
 
   // Optimized notification actions using centralized auth
   const markAsRead = useCallback(async (notificationId: string) => {
@@ -442,9 +443,9 @@ export const useNotifications = () => {
 
   // Initialize notifications when user/session changes
   useEffect(() => {
-    if (userId && hasValidSession && !initialized && !initializationAttempted.current) {
+    if (userId && hasValidSession() && !initialized && !initializationAttempted.current) {
       initializeNotifications();
-    } else if (!userId || !hasValidSession) {
+    } else if (!userId || !hasValidSession()) {
       // Reset state when user logs out
       setNotifications([]);
       setUnreadCount(0);
@@ -454,98 +455,144 @@ export const useNotifications = () => {
       setLoading(false);
       setInitialized(false);
       initializationAttempted.current = false;
+      
+      // Clean up subscription when user logs out
+      if (subscriptionRef.current) {
+        try {
+          supabase.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
+        } catch (error) {
+          console.error('Error removing subscription on logout:', error);
+        }
+      }
     }
-  }, [userId, hasValidSession, initialized, initializeNotifications]);
+  }, [userId, hasValidSession(), initialized, initializeNotifications]);
 
-  // Set up real-time subscription with throttling
+  // Set up real-time subscription with throttling - FIXED VERSION
   useEffect(() => {
-    if (!userId || !hasValidSession || !initialized) return;
+    // Only set up subscription if we have a user, valid session, and are initialized
+    if (!userId || !hasValidSession() || !initialized) {
+      console.log('Skipping subscription setup - not ready', { userId, hasValidSession: hasValidSession(), initialized });
+      return;
+    }
 
-    // Clean up existing subscription
+    // Prevent multiple concurrent subscription setups
+    if (subscriptionSetupInProgress.current) {
+      console.log('Subscription setup already in progress, skipping');
+      return;
+    }
+
+    // Clean up existing subscription if it exists
     if (subscriptionRef.current) {
-      supabase.removeChannel(subscriptionRef.current);
+      console.log('Cleaning up existing subscription');
+      try {
+        supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      } catch (error) {
+        console.error('Error removing existing subscription:', error);
+      }
     }
 
     console.log('Setting up notification subscription for user:', userId);
+    subscriptionSetupInProgress.current = true;
 
-    subscriptionRef.current = supabase
-      .channel(`notifications_${userId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`
-      }, (payload) => {
-        const now = Date.now();
-        
-        // Throttle updates to prevent excessive re-renders
-        if (now - lastUpdateTime.current < UPDATE_THROTTLE) {
-          console.log('Throttling notification update');
-          return;
-        }
-        lastUpdateTime.current = now;
+    try {
+      subscriptionRef.current = supabase
+        .channel(`notifications_${userId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`
+        }, (payload) => {
+          const now = Date.now();
+          
+          // Throttle updates to prevent excessive re-renders
+          if (now - lastUpdateTime.current < UPDATE_THROTTLE) {
+            console.log('Throttling notification update');
+            return;
+          }
+          lastUpdateTime.current = now;
 
-        try {
-          if (payload.eventType === 'INSERT' && payload.new) {
-            const newNotification: Notification = {
-              id: payload.new.id,
-              title: payload.new.title,
-              message: payload.new.message,
-              type: payload.new.type,
-              severity: payload.new.severity,
-              isRead: payload.new.is_read,
-              tokenBalance: payload.new.token_balance,
-              estimatedDays: payload.new.estimated_days,
-              metadata: payload.new.metadata,
-              createdAt: payload.new.created_at,
-              updatedAt: payload.new.updated_at,
-              expiresAt: payload.new.expires_at,
-              sourceTable: 'notifications'
-            };
+          try {
+            if (payload.eventType === 'INSERT' && payload.new) {
+              const newNotification: Notification = {
+                id: payload.new.id,
+                title: payload.new.title,
+                message: payload.new.message,
+                type: payload.new.type,
+                severity: payload.new.severity,
+                isRead: payload.new.is_read,
+                tokenBalance: payload.new.token_balance,
+                estimatedDays: payload.new.estimated_days,
+                metadata: payload.new.metadata,
+                createdAt: payload.new.created_at,
+                updatedAt: payload.new.updated_at,
+                expiresAt: payload.new.expires_at,
+                sourceTable: 'notifications'
+              };
 
-            setNotifications(prev => {
-              if (prev.some(n => n.id === newNotification.id)) return prev;
-              return [newNotification, ...prev.slice(0, MAX_NOTIFICATIONS - 1)];
-            });
+              setNotifications(prev => {
+                if (prev.some(n => n.id === newNotification.id)) return prev;
+                return [newNotification, ...prev.slice(0, MAX_NOTIFICATIONS - 1)];
+              });
 
-            if (!newNotification.isRead) {
-              setUnreadCount(prev => prev + 1);
-              
-              if (newNotification.type !== 'welcome' && newNotification.severity !== 'low') {
-                toast({
-                  title: newNotification.title,
-                  description: newNotification.message,
-                  duration: 5000,
-                });
+              if (!newNotification.isRead) {
+                setUnreadCount(prev => prev + 1);
+                
+                if (newNotification.type !== 'welcome' && newNotification.severity !== 'low') {
+                  toast({
+                    title: newNotification.title,
+                    description: newNotification.message,
+                    duration: 5000,
+                  });
+                }
+              }
+            } else if (payload.eventType === 'UPDATE' && payload.new) {
+              setNotifications(prev =>
+                prev.map(n => n.id === payload.new.id 
+                  ? { ...n, isRead: payload.new.is_read, updatedAt: payload.new.updated_at }
+                  : n
+                )
+              );
+            } else if (payload.eventType === 'DELETE' && payload.old) {
+              setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+              if (!payload.old.is_read) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
               }
             }
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            setNotifications(prev =>
-              prev.map(n => n.id === payload.new.id 
-                ? { ...n, isRead: payload.new.is_read, updatedAt: payload.new.updated_at }
-                : n
-              )
-            );
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
-            if (!payload.old.is_read) {
-              setUnreadCount(prev => Math.max(0, prev - 1));
-            }
+          } catch (error) {
+            console.error('Error processing real-time notification update:', error);
           }
-        } catch (error) {
-          console.error('Error processing real-time notification update:', error);
-        }
-      })
-      .subscribe((status) => {
-        console.log('Notification subscription status:', status);
-      });
+        })
+        .subscribe((status) => {
+          console.log('Notification subscription status:', status);
+          
+          // Only mark setup as complete when we get a definitive status
+          if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR') {
+            subscriptionSetupInProgress.current = false;
+          }
+        });
+    } catch (error) {
+      console.error('Error setting up notification subscription:', error);
+      subscriptionSetupInProgress.current = false;
+    }
 
+    // Clean up subscription on unmount or when dependencies change
     return () => {
+      console.log('Cleaning up notification subscription');
+      subscriptionSetupInProgress.current = false;
+      
       if (subscriptionRef.current) {
-        supabase.removeChannel(subscriptionRef.current);
+        try {
+          supabase.removeChannel(subscriptionRef.current);
+          subscriptionRef.current = null;
+        } catch (error) {
+          console.error('Error removing subscription on cleanup:', error);
+        }
       }
     };
-  }, [userId, hasValidSession, initialized, toast]);
+  }, [userId, hasValidSession(), initialized, toast]); // Only re-run when these core dependencies change
 
   return {
     notifications,
