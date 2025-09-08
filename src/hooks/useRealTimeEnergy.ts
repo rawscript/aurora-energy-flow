@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { useToast } from '@/hooks/use-toast';
 
 // Get the Supabase anon key from environment or use a fallback
@@ -87,7 +87,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const [hasMeterConnected, setHasMeterConnected] = useState(false);
   const [meterConnectionChecked, setMeterConnectionChecked] = useState(false);
   
-  const { user, session, isAuthenticated } = useAuth();
+  const { user, userId, hasValidSession, query } = useAuthenticatedApi();
   const { toast } = useToast();
   const meterNumber = useRef<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -96,98 +96,17 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const dataCache = useRef<{ data: EnergyData; readings: EnergyReading[]; timestamp: number; userId?: string } | null>(null);
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
 
-  // Helper function to get authenticated headers for protected routes
-  const getAuthHeaders = useCallback(async () => {
-    if (!isAuthenticated || !session?.access_token) {
-      throw new Error('No valid authentication session found');
-    }
-    
-    return {
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-      'apikey': SUPABASE_ANON_KEY
-    };
-  }, [session, isAuthenticated]);
-
-  // Enhanced type guard function to validate EnergyReading with additional checks
-  const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
-    if (!obj || typeof obj !== 'object' || obj === null) {
-      return false;
-    }
-
-    const reading = obj as any;
-
-    // Check required fields
-    const requiredFields = [
-      'id', 'user_id', 'meter_number', 'kwh_consumed',
-      'total_cost', 'reading_date', 'cost_per_kwh'
-    ];
-
-    for (const field of requiredFields) {
-      if (!(field in reading)) {
-        console.warn(`Missing required field: ${field}`);
-        return false;
-      }
-    }
-
-    // Check field types
-    if (
-      typeof reading.id !== 'string' ||
-      typeof reading.user_id !== 'string' ||
-      typeof reading.meter_number !== 'string' ||
-      typeof reading.kwh_consumed !== 'number' ||
-      typeof reading.total_cost !== 'number' ||
-      typeof reading.reading_date !== 'string' ||
-      typeof reading.cost_per_kwh !== 'number'
-    ) {
-      console.warn('Invalid field types in energy reading');
-      return false;
-    }
-
-    // Check for valid values
-    if (
-      reading.kwh_consumed < 0 ||
-      reading.total_cost < 0 ||
-      reading.cost_per_kwh <= 0
-    ) {
-      console.warn('Invalid values in energy reading (negative or zero values)');
-      return false;
-    }
-
-    // Check if reading_date is a valid ISO date string
-    try {
-      new Date(reading.reading_date);
-    } catch (e) {
-      console.warn('Invalid reading_date format');
-      return false;
-    }
-
-    // Optional fields validation
-    if (reading.peak_usage !== undefined && typeof reading.peak_usage !== 'number') {
-      console.warn('Invalid peak_usage type');
-      return false;
-    }
-
-    if (reading.off_peak_usage !== undefined && typeof reading.off_peak_usage !== 'number') {
-      console.warn('Invalid off_peak_usage type');
-      return false;
-    }
-
-    return true;
-  };
-
   // Check if user has a meter connected (without triggering session refresh)
   const checkMeterConnection = useCallback(async () => {
-    if (!isAuthenticated || !user || meterConnectionChecked) return false;
+    if (!hasValidSession() || !userId || meterConnectionChecked) return false;
     
     try {
-      console.log('Checking meter connection for user:', user.id);
+      console.log('Checking meter connection for user:', userId);
       
       // Check profile for meter number (simple query, no session refresh needed)
-      const { data: profile, error } = await supabase
-        .from('profiles')
+      const { data: profile, error } = await query('profiles')
         .select('meter_number, meter_category, industry_type')
-        .eq('id', user.id)
+        .eq('id', userId)
         .maybeSingle();
         
       if (error && error.code !== 'PGRST116') {
@@ -214,7 +133,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       setMeterConnectionChecked(true);
       return false;
     }
-  }, [user, meterConnectionChecked]);
+  }, [userId, meterConnectionChecked, hasValidSession, query]);
 
   // Calculate analytics based on readings
   const calculateAnalytics = useCallback((readings: EnergyReading[]) => {
@@ -316,6 +235,73 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
   // Process a new reading from the meter or inverter
   const processNewReading = useCallback((reading: EnergyReading) => {
+    // Enhanced type guard function to validate EnergyReading with additional checks
+    const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
+      if (!obj || typeof obj !== 'object' || obj === null) {
+        return false;
+      }
+
+      const reading = obj as any;
+
+      // Check required fields
+      const requiredFields = [
+        'id', 'user_id', 'meter_number', 'kwh_consumed',
+        'total_cost', 'reading_date', 'cost_per_kwh'
+      ];
+
+      for (const field of requiredFields) {
+        if (!(field in reading)) {
+          console.warn(`Missing required field: ${field}`);
+          return false;
+        }
+      }
+
+      // Check field types
+      if (
+        typeof reading.id !== 'string' ||
+        typeof reading.user_id !== 'string' ||
+        typeof reading.meter_number !== 'string' ||
+        typeof reading.kwh_consumed !== 'number' ||
+        typeof reading.total_cost !== 'number' ||
+        typeof reading.reading_date !== 'string' ||
+        typeof reading.cost_per_kwh !== 'number'
+      ) {
+        console.warn('Invalid field types in energy reading');
+        return false;
+      }
+
+      // Check for valid values
+      if (
+        reading.kwh_consumed < 0 ||
+        reading.total_cost < 0 ||
+        reading.cost_per_kwh <= 0
+      ) {
+        console.warn('Invalid values in energy reading (negative or zero values)');
+        return false;
+      }
+
+      // Check if reading_date is a valid ISO date string
+      try {
+        new Date(reading.reading_date);
+      } catch (e) {
+        console.warn('Invalid reading_date format');
+        return false;
+      }
+
+      // Optional fields validation
+      if (reading.peak_usage !== undefined && typeof reading.peak_usage !== 'number') {
+        console.warn('Invalid peak_usage type');
+        return false;
+      }
+
+      if (reading.off_peak_usage !== undefined && typeof reading.off_peak_usage !== 'number') {
+        console.warn('Invalid off_peak_usage type');
+        return false;
+      }
+
+      return true;
+    };
+
     if (!isValidEnergyReading(reading)) {
       console.error('Invalid reading received:', reading);
       return;
@@ -357,7 +343,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
   // Fetch real energy readings from the database (only when meter is connected)
   const fetchRealEnergyData = useCallback(async (forceRefresh = false, page = 1, pageSize = 50) => {
-    if (!user || !session || !hasMeterConnected || !meterNumber.current) {
+    if (!hasValidSession() || !userId || !hasMeterConnected || !meterNumber.current) {
       console.log('Skipping data fetch - no meter connected or not authenticated');
       setLoading(false);
       return;
@@ -418,10 +404,9 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      const { data: readings, error: readingsError, count } = await supabase
-        .from('energy_readings')
+      const { data: readings, error: readingsError, count } = await query('energy_readings')
         .select('*', { count: 'exact', head: false })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('meter_number', meterNumber.current)
         .gte('reading_date', oneWeekAgo.toISOString())
         .order('reading_date', { ascending: false })
@@ -571,13 +556,13 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     } finally {
       setLoading(false);
     }
-  }, [user, session, hasMeterConnected, calculateAnalytics, profileData?.meter_category]);
+  }, [userId, hasValidSession, hasMeterConnected, calculateAnalytics, profileData?.meter_category, query]);
 
   // Get a new energy reading from the meter or inverter
   const getNewReading = async () => {
     try {
       // Check if we have a meter connected and proper authentication
-      if (!user || !session || !hasMeterConnected || !meterNumber.current) {
+      if (!hasValidSession() || !userId || !hasMeterConnected || !meterNumber.current) {
         toast({
           title: energyProvider === 'KPLC' ? 'No Meter Connected' : 'No Inverter Connected',
           description: energyProvider === 'KPLC'
@@ -614,7 +599,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       // Try to record the reading in the database
       try {
         const readingData = {
-          user_id: user.id,
+          user_id: userId,
           meter_number: meterNumber.current,
           kwh_consumed: usage,
           cost_per_kwh: costPerKwh,
@@ -626,8 +611,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
           battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
         };
 
-        const { data, error } = await supabase
-          .from('energy_readings')
+        const { data, error } = await query('energy_readings')
           .insert(readingData)
           .select()
           .maybeSingle();
@@ -639,7 +623,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         // Process the reading regardless of database success
         const newReading: EnergyReading = {
           id: data?.id || `temp-${Date.now()}`,
-          user_id: user.id,
+          user_id: userId,
           meter_number: meterNumber.current,
           kwh_consumed: usage,
           total_cost: totalCost,
@@ -699,7 +683,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     loadConsumption?: number,
     batteryCount?: number
    ) => {
-    if (!user || !session || !hasMeterConnected || !meterNumber.current) {
+    if (!hasValidSession() || !userId || !hasMeterConnected || !meterNumber.current) {
       console.error('Cannot record reading: missing required parameters');
       return null;
     }
@@ -737,7 +721,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     try {
       // Prepare the reading data
       const readingData = {
-        user_id: user.id,
+        user_id: userId,
         meter_number: meterNumber.current,
         kwh_consumed: usage,
         cost_per_kwh: costPerKwh,
@@ -750,6 +734,72 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       };
 
       // Validate the reading data before sending
+      const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
+        if (!obj || typeof obj !== 'object' || obj === null) {
+          return false;
+        }
+
+        const reading = obj as any;
+
+        // Check required fields
+        const requiredFields = [
+          'id', 'user_id', 'meter_number', 'kwh_consumed',
+          'total_cost', 'reading_date', 'cost_per_kwh'
+        ];
+
+        for (const field of requiredFields) {
+          if (!(field in reading)) {
+            console.warn(`Missing required field: ${field}`);
+            return false;
+          }
+        }
+
+        // Check field types
+        if (
+          typeof reading.id !== 'string' ||
+          typeof reading.user_id !== 'string' ||
+          typeof reading.meter_number !== 'string' ||
+          typeof reading.kwh_consumed !== 'number' ||
+          typeof reading.total_cost !== 'number' ||
+          typeof reading.reading_date !== 'string' ||
+          typeof reading.cost_per_kwh !== 'number'
+        ) {
+          console.warn('Invalid field types in energy reading');
+          return false;
+        }
+
+        // Check for valid values
+        if (
+          reading.kwh_consumed < 0 ||
+          reading.total_cost < 0 ||
+          reading.cost_per_kwh <= 0
+        ) {
+          console.warn('Invalid values in energy reading (negative or zero values)');
+          return false;
+        }
+
+        // Check if reading_date is a valid ISO date string
+        try {
+          new Date(reading.reading_date);
+        } catch (e) {
+          console.warn('Invalid reading_date format');
+          return false;
+        }
+
+        // Optional fields validation
+        if (reading.peak_usage !== undefined && typeof reading.peak_usage !== 'number') {
+          console.warn('Invalid peak_usage type');
+          return false;
+        }
+
+        if (reading.off_peak_usage !== undefined && typeof reading.off_peak_usage !== 'number') {
+          console.warn('Invalid off_peak_usage type');
+          return false;
+        }
+
+        return true;
+      };
+
       if (!isValidEnergyReading({
         ...readingData,
         id: 'temp', // Temporary ID for validation
@@ -759,8 +809,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       }
 
       // Insert the reading into the database
-      const { data, error } = await supabase
-        .from('energy_readings')
+      const { data, error } = await query('energy_readings')
         .insert(readingData)
         .select()
         .maybeSingle();
@@ -782,7 +831,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       // Process the new reading immediately
       const newReading: EnergyReading = {
         id: data?.id || `temp-${Date.now()}`,
-        user_id: user.id,
+        user_id: userId,
         meter_number: meterNumber.current,
         kwh_consumed: usage,
         total_cost: finalTotalCost,
@@ -813,7 +862,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
       throw new Error(`Reading recording failed: ${errorMessage}`);
     }
-  }, [user, session, hasMeterConnected, meterNumber.current, processNewReading, isValidEnergyReading, energyProvider]);
+  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, processNewReading, energyProvider, query]);
 
   // Function to connect to meter
   const connectToMeter = useCallback(async (meter: string) => {
@@ -821,7 +870,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       console.log(`Connecting to meter: ${meter}`);
       
       // Check authentication first
-      if (!user || !session) {
+      if (!hasValidSession() || !userId) {
         throw new Error('User not authenticated');
       }
       
@@ -846,7 +895,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       
       return false;
     }
-  }, [user, session, fetchRealEnergyData]);
+  }, [userId, hasValidSession, fetchRealEnergyData]);
 
   // Initial setup - check meter connection first
   useEffect(() => {
@@ -856,7 +905,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       try {
         isInitialized.current = true;
 
-        if (user && session) {
+        if (userId && hasValidSession()) {
           // Check if user has a meter connected
           const hasMeter = await checkMeterConnection();
 
@@ -891,11 +940,11 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
     // Initialize immediately
     initializeData();
-  }, [user, session, checkMeterConnection, fetchRealEnergyData, energyProvider]);
+  }, [userId, hasValidSession, checkMeterConnection, fetchRealEnergyData, energyProvider]);
 
   // Set up real-time data subscription (only when meter is connected)
   useEffect(() => {
-    if (!user || !session || !hasMeterConnected || !meterNumber.current) return;
+    if (!userId || !hasValidSession() || !hasMeterConnected || !meterNumber.current) return;
 
     // Clear cache when energyProvider changes
     dataCache.current = null;
@@ -921,16 +970,83 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     try {
         // Subscribe to real-time updates for energy_readings table with a more specific filter
       readingsSubscription = supabase
-        .channel(`energy_readings_${user.id}_${meterNumber.current}_${energyProvider}`)
+        .channel(`energy_readings_${userId}_${meterNumber.current}_${energyProvider}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'energy_readings',
-          filter: `user_id=eq.${user.id}&meter_number=eq.${meterNumber.current}`
+          filter: `user_id=eq.${userId}&meter_number=eq.${meterNumber.current}`
         }, (payload) => {
           if (!subscriptionActive) return;
 
           console.log('New energy reading received:', payload.eventType);
+
+          // Enhanced type guard function to validate EnergyReading with additional checks
+          const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
+            if (!obj || typeof obj !== 'object' || obj === null) {
+              return false;
+            }
+
+            const reading = obj as any;
+
+            // Check required fields
+            const requiredFields = [
+              'id', 'user_id', 'meter_number', 'kwh_consumed',
+              'total_cost', 'reading_date', 'cost_per_kwh'
+            ];
+
+            for (const field of requiredFields) {
+              if (!(field in reading)) {
+                console.warn(`Missing required field: ${field}`);
+                return false;
+              }
+            }
+
+            // Check field types
+            if (
+              typeof reading.id !== 'string' ||
+              typeof reading.user_id !== 'string' ||
+              typeof reading.meter_number !== 'string' ||
+              typeof reading.kwh_consumed !== 'number' ||
+              typeof reading.total_cost !== 'number' ||
+              typeof reading.reading_date !== 'string' ||
+              typeof reading.cost_per_kwh !== 'number'
+            ) {
+              console.warn('Invalid field types in energy reading');
+              return false;
+            }
+
+            // Check for valid values
+            if (
+              reading.kwh_consumed < 0 ||
+              reading.total_cost < 0 ||
+              reading.cost_per_kwh <= 0
+            ) {
+              console.warn('Invalid values in energy reading (negative or zero values)');
+              return false;
+            }
+
+            // Check if reading_date is a valid ISO date string
+            try {
+              new Date(reading.reading_date);
+            } catch (e) {
+              console.warn('Invalid reading_date format');
+              return false;
+            }
+
+            // Optional fields validation
+            if (reading.peak_usage !== undefined && typeof reading.peak_usage !== 'number') {
+              console.warn('Invalid peak_usage type');
+              return false;
+            }
+
+            if (reading.off_peak_usage !== undefined && typeof reading.off_peak_usage !== 'number') {
+              console.warn('Invalid off_peak_usage type');
+              return false;
+            }
+
+            return true;
+          };
 
           // Validate payload.new before processing
           if (isValidEnergyReading(payload.new)) {
@@ -990,7 +1106,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         }
       }
     };
-  }, [user, session, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
+  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
 
   // Cleanup on unmount
   useEffect(() => {

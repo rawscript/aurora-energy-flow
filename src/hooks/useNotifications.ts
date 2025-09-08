@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { useToast } from '@/hooks/use-toast';
 
 interface ProfileData {
@@ -81,16 +81,8 @@ export const useNotifications = () => {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const { user, session, isAuthenticated } = useAuth();
+  const { user, userId, hasValidSession, callRpc } = useAuthenticatedApi();
   const { toast } = useToast();
-
-  // Stable user ID reference to prevent unnecessary re-renders
-  const userId = useMemo(() => user?.id || null, [user?.id]);
-  const hasValidSession = useMemo(() => 
-    isAuthenticated && Boolean(session?.access_token && !session.expires_at || 
-           (session.expires_at && session.expires_at > Math.floor(Date.now() / 1000))), 
-    [isAuthenticated, session?.access_token, session?.expires_at]
-  );
 
   // Refs for managing API calls and state
   const subscriptionRef = useRef<any>(null);
@@ -99,25 +91,9 @@ export const useNotifications = () => {
   const isOperationInProgress = useRef(false);
   const initializationAttempted = useRef(false);
 
-  // Create authenticated Supabase client using current session
-  const getAuthenticatedClient = useCallback(() => {
-    if (!session?.access_token || !hasValidSession) {
-      console.log('No valid session for authenticated client');
-      return null;
-    }
-
-    try {
-      // Use the existing client with current session
-      return supabase;
-    } catch (error) {
-      console.error('Error creating authenticated client:', error);
-      return null;
-    }
-  }, [session?.access_token, hasValidSession]);
-
-  // Fetch notifications using existing RPC functions
+  // Optimized fetch notifications using centralized auth
   const fetchNotificationData = useCallback(async (force = false) => {
-    if (!userId || !hasValidSession) {
+    if (!userId || !hasValidSession()) {
       console.log('No user or session, skipping notification fetch');
       return null;
     }
@@ -134,60 +110,48 @@ export const useNotifications = () => {
       return null;
     }
 
-    const client = getAuthenticatedClient();
-    if (!client) {
-      console.log('No authenticated client available');
-      return null;
-    }
-
     isOperationInProgress.current = true;
     lastApiCall.current = now;
 
     try {
       console.log('Fetching notification data for user:', userId);
 
-      // Check if user needs initialization first
+      // Check if user needs initialization first using centralized auth
       let needsInit = false;
       try {
-        const { data: initData, error: initError } = await client
-          .rpc('check_user_notification_initialization', { p_user_id: userId });
+        needsInit = await callRpc('check_user_notification_initialization', {}, { 
+          showErrorToast: false,
+          cacheKey: `init_check_${userId}`,
+          cacheDuration: 60000 // Cache for 1 minute
+        });
         
-        if (!initError) {
-          needsInit = initData as boolean;
-          if (needsInit) {
-            console.log('Initializing user notifications...');
-            await client.rpc('initialize_user_notifications', { p_user_id: userId });
-          }
+        if (needsInit) {
+          console.log('Initializing user notifications...');
+          await callRpc('initialize_user_notifications', {}, { showErrorToast: false });
         }
       } catch (error) {
         console.log('Initialization check failed:', error);
         // Continue anyway, might still be able to fetch notifications
       }
 
-      // Fetch notifications using the safe function
-      const { data: notifications, error: notifError } = await client
-        .rpc('get_user_notifications_safe', {
-          p_user_id: userId,
-          p_limit: MAX_NOTIFICATIONS,
-          p_unread_only: false
-        });
+      // Fetch notifications using centralized auth
+      const notifications = await callRpc('get_user_notifications_safe', {
+        p_limit: MAX_NOTIFICATIONS,
+        p_unread_only: false
+      }, { 
+        showErrorToast: false,
+        cacheKey: `notifications_${userId}`,
+        cacheDuration: 30000 // Cache for 30 seconds
+      });
 
-      if (notifError) {
-        console.error('Error fetching notifications:', notifError);
-        throw notifError;
-      }
-
-      // Fetch preferences separately
+      // Fetch preferences separately using centralized auth
       let preferences = null;
       try {
-        const { data: prefData, error: prefError } = await client
-          .rpc('get_notification_preferences', { p_user_id: userId });
-        
-        if (!prefError) {
-          preferences = prefData;
-        } else {
-          console.log('Could not fetch preferences:', prefError);
-        }
+        preferences = await callRpc('get_notification_preferences', {}, { 
+          showErrorToast: false,
+          cacheKey: `preferences_${userId}`,
+          cacheDuration: 300000 // Cache for 5 minutes
+        });
       } catch (error) {
         console.log('Error fetching preferences:', error);
         // Don't fail the whole operation if preferences fail
@@ -205,13 +169,7 @@ export const useNotifications = () => {
     } finally {
       isOperationInProgress.current = false;
     }
-  }, [userId, hasValidSession, getAuthenticatedClient]);
-
-  // Debounced fetch function
-  const debouncedFetch = useMemo(
-    () => debounce(fetchNotificationData, API_CALL_DEBOUNCE),
-    [fetchNotificationData]
-  );
+  }, [userId, hasValidSession, callRpc]);
 
   // Process fetched data and update state
   const processNotificationData = useCallback((data: any) => {
@@ -359,22 +317,16 @@ export const useNotifications = () => {
     }
   }, [userId, hasValidSession, fetchNotificationData, processNotificationData]);
 
-  // Optimized notification actions using session-aware client
+  // Optimized notification actions using centralized auth
   const markAsRead = useCallback(async (notificationId: string) => {
-    if (!userId || !hasValidSession) return false;
-
-    const client = getAuthenticatedClient();
-    if (!client) return false;
+    if (!userId || !hasValidSession()) return false;
 
     try {
-      const { data, error } = await client.rpc('mark_notification_read', {
-        p_user_id: userId,
+      const result = await callRpc('mark_notification_read', {
         p_notification_id: notificationId
-      });
+      }, { showErrorToast: false });
 
-      if (error) throw error;
-
-      if (data) {
+      if (result) {
         // Optimistic update
         setNotifications(prev =>
           prev.map(n => n.id === notificationId ? { ...n, isRead: true, updatedAt: new Date().toISOString() } : n)
@@ -392,23 +344,15 @@ export const useNotifications = () => {
     }
     
     return false;
-  }, [userId, hasValidSession, getAuthenticatedClient, toast]);
+  }, [userId, hasValidSession, callRpc, toast]);
 
   const markAllAsRead = useCallback(async () => {
-    if (!userId || !hasValidSession) return false;
-
-    const client = getAuthenticatedClient();
-    if (!client) return false;
+    if (!userId || !hasValidSession()) return false;
 
     try {
-      const { data, error } = await client.rpc('mark_all_notifications_read', {
-        p_user_id: userId
-      });
+      const updatedCount = await callRpc('mark_all_notifications_read', {}, { showErrorToast: false });
 
-      if (error) throw error;
-
-      const updatedCount = data || 0;
-      if (updatedCount > 0) {
+      if (updatedCount && updatedCount > 0) {
         const now = new Date().toISOString();
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true, updatedAt: now })));
         setUnreadCount(0);
@@ -429,23 +373,17 @@ export const useNotifications = () => {
     }
     
     return false;
-  }, [userId, hasValidSession, getAuthenticatedClient, toast]);
+  }, [userId, hasValidSession, callRpc, toast]);
 
   const deleteNotification = useCallback(async (notificationId: string) => {
-    if (!userId || !hasValidSession) return false;
-
-    const client = getAuthenticatedClient();
-    if (!client) return false;
+    if (!userId || !hasValidSession()) return false;
 
     try {
-      const { data, error } = await client.rpc('delete_notification', {
-        p_user_id: userId,
+      const result = await callRpc('delete_notification', {
         p_notification_id: notificationId
-      });
+      }, { showErrorToast: false });
 
-      if (error) throw error;
-
-      if (data) {
+      if (result) {
         const deletedNotification = notifications.find(n => n.id === notificationId);
         setNotifications(prev => prev.filter(n => n.id !== notificationId));
         
@@ -469,7 +407,7 @@ export const useNotifications = () => {
     }
     
     return false;
-  }, [userId, hasValidSession, getAuthenticatedClient, notifications, toast]);
+  }, [userId, hasValidSession, callRpc, notifications, toast]);
 
   const getNotificationActions = useCallback((notification: Notification): NotificationAction[] => {
     const actions: NotificationAction[] = [];

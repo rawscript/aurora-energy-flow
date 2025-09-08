@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { useToast } from '@/components/ui/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
 import { getEnergySettings } from '@/utils/energySettings';
@@ -43,7 +43,7 @@ export const useProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, session, isAuthenticated } = useAuth();
+  const { user, userId, hasValidSession, callRpc, query } = useAuthenticatedApi();
   const { toast } = useToast();
   
   // Control refs
@@ -53,87 +53,43 @@ export const useProfile = () => {
   const lastUserIdRef = useRef<string | null>(null);
 
   // Stable user ID reference to prevent unnecessary re-fetches
-  const currentUserId = user?.id || null;
+  const currentUserId = userId;
 
-  // Check if session is valid and not expired
-  const isSessionValid = useCallback(() => {
-    if (!session || !user) return false;
-    
-    const now = Math.floor(Date.now() / 1000);
-    const expiresAt = session.expires_at || 0;
-    
-    // Check if session expires in the next 5 minutes
-    return expiresAt > (now + 300);
-  }, [session, user]);
-
-  // Optimized fetch function with better error handling
+  // Optimized fetch function using centralized auth
   const fetchProfile = useCallback(async (showToasts: boolean = false) => {
     // Early returns to prevent unnecessary calls
-    if (!isAuthenticated || !user || !session) {
+    if (!userId || !hasValidSession()) {
       setProfile(null);
       setLoading(false);
       setError(null);
       return;
     }
 
-    // Check session validity before making requests
-    if (!isSessionValid()) {
-      console.log('Session expired or invalid, skipping profile fetch');
-      return;
-    }
-
     // Prevent concurrent fetches for the same user
-    if (fetchingRef.current && lastUserIdRef.current === user.id) {
+    if (fetchingRef.current && lastUserIdRef.current === userId) {
       console.log('Profile fetch already in progress for current user, skipping');
       return;
     }
 
-    // Cancel any ongoing request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    // Create new abort controller
-    abortControllerRef.current = new AbortController();
-    const { signal } = abortControllerRef.current;
-
     fetchingRef.current = true;
-    lastUserIdRef.current = user.id;
+    lastUserIdRef.current = userId;
     setLoading(true);
     setError(null);
 
     try {
-      console.log('Fetching/creating profile for user:', user.id);
+      console.log('Fetching/creating profile for user:', userId);
 
-      // Single database call with timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 10000);
+      // Use centralized auth for RPC call with caching
+      const profileData = await callRpc('get_or_create_profile', {
+        p_email: user?.email,
+        p_full_name: user?.user_metadata?.full_name,
+        p_phone_number: user?.user_metadata?.phone_number,
+        p_meter_number: user?.user_metadata?.meter_number
+      }, {
+        showErrorToast: showToasts,
+        cacheKey: `profile_${userId}`,
+        cacheDuration: 300000 // Cache for 5 minutes
       });
-
-      const fetchPromise = supabase
-        .rpc('get_or_create_profile', {
-          p_user_id: user.id,
-          p_email: user.email,
-          p_full_name: user.user_metadata?.full_name,
-          p_phone_number: user.user_metadata?.phone_number,
-          p_meter_number: user.user_metadata?.meter_number
-        })
-        .abortSignal(signal);
-
-      const { data: profileData, error: fetchError } = await Promise.race([
-        fetchPromise,
-        timeoutPromise
-      ]) as any;
-
-      // Check if request was aborted
-      if (signal.aborted) {
-        console.log('Profile fetch aborted');
-        return;
-      }
-
-      if (fetchError) {
-        throw fetchError;
-      }
 
       if (profileData && profileData.length > 0) {
         const profileDataItem = profileData[0] as BaseProfile;
@@ -141,7 +97,7 @@ export const useProfile = () => {
         // Get energy settings without awaiting to avoid blocking
         let energySettings = null;
         try {
-          energySettings = await getEnergySettings(user.id);
+          energySettings = await getEnergySettings(userId);
         } catch (energyError) {
           console.warn('Could not fetch energy settings:', energyError);
         }
@@ -174,11 +130,6 @@ export const useProfile = () => {
       }
 
     } catch (error: any) {
-      // Don't set error if request was aborted
-      if (signal.aborted) {
-        return;
-      }
-
       console.error('Error fetching profile:', error);
       
       let errorMessage = "Could not load user profile";
@@ -211,11 +162,11 @@ export const useProfile = () => {
         isInitialized.current = true;
       }
     }
-  }, [user?.id, user?.email, user?.user_metadata, session?.expires_at, isSessionValid, isAuthenticated, toast]);
+  }, [userId, hasValidSession, callRpc, user?.email, user?.user_metadata, toast]);
 
-  // Optimized update function
+  // Optimized update function using centralized auth
   const updateProfile = useCallback(async (updates: Partial<Omit<Profile, 'id' | 'created_at'>>) => {
-    if (!user || !session || !isSessionValid()) {
+    if (!userId || !hasValidSession()) {
       toast({
         title: "Authentication Error",
         description: "Please sign in to update your profile.",
@@ -246,22 +197,15 @@ export const useProfile = () => {
         return false;
       }
 
-      // Single update attempt with timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Update timeout')), 8000);
-      });
-
-      const updatePromise = supabase
-        .from('profiles')
+      // Use centralized auth for query
+      const { data, error } = await query('profiles')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id)
+        .eq('id', userId)
         .select()
         .single();
-
-      const { data, error } = await Promise.race([updatePromise, timeoutPromise]) as any;
 
       if (error) {
         throw error;
@@ -295,7 +239,7 @@ export const useProfile = () => {
       });
       return false;
     }
-  }, [user?.id, session?.expires_at, isSessionValid, toast]);
+  }, [userId, hasValidSession, query, toast]);
 
   // Setup meter with validation
   const setupMeter = useCallback(async (meterData: {
@@ -325,25 +269,23 @@ export const useProfile = () => {
     return await updateProfile(meterData);
   }, [updateProfile, toast]);
 
-  // Simplified profile status check
+  // Simplified profile status check using centralized auth
   const checkProfileStatus = useCallback(async () => {
-    if (!user || !session || !isSessionValid()) return null;
+    if (!userId || !hasValidSession()) return null;
 
     try {
-      const { data, error } = await supabase
-        .rpc('check_profile_status', { p_user_id: user.id });
-
-      if (error) {
-        console.error('Error checking profile status:', error);
-        return null;
-      }
+      const data = await callRpc('check_profile_status', {}, {
+        showErrorToast: false,
+        cacheKey: `profile_status_${userId}`,
+        cacheDuration: 60000 // Cache for 1 minute
+      });
 
       return data;
     } catch (error) {
       console.error('Exception checking profile status:', error);
       return null;
     }
-  }, [user?.id, session?.expires_at, isSessionValid]);
+  }, [userId, hasValidSession, callRpc]);
 
   // Effect for initialization - only run when user ID actually changes
   useEffect(() => {
@@ -360,9 +302,9 @@ export const useProfile = () => {
     }
 
     // Initialize for new user
-    if (currentUserId && session && !isInitialized.current) {
+    if (currentUserId && hasValidSession() && !isInitialized.current) {
       const timer = setTimeout(() => {
-        if (currentUserId === user?.id) { // Double-check user hasn't changed
+        if (currentUserId === userId) { // Double-check user hasn't changed
           fetchProfile(false);
         }
       }, 100); // Minimal delay
@@ -382,7 +324,7 @@ export const useProfile = () => {
       fetchingRef.current = false;
       lastUserIdRef.current = null;
     }
-  }, [currentUserId, session?.expires_at]); // Minimal dependencies
+  }, [currentUserId, hasValidSession, userId, fetchProfile]); // Updated dependencies
 
   // Cleanup on unmount
   useEffect(() => {

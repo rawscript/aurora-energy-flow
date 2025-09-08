@@ -40,6 +40,16 @@ const getStoredSession = (): Session | null => {
   return null;
 };
 
+// Helper function to check if a session is still valid without API calls
+const isSessionStillValid = (session: Session | null): boolean => {
+  if (!session) return false;
+  
+  const expiresAt = session.expires_at || 0;
+  const currentTime = Math.floor(Date.now() / 1000);
+  // Consider session valid if it expires more than 5 minutes in the future
+  return expiresAt > currentTime + 300;
+};
+
 // Helper function to safely store session
 const storeSession = (session: Session | null) => {
   try {
@@ -226,7 +236,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [resetSessionInterval, toast]);
 
-  // Initialize auth state with persisted session
+  // Initialize auth state with persisted session - OPTIMIZED to reduce API calls
   useEffect(() => {
     if (isInitialized.current) return;
 
@@ -237,8 +247,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // First check for persisted session
         const persistedSession = getStoredSession();
-        if (persistedSession) {
-          console.log('Found persisted session, using it');
+        
+        if (persistedSession && isSessionStillValid(persistedSession)) {
+          // Use persisted session without verification if it's still valid
+          console.log('Found valid persisted session, using without verification');
           setSession(persistedSession);
           setUser(persistedSession.user);
           
@@ -250,62 +262,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             onAuthSuccessCallback.current();
           }
           
-          // Set loading to false early since we have a session
           setLoading(false);
-          
-          // Verify the session is still valid with Supabase
-          const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-          if (error) {
-            console.error('Error verifying persisted session:', error);
-            // If verification fails, clear persisted session
-            storeSession(null);
-            setSession(null);
-            setUser(null);
-          } else if (!currentSession) {
-            // If no current session, clear persisted session
-            storeSession(null);
-            setSession(null);
-            setUser(null);
-          } else {
-            // If current session is different, update state
-            if (currentSession.access_token !== persistedSession.access_token) {
-              setSession(currentSession);
-              setUser(currentSession.user);
-              storeSession(currentSession);
-              resetSessionInterval(currentSession);
-            }
-          }
-          return;
+          return; // Exit early, no need for API call
         }
 
-        // If no persisted session, get session from Supabase
+        // Only make ONE getSession() call if no valid persisted session
+        console.log('No valid persisted session, fetching from Supabase');
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting initial session:', error);
+          console.error('Error getting session:', error);
           setSession(null);
           setUser(null);
-        } else {
+          // Clear any invalid persisted session
+          storeSession(null);
+        } else if (currentSession) {
+          console.log('Got valid session from Supabase');
           setSession(currentSession);
-          setUser(currentSession?.user || null);
+          setUser(currentSession.user);
 
-          // Store in localStorage if session exists
-          if (currentSession) {
-            storeSession(currentSession);
+          // Store in localStorage
+          storeSession(currentSession);
 
-            // Set up session monitoring
-            resetSessionInterval(currentSession);
+          // Set up session monitoring
+          resetSessionInterval(currentSession);
 
-            // Call success callback if provided
-            if (onAuthSuccessCallback.current) {
-              onAuthSuccessCallback.current();
-            }
+          // Call success callback if provided
+          if (onAuthSuccessCallback.current) {
+            onAuthSuccessCallback.current();
           }
+        } else {
+          console.log('No session available');
+          setSession(null);
+          setUser(null);
+          // Clear any invalid persisted session
+          storeSession(null);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
         setSession(null);
         setUser(null);
+        // Clear any invalid persisted session
+        storeSession(null);
       } finally {
         setLoading(false);
       }

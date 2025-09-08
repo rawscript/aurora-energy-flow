@@ -2,7 +2,7 @@ project_id = "rcthtxwzsqvwivritzln"
 
 [auth]
 enabled = true
-site_url = "https://main.d2yx2x5zg4eyf4.amplifyapp.com/"
+site_url = "https://auroraenergy.app/"
 additional_redirect_urls = []
 jwt_expiry = 3600
 enable_refresh_token_rotation = true

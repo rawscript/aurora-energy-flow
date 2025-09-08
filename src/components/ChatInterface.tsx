@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Bot, User, Send, Calculator, Settings, TrendingUp, Zap, MessageCircle, AlertTriangle, CheckCircle, Info, Wifi, WifiOff, RefreshCw, Database, Cloud } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { aiService, AIServiceStatus, AIResponse } from '@/services/aiService';
 import ReactMarkdown from 'react-markdown';
 
@@ -75,6 +75,7 @@ const MOCK_TOKEN_DATA: TokenData = {
 
 const ChatInterface = () => {
   const isMobile = useIsMobile();
+  const { user, hasValidSession, callRpc, query } = useAuthenticatedApi();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -117,16 +118,13 @@ const ChatInterface = () => {
       }
       setLastDataFetch(now);
 
-      // Get current session without triggering refresh
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session?.user) {
-        console.log('No active session, using offline mode');
+      // Check if we have a valid session using the authenticated API hook
+      if (!hasValidSession() || !user) {
+        console.log('No valid session, using offline mode');
         setDataStatus('offline');
         return;
       }
 
-      const user = session.user;
       console.log('Fetching data for authenticated user');
       
       // Set timeout for data fetching
@@ -147,8 +145,7 @@ const ChatInterface = () => {
       };
 
       try {
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
+        const { data: profile, error: profileError } = await query('profiles')
           .select('full_name, meter_number, meter_category, industry_type')
           .eq('id', user.id)
           .maybeSingle();
@@ -175,8 +172,7 @@ const ChatInterface = () => {
           const oneWeekAgo = new Date();
           oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
           
-          const { data: readings, error: readingsError } = await supabase
-            .from('energy_readings')
+          const { data: readings, error: readingsError } = await query('energy_readings')
             .select('*')
             .eq('user_id', user.id)
             .eq('meter_number', profileData.meter_number)
@@ -249,10 +245,9 @@ const ChatInterface = () => {
 
         // Fetch token data
         try {
-          const { data: tokenAnalytics, error: tokenError } = await supabase
-            .rpc('get_token_analytics', { p_user_id: user.id });
+          const tokenAnalytics = await callRpc('get_token_analytics', { p_user_id: user.id }, { showErrorToast: false });
 
-          if (!tokenError && tokenAnalytics && Array.isArray(tokenAnalytics) && tokenAnalytics.length > 0) {
+          if (tokenAnalytics && Array.isArray(tokenAnalytics) && tokenAnalytics.length > 0) {
             const analytics = tokenAnalytics[0];
             
             // Type guard to ensure analytics is an object with the expected properties

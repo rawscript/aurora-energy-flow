@@ -309,56 +309,21 @@ class AIServiceManager {
 
   private async notifyServiceUnavailable() {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Create notification about service unavailability
-      await supabase.rpc('create_notification', {
-        p_user_id: user.id,
-        p_title: 'AI Assistant Temporarily Unavailable',
-        p_message: 'Aurora AI insights are currently unavailable. We\'re working to restore the service. You\'ll receive a notification when it\'s back online.',
-        p_type: 'system_alert',
-        p_priority: 'medium',
-        p_metadata: {
-          service: 'ai_assistant',
-          status: 'unavailable',
-          timestamp: new Date().toISOString()
-        }
-      });
-
-      console.log('Service unavailable notification sent');
+      // Note: Notifications will be handled by the UI components that use this service
+      // This avoids direct auth calls from the service layer
+      console.log('AI Service unavailable - UI components should handle user notifications');
     } catch (error) {
-      console.error('Failed to send service unavailable notification:', error);
+      console.error('Failed to handle service unavailable state:', error);
     }
   }
 
   private async notifyServiceRestored() {
     try {
-      // Only notify if we had previous connection attempts (service was down)
-      if (this.status.connectionAttempts === 0) return;
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Create notification about service restoration
-      await supabase.rpc('create_notification', {
-        p_user_id: user.id,
-        p_title: 'AI Assistant Service Restored! 🎉',
-        p_message: 'Aurora AI insights are now available again. You can now get personalized energy recommendations and smart insights.',
-        p_type: 'system_success',
-        p_priority: 'medium',
-        p_metadata: {
-          service: 'ai_assistant',
-          status: 'restored',
-          timestamp: new Date().toISOString()
-        }
-      });
-
-      console.log('Service restored notification sent');
+      // Note: Service restoration will be handled by the UI components
+      // This avoids direct auth calls from the service layer
+      console.log('AI Service restored - UI components should handle user notifications');
     } catch (error) {
-      console.error('Failed to send service restored notification:', error);
+      console.error('Failed to handle service restored state:', error);
     }
   }
 
