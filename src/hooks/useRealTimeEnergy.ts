@@ -87,7 +87,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const [hasMeterConnected, setHasMeterConnected] = useState(false);
   const [meterConnectionChecked, setMeterConnectionChecked] = useState(false);
   
-  const { user, session } = useAuth();
+  const { user, session, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const meterNumber = useRef<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,7 +98,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
   // Helper function to get authenticated headers for protected routes
   const getAuthHeaders = useCallback(async () => {
-    if (!session?.access_token) {
+    if (!isAuthenticated || !session?.access_token) {
       throw new Error('No valid authentication session found');
     }
     
@@ -107,7 +107,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       'Content-Type': 'application/json',
       'apikey': SUPABASE_ANON_KEY
     };
-  }, [session]);
+  }, [session, isAuthenticated]);
 
   // Enhanced type guard function to validate EnergyReading with additional checks
   const isValidEnergyReading = (obj: unknown): obj is EnergyReading => {
@@ -178,7 +178,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
   // Check if user has a meter connected (without triggering session refresh)
   const checkMeterConnection = useCallback(async () => {
-    if (!user || meterConnectionChecked) return false;
+    if (!isAuthenticated || !user || meterConnectionChecked) return false;
     
     try {
       console.log('Checking meter connection for user:', user.id);
@@ -964,54 +964,9 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
             console.warn('Invalid energy reading received from subscription:', payload.new);
           }
         })
-        .on('subscription_error', (error) => {
-          console.error('Real-time subscription error:', error);
-          // Attempt to resubscribe after a delay
-          if (subscriptionActive) {
-            setTimeout(() => {
-              if (subscriptionActive) {
-                console.log('Attempting to resubscribe to energy readings...');
-                try {
-                  supabase.removeChannel(readingsSubscription!);
-                  readingsSubscription = supabase
-                    .channel(`energy_readings_${user.id}_${meterNumber.current}_${energyProvider}_retry`)
-                    .on('postgres_changes', {
-                      event: 'INSERT',
-                      schema: 'public',
-                      table: 'energy_readings',
-                      filter: `user_id=eq.${user.id}&meter_number=eq.${meterNumber.current}`
-                    }, (payload) => {
-                      if (isValidEnergyReading(payload.new)) {
-                        // Create a properly typed EnergyReading object for retry
-                        const reading: EnergyReading = {
-                          id: payload.new.id,
-                          user_id: payload.new.user_id,
-                          meter_number: payload.new.meter_number,
-                          kwh_consumed: payload.new.kwh_consumed,
-                          total_cost: payload.new.total_cost,
-                          reading_date: payload.new.reading_date,
-                          cost_per_kwh: payload.new.cost_per_kwh,
-                          peak_usage: payload.new.peak_usage,
-                          off_peak_usage: payload.new.off_peak_usage,
-                          battery_state: payload.new.battery_state,
-                          power_generated: payload.new.power_generated,
-                          load_consumption: payload.new.load_consumption,
-                          battery_count: payload.new.battery_count
-                        };
-                        processNewReading(reading);
-                      }
-                    })
-        .subscribe((status: string, err?: Error, ref?: any) => {
+        .subscribe((status: string) => {
           console.log(`Energy readings subscription status: ${status}`);
-        }, 1000);
-                } catch (retryError) {
-                  console.error('Failed to resubscribe:', retryError);
-                }
-              }
-            }, 5000); // Retry after 5 seconds
-          }
-        })
-        .subscribe();
+        });
     } catch (error) {
       console.error('Error setting up real-time subscriptions:', error);
     }

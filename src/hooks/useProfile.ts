@@ -43,7 +43,7 @@ export const useProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, session } = useAuth();
+  const { user, session, isAuthenticated } = useAuth();
   const { toast } = useToast();
   
   // Control refs
@@ -69,7 +69,7 @@ export const useProfile = () => {
   // Optimized fetch function with better error handling
   const fetchProfile = useCallback(async (showToasts: boolean = false) => {
     // Early returns to prevent unnecessary calls
-    if (!user || !session) {
+    if (!isAuthenticated || !user || !session) {
       setProfile(null);
       setLoading(false);
       setError(null);
@@ -211,7 +211,7 @@ export const useProfile = () => {
         isInitialized.current = true;
       }
     }
-  }, [user?.id, user?.email, user?.user_metadata, session?.expires_at, isSessionValid, toast]);
+  }, [user?.id, user?.email, user?.user_metadata, session?.expires_at, isSessionValid, isAuthenticated, toast]);
 
   // Optimized update function
   const updateProfile = useCallback(async (updates: Partial<Omit<Profile, 'id' | 'created_at'>>) => {

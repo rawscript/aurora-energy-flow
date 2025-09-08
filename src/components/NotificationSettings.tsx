@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Loader2, Bell, AlertTriangle, Battery, Zap, DollarSign } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useProfileFixed as useProfile } from '@/hooks/useProfileFixed';
+import { useProfile } from '@/hooks/useProfile';
 
 interface NotificationPreferences {
   token_low: boolean;

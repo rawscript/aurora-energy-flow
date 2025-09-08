@@ -12,13 +12,14 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 }
 
 // Create the Supabase client with optimized configuration
+// Disable auto refresh to prevent self-triggered refreshes
 const supabase = createClient<Database>(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY,
   {
     auth: {
       persistSession: true,
-      autoRefreshToken: true,
+      autoRefreshToken: false, // Disable auto refresh to prevent self-triggered refreshes
       detectSessionInUrl: true,
       flowType: 'pkce'
     },

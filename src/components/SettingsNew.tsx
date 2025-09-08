@@ -9,7 +9,7 @@ import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Z
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getEnergySettings, saveEnergySettings } from '@/utils/energySettings';
-import { useProfileFixed as useProfile } from '@/hooks/useProfileFixed';
+import { useProfile } from '@/hooks/useProfile';
 import type { EnergySettings } from '@/utils/energySettings';
 
 interface NotificationPreferences {
@@ -374,34 +374,4 @@ const SettingsNew = () => {
 };
 
 export default SettingsNew;
-    </rewrite_file>      </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
-    </rewrite_file>
+    

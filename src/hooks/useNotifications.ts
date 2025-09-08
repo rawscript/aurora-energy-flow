@@ -81,15 +81,15 @@ export const useNotifications = () => {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const { user, session } = useAuth();
+  const { user, session, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   // Stable user ID reference to prevent unnecessary re-renders
   const userId = useMemo(() => user?.id || null, [user?.id]);
   const hasValidSession = useMemo(() => 
-    Boolean(session?.access_token && !session.expires_at || 
+    isAuthenticated && Boolean(session?.access_token && !session.expires_at || 
            (session.expires_at && session.expires_at > Math.floor(Date.now() / 1000))), 
-    [session?.access_token, session?.expires_at]
+    [isAuthenticated, session?.access_token, session?.expires_at]
   );
 
   // Refs for managing API calls and state

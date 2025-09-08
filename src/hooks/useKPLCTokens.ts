@@ -12,7 +12,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, session } = useAuth();
+  const { user, session, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
@@ -23,15 +23,16 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
   // Safe session check without triggering auth issues
   const hasValidSession = useCallback(() => {
-    const valid = user && session && !loading;
+    const valid = isAuthenticated && user && session && !loading;
     console.log('hasValidSession check:', {
+      isAuthenticated,
       user: !!user,
       session: !!session,
       loading,
       valid
     });
     return valid;
-  }, [user, session, loading]);
+  }, [isAuthenticated, user, session, loading]);
 
   // Get user's meter number safely with retry logic
   const getMeterNumber = useCallback(async (): Promise<string | null> => {
