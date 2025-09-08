@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +53,25 @@ interface NotificationPreferences {
   setup_status: Record<string, boolean>;
 }
 
+// Constants for consistent timing and rate limiting
+const API_CALL_DEBOUNCE = 2000; // 2 seconds between API calls
+const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff delays
+const UPDATE_THROTTLE = 1500; // Throttle real-time updates
+const MAX_NOTIFICATIONS = 100; // Prevent memory issues
+
+// Utility function to debounce API calls
+const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): T => {
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return ((...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  }) as T;
+};
+
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -61,506 +80,308 @@ export const useNotifications = () => {
   const [status, setStatus] = useState<NotificationStatus | null>(null);
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
   const { user, session } = useAuth();
   const { toast } = useToast();
 
-  // Refs to prevent multiple subscriptions and fetches
+  // Stable user ID reference to prevent unnecessary re-renders
+  const userId = useMemo(() => user?.id || null, [user?.id]);
+  const hasValidSession = useMemo(() => 
+    Boolean(session?.access_token && !session.expires_at || 
+           (session.expires_at && session.expires_at > Math.floor(Date.now() / 1000))), 
+    [session?.access_token, session?.expires_at]
+  );
+
+  // Refs for managing API calls and state
   const subscriptionRef = useRef<any>(null);
-  const fetchingRef = useRef(false);
-  const lastFetchTime = useRef<number>(0);
-  const lastNotificationTime = useRef<number>(0);
-  const FETCH_COOLDOWN = 2000; // 2 seconds minimum between fetches
+  const lastApiCall = useRef<number>(0);
+  const lastUpdateTime = useRef<number>(0);
+  const isOperationInProgress = useRef(false);
+  const initializationAttempted = useRef(false);
 
-  // Check notification status first (safe check)
-  const checkNotificationStatus = useCallback(async () => {
-    if (!user || !session) {
-      setStatus(null);
+  // Create authenticated Supabase client using current session
+  const getAuthenticatedClient = useCallback(() => {
+    if (!session?.access_token || !hasValidSession) {
+      console.log('No valid session for authenticated client');
       return null;
     }
 
     try {
-      console.log('Checking notification status for user:', user.id);
-
-      // Create default status - assume no notifications exist
-      const defaultStatus: NotificationStatus = {
-        has_notifications: false,
-        total_count: 0,
-        unread_count: 0,
-        notification_types: [],
-        notifications_table_exists: false,
-        ai_alerts_table_exists: false,
-        status: 'empty'
-      };
-
-      // Try to check if notification functions exist, but don't fail if they don't
-      try {
-        const { data, error } = await supabase
-          .rpc('check_user_notification_initialization', {
-            p_user_id: user.id
-          });
-
-        if (error) {
-          console.log('Notification functions not available:', error.message);
-          setStatus(defaultStatus);
-          setUnreadCount(0);
-          return defaultStatus;
-        }
-
-        // If the function exists and returns data, process it
-        const needsInitialization = data as boolean;
-
-        if (needsInitialization) {
-          console.log('User needs notification initialization');
-          // Try to initialize notifications for the user
-          try {
-            await supabase.rpc('initialize_user_notifications', {
-              p_user_id: user.id
-            });
-          } catch (initError) {
-            console.log('Could not initialize notifications:', initError);
-          }
-        }
-
-        // Try to fetch the actual notification status
-        try {
-          const { data: statusData, error: statusError } = await supabase
-            .rpc('get_user_notifications_safe', {
-              p_user_id: user.id,
-              p_limit: 1,
-              p_unread_only: false
-            });
-
-          if (statusError) {
-            console.log('Could not fetch notification status:', statusError.message);
-            setStatus(defaultStatus);
-            setUnreadCount(0);
-            return defaultStatus;
-          }
-
-          // If we got data, use it to set the status
-          const transformedStatus: NotificationStatus = {
-            has_notifications: statusData && statusData.length > 0,
-            total_count: statusData ? statusData.length : 0,
-            unread_count: statusData ? statusData.filter((n: any) => !n.is_read).length : 0,
-            last_notification_date: statusData && statusData.length > 0 ? statusData[0].created_at : undefined,
-            notification_types: statusData ? [...new Set(statusData.map((n: any) => n.type))] : [],
-            notifications_table_exists: true,
-            ai_alerts_table_exists: false,
-            status: statusData && statusData.length > 0 ? (statusData.some((n: any) => !n.is_read) ? 'has_unread' : 'all_read') : 'empty'
-          };
-
-          setStatus(transformedStatus);
-          setUnreadCount(transformedStatus.unread_count);
-
-          console.log('Notification status:', transformedStatus);
-          return transformedStatus;
-        } catch (fetchError) {
-          console.log('Error fetching notifications:', fetchError);
-          setStatus(defaultStatus);
-          setUnreadCount(0);
-          return defaultStatus;
-        }
-      } catch (checkError) {
-        console.log('Notification system not available:', checkError);
-        setStatus(defaultStatus);
-        setUnreadCount(0);
-        return defaultStatus;
-      }
+      // Use the existing client with current session
+      return supabase;
     } catch (error) {
-      console.log('Exception in notification status check:', error);
-      const defaultStatus: NotificationStatus = {
-        has_notifications: false,
-        total_count: 0,
-        unread_count: 0,
-        notification_types: [],
-        notifications_table_exists: false,
-        ai_alerts_table_exists: false,
-        status: 'empty'
-      };
-      setStatus(defaultStatus);
-      setUnreadCount(0);
-      return defaultStatus;
+      console.error('Error creating authenticated client:', error);
+      return null;
     }
-  }, [user, session]);
+  }, [session?.access_token, hasValidSession]);
 
-  // Get notification preferences
-  const getNotificationPreferences = useCallback(async () => {
-    if (!user || !session) {
-      setPreferences(null);
+  // Fetch notifications using existing RPC functions
+  const fetchNotificationData = useCallback(async (force = false) => {
+    if (!userId || !hasValidSession) {
+      console.log('No user or session, skipping notification fetch');
       return null;
     }
 
+    // Rate limiting
+    const now = Date.now();
+    if (!force && (now - lastApiCall.current) < API_CALL_DEBOUNCE) {
+      console.log('API call rate limited');
+      return null;
+    }
+
+    if (isOperationInProgress.current) {
+      console.log('Operation already in progress');
+      return null;
+    }
+
+    const client = getAuthenticatedClient();
+    if (!client) {
+      console.log('No authenticated client available');
+      return null;
+    }
+
+    isOperationInProgress.current = true;
+    lastApiCall.current = now;
+
     try {
-      let preferencesData = null;
-      let preferencesError = null;
+      console.log('Fetching notification data for user:', userId);
 
+      // Check if user needs initialization first
+      let needsInit = false;
       try {
-        const { data, error } = await supabase
-          .rpc('get_notification_preferences', {
-            p_user_id: user.id
-          });
-
-        preferencesData = data;
-        preferencesError = error;
-      } catch (error) {
-        console.error('Error calling get_notification_preferences:', error);
-        preferencesError = error;
-      }
-
-      // If get_notification_preferences fails, use fallback logic
-      if (preferencesError) {
-        console.error('Error getting notification preferences:', preferencesError);
-
-        // Check if the error is a 404 (function not found)
-        if (preferencesError.code === 'PGRST202' || preferencesError.message.includes('404')) {
-          console.log('get_notification_preferences not found, using fallback logic');
-
-          // Try to fetch profile data to get notification preferences
-          try {
-            const { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('notification_preferences, meter_category, notifications_enabled')
-              .eq('id', user.id)
-              .single() as { data: ProfileData | null, error: any | null };
-
-            if (profileError) {
-              console.error('Error fetching profile for notification preferences:', profileError);
-
-              // Create a fallback preferences object with default values
-              const fallbackPreferences: NotificationPreferences = {
-                preferences: {
-                  token_low: true,
-                  token_depleted: true,
-                  power_restored: true,
-                  energy_alert: true,
-                  low_balance_alert: true
-                },
-                has_meter: false,
-                meter_category: 'residential',
-                contact_methods: {
-                  email: true,
-                  push: true,
-                  sms: false
-                },
-                setup_status: {
-                  meter_setup: false,
-                  notifications_enabled: true
-                }
-              };
-
-              setPreferences(fallbackPreferences);
-              return fallbackPreferences;
-            } else if (profileData) {
-              // Create a fallback preferences object with data from the profile
-              const fallbackPreferences: NotificationPreferences = {
-                preferences: profileData.notification_preferences || {
-                  token_low: true,
-                  token_depleted: true,
-                  power_restored: true,
-                  energy_alert: true,
-                  low_balance_alert: true
-                },
-                has_meter: !!profileData.meter_category,
-                meter_category: profileData.meter_category || 'residential',
-                contact_methods: {
-                  email: true,
-                  push: true,
-                  sms: false
-                },
-                setup_status: {
-                  meter_setup: !!profileData.meter_category,
-                  notifications_enabled: profileData.notifications_enabled !== false // Default to true
-                }
-              };
-
-              setPreferences(fallbackPreferences);
-              return fallbackPreferences;
-            }
-          } catch (error) {
-            console.error('Error in fallback logic:', error);
-
-            // Create a fallback preferences object with default values
-            const fallbackPreferences: NotificationPreferences = {
-              preferences: {
-                token_low: true,
-                token_depleted: true,
-                power_restored: true,
-                energy_alert: true,
-                low_balance_alert: true
-              },
-              has_meter: false,
-              meter_category: 'residential',
-              contact_methods: {
-                email: true,
-                push: true,
-                sms: false
-              },
-              setup_status: {
-                meter_setup: false,
-                notifications_enabled: true
-              }
-            };
-
-            setPreferences(fallbackPreferences);
-            return fallbackPreferences;
+        const { data: initData, error: initError } = await client
+          .rpc('check_user_notification_initialization', { p_user_id: userId });
+        
+        if (!initError) {
+          needsInit = initData as boolean;
+          if (needsInit) {
+            console.log('Initializing user notifications...');
+            await client.rpc('initialize_user_notifications', { p_user_id: userId });
           }
         }
-
-        return null;
+      } catch (error) {
+        console.log('Initialization check failed:', error);
+        // Continue anyway, might still be able to fetch notifications
       }
 
-      // Transform the data to match our NotificationPreferences interface
-      if (preferencesData && preferencesData.length > 0) {
+      // Fetch notifications using the safe function
+      const { data: notifications, error: notifError } = await client
+        .rpc('get_user_notifications_safe', {
+          p_user_id: userId,
+          p_limit: MAX_NOTIFICATIONS,
+          p_unread_only: false
+        });
+
+      if (notifError) {
+        console.error('Error fetching notifications:', notifError);
+        throw notifError;
+      }
+
+      // Fetch preferences separately
+      let preferences = null;
+      try {
+        const { data: prefData, error: prefError } = await client
+          .rpc('get_notification_preferences', { p_user_id: userId });
+        
+        if (!prefError) {
+          preferences = prefData;
+        } else {
+          console.log('Could not fetch preferences:', prefError);
+        }
+      } catch (error) {
+        console.log('Error fetching preferences:', error);
+        // Don't fail the whole operation if preferences fail
+      }
+
+      return {
+        notifications: notifications || [],
+        preferences: preferences || null,
+        needs_initialization: needsInit
+      };
+
+    } catch (error) {
+      console.error('Error fetching notification data:', error);
+      throw error;
+    } finally {
+      isOperationInProgress.current = false;
+    }
+  }, [userId, hasValidSession, getAuthenticatedClient]);
+
+  // Debounced fetch function
+  const debouncedFetch = useMemo(
+    () => debounce(fetchNotificationData, API_CALL_DEBOUNCE),
+    [fetchNotificationData]
+  );
+
+  // Process fetched data and update state
+  const processNotificationData = useCallback((data: any) => {
+    if (!data) return;
+
+    try {
+      const { notifications: notifData, preferences: prefData } = data;
+
+      // Transform notifications
+      const transformedNotifications: Notification[] = (notifData || []).map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        severity: n.severity,
+        isRead: n.is_read,
+        tokenBalance: n.token_balance,
+        estimatedDays: n.estimated_days,
+        metadata: n.metadata,
+        createdAt: n.created_at,
+        updatedAt: n.updated_at,
+        expiresAt: n.expires_at,
+        sourceTable: n.source_table || 'notifications'
+      }));
+
+      // Update state efficiently
+      setNotifications(prev => {
+        const hasChanged = JSON.stringify(prev) !== JSON.stringify(transformedNotifications);
+        return hasChanged ? transformedNotifications : prev;
+      });
+
+      const newUnreadCount = transformedNotifications.filter(n => !n.isRead).length;
+      setUnreadCount(prev => prev !== newUnreadCount ? newUnreadCount : prev);
+
+      // Update status
+      const newStatus: NotificationStatus = {
+        has_notifications: transformedNotifications.length > 0,
+        total_count: transformedNotifications.length,
+        unread_count: newUnreadCount,
+        last_notification_date: transformedNotifications[0]?.createdAt,
+        notification_types: [...new Set(transformedNotifications.map(n => n.type))],
+        notifications_table_exists: true,
+        ai_alerts_table_exists: false,
+        status: transformedNotifications.length === 0 ? 'empty' : 
+                (newUnreadCount > 0 ? 'has_unread' : 'all_read')
+      };
+
+      setStatus(newStatus);
+
+      // Update preferences if available
+      if (prefData) {
         const transformedPreferences: NotificationPreferences = {
           preferences: {
-            token_low: preferencesData[0].token_low,
-            token_depleted: preferencesData[0].token_depleted,
-            power_restored: preferencesData[0].power_restored,
-            energy_alert: preferencesData[0].energy_alert,
-            low_balance_alert: preferencesData[0].low_balance_alert
+            token_low: prefData.token_low ?? true,
+            token_depleted: prefData.token_depleted ?? true,
+            power_restored: prefData.power_restored ?? true,
+            energy_alert: prefData.energy_alert ?? true,
+            low_balance_alert: prefData.low_balance_alert ?? true
           },
-          has_meter: false, // Will be updated when we fetch profile data
-          meter_category: 'residential', // Default value
+          has_meter: Boolean(prefData.meter_category),
+          meter_category: prefData.meter_category || 'residential',
           contact_methods: {
             email: true,
             push: true,
             sms: false
           },
           setup_status: {
-            meter_setup: false,
-            notifications_enabled: true
+            meter_setup: Boolean(prefData.meter_category),
+            notifications_enabled: prefData.notifications_enabled !== false
           }
         };
 
         setPreferences(transformedPreferences);
-        return transformedPreferences;
       }
 
-      return null;
+      console.log(`Processed ${transformedNotifications.length} notifications, ${newUnreadCount} unread`);
     } catch (error) {
-      console.error('Exception getting notification preferences:', error);
-      return null;
+      console.error('Error processing notification data:', error);
     }
-  }, [user, session]);
+  }, []);
 
-  // Check and fetch notifications safely
-  const checkAndFetchNotifications = useCallback(async (force = false) => {
-    if (!user || !session) {
-      setNotifications([]);
-      setUnreadCount(0);
-      setStatus(null);
-      setError(null);
-      setLoading(false);
-      return;
+  // Main initialization function with retry logic
+  const initializeNotifications = useCallback(async (force = false) => {
+    if (!userId || !hasValidSession) return;
+    
+    if (!force && (initialized || initializationAttempted.current)) return;
+
+    console.log('Initializing notifications for user:', userId);
+    setLoading(true);
+    setError(null);
+    initializationAttempted.current = true;
+
+    let lastError: any = null;
+
+    // Retry with exponential backoff
+    for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+      try {
+        const data = await fetchNotificationData(true);
+        if (data) {
+          processNotificationData(data);
+          setInitialized(true);
+          setError(null);
+          console.log('Notifications initialized successfully');
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        lastError = error;
+        console.error(`Initialization attempt ${attempt + 1} failed:`, error);
+        
+        // Don't retry on auth errors
+        if (error.message?.includes('JWT') || error.message?.includes('auth')) {
+          break;
+        }
+
+        // Wait before retry
+        if (attempt < RETRY_DELAYS.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+        }
+      }
     }
 
-    // Prevent rapid successive calls
-    const now = Date.now();
-    if (!force && fetchingRef.current) {
-      console.log('Fetch already in progress, skipping');
-      return;
-    }
+    console.error('Failed to initialize notifications after retries:', lastError);
+    setError('Failed to load notifications');
+    setInitialized(true); // Mark as initialized even if failed to prevent infinite retries
+    setLoading(false);
+  }, [userId, hasValidSession, initialized, fetchNotificationData, processNotificationData]);
 
-    if (!force && (now - lastFetchTime.current) < FETCH_COOLDOWN) {
-      console.log('Fetch cooldown active, skipping');
-      return;
-    }
+  // Refresh notifications (public method)
+  const refreshNotifications = useCallback(async () => {
+    if (!userId || !hasValidSession) return;
 
     try {
-      fetchingRef.current = true;
-      lastFetchTime.current = now;
+      setLoading(true);
       setError(null);
-
-      if (!initialized) {
-        setLoading(true);
+      const data = await fetchNotificationData(true);
+      if (data) {
+        processNotificationData(data);
       }
-
-      // First, check the status to see if we have any notifications
-      const currentStatus = await checkNotificationStatus();
-
-      if (!currentStatus) {
-        setLoading(false);
-        setError('Unable to check notification status');
-        return;
-      }
-
-      // If no notifications exist, don't try to fetch them
-      if (!currentStatus.has_notifications) {
-        console.log('No notifications found for user');
-        setNotifications([]);
-        setUnreadCount(0);
-
-        // Check if user needs initialization (new user)
-        try {
-          const { data: needsInit } = await supabase
-            .rpc('check_user_notification_initialization', {
-              p_user_id: user.id
-            });
-
-          if (needsInit) {
-            console.log('Initializing notifications for new user');
-            await supabase.rpc('initialize_user_notifications', {
-              p_user_id: user.id
-            });
-
-            // Recheck status after initialization
-            setTimeout(() => checkNotificationStatus(), 1000);
-          }
-        } catch (initError) {
-          console.error('Error checking/initializing user notifications:', initError);
-        }
-
-        if (!initialized) {
-          setInitialized(true);
-        }
-        setLoading(false);
-        return;
-      }
-
-      console.log('Fetching notifications using safe function for user:', user.id);
-
-      // Use the safe function to get notifications
-      let notificationsData = [];
-      let notificationsError = null;
-
-      try {
-        const { data, error } = await supabase
-          .rpc('get_user_notifications_safe', {
-            p_user_id: user.id,
-            p_limit: 50,
-            p_unread_only: false
-          });
-
-        notificationsData = data;
-        notificationsError = error;
-      } catch (error) {
-        console.error('Error calling get_user_notifications_safe:', error);
-        notificationsError = error;
-      }
-
-      // If get_user_notifications_safe fails, try using check_user_notification_initialization as fallback
-      if (notificationsError) {
-        console.error('Error fetching notifications with get_user_notifications_safe:', notificationsError);
-
-        // Check if the error is a 404 (function not found)
-        if (notificationsError.code === 'PGRST202' || notificationsError.message.includes('404')) {
-          console.log('get_user_notifications_safe not found, using fallback logic');
-
-          // Use check_user_notification_initialization to determine if notifications exist
-          const { data: initData, error: initError } = await supabase
-            .rpc('check_user_notification_initialization', {
-              p_user_id: user.id
-            });
-
-          if (initError) {
-            console.error('Error checking notification initialization:', initError);
-          } else if (initData) {
-            const needsInitialization = initData as boolean;
-            if (needsInitialization) {
-              console.log('User needs notification initialization');
-              await supabase.rpc('initialize_user_notifications', {
-                p_user_id: user.id
-              });
-            }
-          }
-        }
-
-        // Set empty state if fallback also fails or no notifications exist
-        setError('Failed to load notifications');
-        setNotifications([]);
-        setUnreadCount(0);
-
-        if (!initialized) {
-          setInitialized(true);
-        }
-        setLoading(false);
-        return;
-      }
-
-      // Transform the data
-      const transformedNotifications: Notification[] = (notificationsData || []).map(notification => ({
-        id: notification.id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        severity: notification.severity,
-        isRead: notification.is_read,
-        tokenBalance: notification.token_balance,
-        estimatedDays: notification.estimated_days,
-        metadata: notification.metadata,
-        createdAt: notification.created_at,
-        updatedAt: notification.updated_at,
-        expiresAt: notification.expires_at,
-        sourceTable: notification.source_table
-      }));
-
-      // Update state only if data has changed
-      setNotifications(prevNotifications => {
-        const hasChanged = JSON.stringify(prevNotifications) !== JSON.stringify(transformedNotifications);
-        if (hasChanged) {
-          console.log(`Notifications updated: ${transformedNotifications.length} notifications`);
-        }
-        return hasChanged ? transformedNotifications : prevNotifications;
-      });
-
-      const newUnreadCount = transformedNotifications.filter(n => !n.isRead).length;
-      setUnreadCount(prevCount => {
-        if (prevCount !== newUnreadCount) {
-          console.log(`Unread count updated: ${newUnreadCount}`);
-        }
-        return newUnreadCount;
-      });
-
-      if (!initialized) {
-        setInitialized(true);
-      }
-
     } catch (error) {
-      console.error('Error in checkAndFetchNotifications:', error);
-      setError('Failed to load notifications');
-
-      // Don't show error toast for every failure, just set error state
-      if (!initialized) {
-        setInitialized(true);
-      }
+      console.error('Error refreshing notifications:', error);
+      setError('Failed to refresh notifications');
     } finally {
       setLoading(false);
-      fetchingRef.current = false;
     }
-  }, [user, session, initialized, checkNotificationStatus]);
+  }, [userId, hasValidSession, fetchNotificationData, processNotificationData]);
 
-  // Mark notification as read using database function
+  // Optimized notification actions using session-aware client
   const markAsRead = useCallback(async (notificationId: string) => {
-    if (!user || !session) return false;
+    if (!userId || !hasValidSession) return false;
+
+    const client = getAuthenticatedClient();
+    if (!client) return false;
 
     try {
-      console.log('Marking notification as read:', notificationId);
+      const { data, error } = await client.rpc('mark_notification_read', {
+        p_user_id: userId,
+        p_notification_id: notificationId
+      });
 
-      const { data, error } = await supabase
-        .rpc('mark_notification_read', {
-          p_user_id: user.id,
-          p_notification_id: notificationId
-        });
-
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
-        // Update local state immediately for better UX
+        // Optimistic update
         setNotifications(prev =>
-          prev.map(notification =>
-            notification.id === notificationId
-              ? { ...notification, isRead: true, updatedAt: new Date().toISOString() }
-              : notification
-          )
+          prev.map(n => n.id === notificationId ? { ...n, isRead: true, updatedAt: new Date().toISOString() } : n)
         );
-
         setUnreadCount(prev => Math.max(0, prev - 1));
         return true;
       }
-
-      return false;
     } catch (error) {
       console.error('Error marking notification as read:', error);
       toast({
@@ -568,50 +389,36 @@ export const useNotifications = () => {
         description: 'Could not mark notification as read.',
         variant: 'destructive'
       });
-      return false;
     }
-  }, [user, session, toast]);
+    
+    return false;
+  }, [userId, hasValidSession, getAuthenticatedClient, toast]);
 
-  // Mark all notifications as read using database function
   const markAllAsRead = useCallback(async () => {
-    if (!user || !session) return false;
+    if (!userId || !hasValidSession) return false;
+
+    const client = getAuthenticatedClient();
+    if (!client) return false;
 
     try {
-      console.log('Marking all notifications as read');
+      const { data, error } = await client.rpc('mark_all_notifications_read', {
+        p_user_id: userId
+      });
 
-      const { data, error } = await supabase
-        .rpc('mark_all_notifications_read', {
-          p_user_id: user.id
-        });
-
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const updatedCount = data || 0;
-
       if (updatedCount > 0) {
-        // Update local state immediately
         const now = new Date().toISOString();
-        setNotifications(prev =>
-          prev.map(notification => ({
-            ...notification,
-            isRead: true,
-            updatedAt: now
-          }))
-        );
-
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true, updatedAt: now })));
         setUnreadCount(0);
 
         toast({
           title: 'All notifications marked as read',
           description: `${updatedCount} notifications marked as read.`,
         });
-
         return true;
       }
-
-      return false;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
       toast({
@@ -619,32 +426,29 @@ export const useNotifications = () => {
         description: 'Could not mark all notifications as read.',
         variant: 'destructive'
       });
-      return false;
     }
-  }, [user, session, toast]);
+    
+    return false;
+  }, [userId, hasValidSession, getAuthenticatedClient, toast]);
 
-  // Delete notification using database function
   const deleteNotification = useCallback(async (notificationId: string) => {
-    if (!user || !session) return false;
+    if (!userId || !hasValidSession) return false;
+
+    const client = getAuthenticatedClient();
+    if (!client) return false;
 
     try {
-      console.log('Deleting notification:', notificationId);
+      const { data, error } = await client.rpc('delete_notification', {
+        p_user_id: userId,
+        p_notification_id: notificationId
+      });
 
-      const { data, error } = await supabase
-        .rpc('delete_notification', {
-          p_user_id: user.id,
-          p_notification_id: notificationId
-        });
-
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       if (data) {
-        // Update local state immediately
         const deletedNotification = notifications.find(n => n.id === notificationId);
-        setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
-
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
+        
         if (deletedNotification && !deletedNotification.isRead) {
           setUnreadCount(prev => Math.max(0, prev - 1));
         }
@@ -653,11 +457,8 @@ export const useNotifications = () => {
           title: 'Notification deleted',
           description: 'The notification has been removed.',
         });
-
         return true;
       }
-
-      return false;
     } catch (error) {
       console.error('Error deleting notification:', error);
       toast({
@@ -665,103 +466,14 @@ export const useNotifications = () => {
         description: 'Could not delete notification.',
         variant: 'destructive'
       });
-      return false;
     }
-  }, [user, session, toast, notifications]);
+    
+    return false;
+  }, [userId, hasValidSession, getAuthenticatedClient, notifications, toast]);
 
-  // Delete all read notifications using database function
-  const deleteAllRead = useCallback(async () => {
-    if (!user || !session) return false;
-
-    try {
-      console.log('Deleting all read notifications');
-
-      const { data, error } = await supabase
-        .rpc('delete_read_notifications', {
-          p_user_id: user.id
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      const deletedCount = data || 0;
-
-      if (deletedCount > 0) {
-        // Update local state immediately
-        setNotifications(prev => prev.filter(notification => !notification.isRead));
-
-        toast({
-          title: 'Read notifications deleted',
-          description: `${deletedCount} read notifications have been removed.`,
-        });
-
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Error deleting read notifications:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not delete read notifications.',
-        variant: 'destructive'
-      });
-      return false;
-    }
-  }, [user, session, toast]);
-
-  // Create a new notification using database function
-  const createNotification = useCallback(async (notification: {
-    title: string;
-    message: string;
-    type?: string;
-    severity?: string;
-    tokenBalance?: number;
-    estimatedDays?: number;
-    metadata?: any;
-    expiresAt?: string;
-  }) => {
-    if (!user || !session) return false;
-
-    try {
-      console.log('Creating notification:', notification.title);
-
-      const { data: notificationData, error } = await supabase
-        .rpc('create_notification', {
-          p_user_id: user.id,
-          p_title: notification.title,
-          p_message: notification.message,
-          p_type: notification.type || 'info',
-          p_severity: notification.severity || 'low',
-          p_token_balance: notification.tokenBalance,
-          p_estimated_days: notification.estimatedDays,
-          p_metadata: notification.metadata,
-          p_expires_at: notification.expiresAt
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      if (notificationData) {
-        // The real-time subscription will handle adding the notification to state
-        console.log('Notification created with ID:', notificationData);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      return false;
-    }
-  }, [user, session]);
-
-  // Get quick actions for a notification
   const getNotificationActions = useCallback((notification: Notification): NotificationAction[] => {
     const actions: NotificationAction[] = [];
 
-    // Mark as read/unread action
     if (!notification.isRead) {
       actions.push({
         id: 'mark-read',
@@ -771,59 +483,15 @@ export const useNotifications = () => {
       });
     }
 
-    // Token-specific actions
     if (notification.type === 'token_low' || notification.type === 'token_depleted') {
       actions.push({
         id: 'buy-tokens',
         label: 'Buy Tokens',
-        action: () => {
-          window.location.hash = '#tokens';
-        },
+        action: () => window.location.hash = '#tokens',
         variant: 'default'
       });
     }
 
-    // Token purchase actions
-    if (notification.type === 'token_purchase' && notification.metadata?.token_code) {
-      actions.push({
-        id: 'copy-code',
-        label: 'Copy Token Code',
-        action: () => {
-          navigator.clipboard.writeText(notification.metadata.token_code);
-          toast({
-            title: 'Token code copied',
-            description: 'Token code has been copied to clipboard.',
-          });
-        },
-        variant: 'outline'
-      });
-    }
-
-    // Setup actions
-    if (notification.type === 'setup_required') {
-      actions.push({
-        id: 'setup-meter',
-        label: 'Setup Meter',
-        action: () => {
-          window.location.hash = '#settings';
-        },
-        variant: 'default'
-      });
-    }
-
-    // High usage actions
-    if (notification.type === 'high_usage' || notification.type === 'efficiency_alert') {
-      actions.push({
-        id: 'view-insights',
-        label: 'View Insights',
-        action: () => {
-          window.location.hash = '#insights';
-        },
-        variant: 'outline'
-      });
-    }
-
-    // Delete action (always available)
     actions.push({
       id: 'delete',
       label: 'Delete',
@@ -832,18 +500,13 @@ export const useNotifications = () => {
     });
 
     return actions;
-  }, [markAsRead, deleteNotification, toast]);
+  }, [markAsRead, deleteNotification]);
 
-  // Initialize notifications when user changes
+  // Initialize notifications when user/session changes
   useEffect(() => {
-    if (user && session && !initialized) {
-      console.log('Initializing notifications for user:', user.id);
-
-      // Get preferences first, then check notifications
-      getNotificationPreferences().then(() => {
-        checkAndFetchNotifications(true);
-      });
-    } else if (!user) {
+    if (userId && hasValidSession && !initialized && !initializationAttempted.current) {
+      initializeNotifications();
+    } else if (!userId || !hasValidSession) {
       // Reset state when user logs out
       setNotifications([]);
       setUnreadCount(0);
@@ -852,44 +515,40 @@ export const useNotifications = () => {
       setError(null);
       setLoading(false);
       setInitialized(false);
-      lastFetchTime.current = 0;
-      lastNotificationTime.current = 0;
+      initializationAttempted.current = false;
     }
-  }, [user, session, initialized, checkAndFetchNotifications, getNotificationPreferences]);
+  }, [userId, hasValidSession, initialized, initializeNotifications]);
 
-  // Set up real-time subscription for notifications
+  // Set up real-time subscription with throttling
   useEffect(() => {
-    if (!user || !session || !initialized) return;
+    if (!userId || !hasValidSession || !initialized) return;
 
-    let subscriptionActive = true;
-
-    // Clean up any existing subscription
+    // Clean up existing subscription
     if (subscriptionRef.current) {
       supabase.removeChannel(subscriptionRef.current);
-      subscriptionRef.current = null;
     }
 
-    subscriptionRef.current = supabase
-      .channel(`notifications_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        (payload: { eventType: string; new?: any; old?: any }) => {
-        try {
-          const now = Date.now();
-          if (now - lastNotificationTime.current < 1000) { // Throttle updates
-            console.log('Throttling notification updates');
-            return;
-          }
-          lastNotificationTime.current = now;
+    console.log('Setting up notification subscription for user:', userId);
 
+    subscriptionRef.current = supabase
+      .channel(`notifications_${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      }, (payload) => {
+        const now = Date.now();
+        
+        // Throttle updates to prevent excessive re-renders
+        if (now - lastUpdateTime.current < UPDATE_THROTTLE) {
+          console.log('Throttling notification update');
+          return;
+        }
+        lastUpdateTime.current = now;
+
+        try {
           if (payload.eventType === 'INSERT' && payload.new) {
-            // Add new notification to state
             const newNotification: Notification = {
               id: payload.new.id,
               title: payload.new.title,
@@ -907,91 +566,48 @@ export const useNotifications = () => {
             };
 
             setNotifications(prev => {
-              // Check if notification already exists
-              if (prev.some(n => n.id === newNotification.id)) {
-                return prev;
-              }
-              // Limit the number of notifications to prevent memory issues
-              const limitedPrev = prev.slice(0, 99); // Keep max 100 notifications
-              return [newNotification, ...limitedPrev];
+              if (prev.some(n => n.id === newNotification.id)) return prev;
+              return [newNotification, ...prev.slice(0, MAX_NOTIFICATIONS - 1)];
             });
 
             if (!newNotification.isRead) {
               setUnreadCount(prev => prev + 1);
-            }
-
-            // Show toast for important new notifications (except welcome messages)
-            if (!newNotification.isRead &&
-                newNotification.type !== 'welcome' &&
-                newNotification.severity !== 'low') {
-              toast({
-                title: newNotification.title,
-                description: newNotification.message,
-                duration: 5000,
-              });
+              
+              if (newNotification.type !== 'welcome' && newNotification.severity !== 'low') {
+                toast({
+                  title: newNotification.title,
+                  description: newNotification.message,
+                  duration: 5000,
+                });
+              }
             }
           } else if (payload.eventType === 'UPDATE' && payload.new) {
-            // Update existing notification
             setNotifications(prev =>
-              prev.map(notification =>
-                notification.id === payload.new.id
-                  ? {
-                      ...notification,
-                      isRead: payload.new.is_read,
-                      updatedAt: payload.new.updated_at
-                    }
-                  : notification
+              prev.map(n => n.id === payload.new.id 
+                ? { ...n, isRead: payload.new.is_read, updatedAt: payload.new.updated_at }
+                : n
               )
             );
           } else if (payload.eventType === 'DELETE' && payload.old) {
-            // Remove deleted notification
             setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
             if (!payload.old.is_read) {
               setUnreadCount(prev => Math.max(0, prev - 1));
             }
           }
         } catch (error) {
-          console.error('Error processing notification update:', error);
-          // Log error but don't crash the subscription
-          try {
-            console.error('Notification processing error details:', {
-              error: error,
-              payloadType: payload.eventType,
-              userId: user.id
-            });
-          } catch (logError) {
-            console.error('Error logging notification error:', logError);
-          }
+          console.error('Error processing real-time notification update:', error);
         }
       })
-      .subscribe((status: string) => {
+      .subscribe((status) => {
         console.log('Notification subscription status:', status);
-
-        // Handle subscription status changes
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to notifications');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('Channel error in notification subscription');
-        } else if (status === 'CLOSED') {
-          console.log('Notification subscription closed');
-        } else if (status === 'TIMED_OUT') {
-          console.log('Notification subscription timed out');
-        }
-      }, 5000);
+      });
 
     return () => {
-      subscriptionActive = false;
       if (subscriptionRef.current) {
-        try {
-          console.log('Cleaning up notification subscription');
-          supabase.removeChannel(subscriptionRef.current);
-        } catch (error) {
-          console.error('Error removing notification subscription:', error);
-        }
-        subscriptionRef.current = null;
+        supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [user, session, initialized, toast]);
+  }, [userId, hasValidSession, initialized, toast]);
 
   return {
     notifications,
@@ -1001,14 +617,10 @@ export const useNotifications = () => {
     status,
     preferences,
     error,
-    checkAndFetchNotifications,
-    checkNotificationStatus,
-    getNotificationPreferences,
+    refreshNotifications,
     markAsRead,
     markAllAsRead,
     deleteNotification,
-    deleteAllRead,
-    createNotification,
     getNotificationActions
   };
 };

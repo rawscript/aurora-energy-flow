@@ -654,12 +654,36 @@ export type Database = {
           p_meter_number: string
         }
         Returns: Json
-      }
+      },
       process_notification_queue: {
         Args: {
           p_limit: number
         }
         Returns: Json
+      },
+      get_user_notification_dashboard: {
+        Args: {
+          p_user_id: string
+          p_limit?: number
+        }
+        Returns: {
+          notifications: {
+            id: string
+            title: string
+            message: string
+            type: string
+            severity: string
+            is_read: boolean
+            token_balance: number | null
+            estimated_days: number | null
+            metadata: Json | null
+            created_at: string
+            updated_at: string
+            expires_at: string | null
+            source_table: string
+          }[],
+          preferences: Json | null
+        }
       }
     }
     Enums: {

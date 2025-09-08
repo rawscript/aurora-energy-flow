@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
@@ -9,14 +9,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading, refreshSession } = useAuth();
-
-  // Refresh session when component mounts
-  useEffect(() => {
-    if (user) {
-      refreshSession().catch(console.error);
-    }
-  }, [user, refreshSession]);
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
