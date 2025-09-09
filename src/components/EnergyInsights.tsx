@@ -7,14 +7,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
 
 interface EnergyInsightsProps {
   onNavigateToMeter?: () => void;
-  energyProvider?: string;
 }
 
-const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, energyProvider = 'KPLC' }) => {
-  const { energyData, analytics, loading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy();
+const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) => {
+  const { provider: energyProvider, providerConfig } = useEnergyProvider(); // Get energy provider from context
+  const { energyData, analytics, loading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
   const isMobile = useIsMobile();
 
   // Handle meter setup navigation
@@ -56,12 +57,12 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-2">
-                  {energyProvider === 'Solar' ? 'No Solar Inverter Connected' : 'No Smart Meter Connected'}
+                  {energyProvider === 'Solar' ? 'No Solar Inverter Connected' : `No ${providerConfig.name} ${providerConfig.terminology.device.charAt(0).toUpperCase() + providerConfig.terminology.device.slice(1)} Connected`}
                 </h3>
                 <p className="text-muted-foreground mb-6 max-w-md">
                   {energyProvider === 'Solar'
                     ? 'Connect your solar inverter to start getting personalized energy insights and analytics.'
-                    : 'Connect your Kenya Power smart meter to start getting personalized energy insights and analytics.'}
+                    : `Connect your ${providerConfig.name} ${providerConfig.terminology.device} to start getting personalized energy insights and analytics.`}
                 </p>
                 <Button
                   onClick={handleSetupMeter}
@@ -76,7 +77,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
                   ) : (
                     <>
                       <Zap className="h-4 w-4 mr-2" />
-                      Setup Smart Meter
+                      {`Setup ${providerConfig.terminology.device.charAt(0).toUpperCase() + providerConfig.terminology.device.slice(1)}`}
                     </>
                   )}
                 </Button>
@@ -138,7 +139,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
           <CardHeader>
             <CardTitle className="text-xl text-aurora-blue-light flex items-center space-x-2">
               <Info className="h-6 w-6" />
-              <span>What You'll Get With Smart Meter Connection</span>
+              <span>What You'll Get With {providerConfig.name} Connection</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -147,7 +148,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
                 <TrendingUp className="h-5 w-5 text-aurora-green mt-1 flex-shrink-0" />
                 <div>
                   <h4 className="font-medium text-aurora-green-light">Real-time Usage Tracking</h4>
-                  <p className="text-sm text-muted-foreground">Monitor your electricity consumption as it happens with live data from your Kenya Power smart meter</p>
+                  <p className="text-sm text-muted-foreground">Monitor your electricity consumption as it happens with live data from your {providerConfig.name} {providerConfig.terminology.device}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
@@ -177,7 +178,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
               <div className="text-center">
                 <h4 className="font-medium text-aurora-green-light mb-3">Ready to get started?</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Setting up your smart meter takes just a few minutes and unlocks all these powerful insights.
+                  Setting up your {providerConfig.terminology.device} takes just a few minutes and unlocks all these powerful insights.
                 </p>
                 <Button 
                   onClick={handleSetupMeter}
@@ -185,7 +186,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
                   size="lg"
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  Setup Smart Meter Now
+                  {`Setup ${providerConfig.name} ${providerConfig.terminology.device.charAt(0).toUpperCase() + providerConfig.terminology.device.slice(1)} Now`}
                 </Button>
               </div>
             </div>
@@ -207,7 +208,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
         title: energyProvider === 'Solar' ? 'Getting Started with Solar' : 'Getting Started',
         description: energyProvider === 'Solar'
           ? 'Your solar inverter is connected! Start generating energy to see personalized insights and recommendations.'
-          : 'Your smart meter is connected! Start using energy to see personalized insights and recommendations.',
+          : `Your ${providerConfig.name} ${providerConfig.terminology.device} is connected! Start using energy to see personalized insights and recommendations.`,
         impact: 'Info',
         icon: Info,
         color: 'text-aurora-blue-light'
@@ -281,7 +282,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
         });
       }
     }
-    // KPLC-specific insights
+    // Provider-specific insights
     else {
       // Peak hour analysis
       if (analytics.peakHours.length > 0) {
@@ -356,7 +357,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
       title: energyProvider === 'Solar' ? 'Building Your Solar Profile' : 'Building Your Profile',
       description: energyProvider === 'Solar'
         ? 'Keep using your solar system to generate personalized insights and recommendations based on your energy patterns.'
-        : 'Keep using your smart meter to generate personalized insights and recommendations based on your usage patterns.',
+        : `Keep using your ${providerConfig.name} ${providerConfig.terminology.device} to generate personalized insights and recommendations based on your usage patterns.`,
       impact: 'Info',
       icon: Info,
       color: 'text-aurora-blue-light'
@@ -371,7 +372,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader>
           <CardTitle className="text-xl text-aurora-green-light">
-            {energyProvider === 'Solar' ? 'Solar Efficiency Score' : 'Energy Efficiency Score'}
+            {energyProvider === 'Solar' ? 'Solar Efficiency Score' : `${providerConfig.name} Efficiency Score`}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -468,7 +469,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-              {energyProvider === 'Solar' ? 'Solar Weekly Performance' : 'Weekly Performance'}
+              {energyProvider === 'Solar' ? 'Solar Weekly Performance' : `${providerConfig.name} Weekly Performance`}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -524,7 +525,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader>
             <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-              {energyProvider === 'Solar' ? 'Solar Weekly Performance' : 'Weekly Performance'}
+              {energyProvider === 'Solar' ? 'Solar Weekly Performance' : `${providerConfig.name} Weekly Performance`}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -539,7 +540,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
                 <>
                   <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">No weekly data available yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Use your meter for a week to see performance trends</p>
+                  <p className="text-sm text-muted-foreground mt-2">Use your {providerConfig.terminology.device} for a week to see performance trends</p>
                 </>
               )}
             </div>
@@ -552,7 +553,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
         <Card className="bg-aurora-card border-aurora-purple/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-              {energyProvider === 'Solar' ? 'Peak Solar Hours' : 'Peak Usage Hours'}
+              {energyProvider === 'Solar' ? 'Peak Solar Hours' : `Peak ${providerConfig.name} Hours`}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -577,7 +578,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
         <Card className="bg-aurora-card border-aurora-purple/20">
           <CardHeader>
             <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-              {energyProvider === 'Solar' ? 'Peak Solar Hours' : 'Peak Usage Hours'}
+              {energyProvider === 'Solar' ? 'Peak Solar Hours' : `Peak ${providerConfig.name} Hours`}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -592,7 +593,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter, ener
                 <>
                   <Sun className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground">No peak hour data available yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Use your meter throughout the day to identify peak hours</p>
+                  <p className="text-sm text-muted-foreground mt-2">Use your {providerConfig.terminology.device} throughout the day to identify peak hours</p>
                 </>
               )}
             </div>

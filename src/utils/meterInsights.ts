@@ -107,8 +107,93 @@ export const METER_BENCHMARKS: {
   }
 };
 
-// Get appropriate benchmark based on meter type
-export const getBenchmark = (category: MeterCategory, industryType?: IndustryType): BaseBenchmark => {
+// Solar-specific benchmarks
+export const SOLAR_BENCHMARKS: {
+  household: BaseBenchmark;
+  SME: BaseBenchmark;
+  industry: Record<IndustryType, BaseBenchmark>;
+} = {
+  household: {
+    dailyUsage: { low: 5, normal: 15, high: 25 }, // kWh
+    dailyCost: { low: 0, normal: 0, high: 0 }, // Solar generation doesn't have direct costs
+    efficiency: { excellent: 95, good: 85, poor: 70 }, // %
+    peakHours: ['10:00', '11:00', '12:00', '13:00', '14:00'], // Solar peak generation hours
+    monthlyBudget: 0, // Not applicable for solar generation
+    deviceBreakdown: {
+      lighting: { normal: 15, high: 25 },
+      appliances: { normal: 40, high: 60 },
+      hvac: { normal: 30, high: 50 },
+      electronics: { normal: 15, high: 25 }
+    }
+  },
+  SME: {
+    dailyUsage: { low: 20, normal: 50, high: 100 }, // kWh
+    dailyCost: { low: 0, normal: 0, high: 0 }, // Solar generation doesn't have direct costs
+    efficiency: { excellent: 90, good: 80, poor: 65 }, // %
+    peakHours: ['10:00', '11:00', '12:00', '13:00', '14:00'], // Solar peak generation hours
+    monthlyBudget: 0, // Not applicable for solar generation
+    deviceBreakdown: {
+      lighting: { normal: 20, high: 35 },
+      equipment: { normal: 45, high: 65 },
+      hvac: { normal: 25, high: 40 },
+      electronics: { normal: 10, high: 20 }
+    }
+  },
+  industry: {
+    heavyduty: {
+      dailyUsage: { low: 200, normal: 500, high: 1000 }, // kWh
+      dailyCost: { low: 0, normal: 0, high: 0 }, // Solar generation doesn't have direct costs
+      efficiency: { excellent: 85, good: 75, poor: 60 }, // %
+      peakHours: ['10:00', '11:00', '12:00', '13:00', '14:00'], // Solar peak generation hours
+      monthlyBudget: 0, // Not applicable for solar generation
+      deviceBreakdown: {
+        machinery: { normal: 60, high: 80 },
+        hvac: { normal: 20, high: 30 },
+        lighting: { normal: 10, high: 15 },
+        auxiliary: { normal: 10, high: 15 }
+      }
+    },
+    medium: {
+      dailyUsage: { low: 100, normal: 250, high: 500 }, // kWh
+      dailyCost: { low: 0, normal: 0, high: 0 }, // Solar generation doesn't have direct costs
+      efficiency: { excellent: 88, good: 78, poor: 63 }, // %
+      peakHours: ['10:00', '11:00', '12:00', '13:00', '14:00'], // Solar peak generation hours
+      monthlyBudget: 0, // Not applicable for solar generation
+      deviceBreakdown: {
+        machinery: { normal: 50, high: 70 },
+        hvac: { normal: 25, high: 35 },
+        lighting: { normal: 15, high: 20 },
+        auxiliary: { normal: 10, high: 15 }
+      }
+    },
+    light: {
+      dailyUsage: { low: 50, normal: 120, high: 250 }, // kWh
+      dailyCost: { low: 0, normal: 0, high: 0 }, // Solar generation doesn't have direct costs
+      efficiency: { excellent: 90, good: 80, poor: 65 }, // %
+      peakHours: ['10:00', '11:00', '12:00', '13:00', '14:00'], // Solar peak generation hours
+      monthlyBudget: 0, // Not applicable for solar generation
+      deviceBreakdown: {
+        machinery: { normal: 40, high: 60 },
+        hvac: { normal: 30, high: 40 },
+        lighting: { normal: 20, high: 25 },
+        auxiliary: { normal: 10, high: 15 }
+      }
+    }
+  }
+};
+
+// Get appropriate benchmark based on meter type and energy provider
+export const getBenchmark = (category: MeterCategory, industryType?: IndustryType, energyProvider?: string): BaseBenchmark => {
+  // If solar provider, use solar benchmarks
+  if (energyProvider === 'Solar') {
+    if (category === 'industry') {
+      const type: IndustryType = industryType ?? 'medium';
+      return SOLAR_BENCHMARKS.industry[type];
+    }
+    return SOLAR_BENCHMARKS[category];
+  }
+  
+  // Otherwise use standard benchmarks
   if (category === 'industry') {
     const type: IndustryType = industryType ?? 'medium';
     return METER_BENCHMARKS.industry[type];
@@ -122,76 +207,180 @@ export const generateMeterSpecificInsights = (
   analytics: any,
   category: MeterCategory,
   industryType?: IndustryType,
-  hasMeterConnected: boolean = false
+  hasMeterConnected: boolean = false,
+  energyProvider?: string // Add energy provider parameter
 ): EnergyInsight[] => {
   const insights: EnergyInsight[] = [];
   
   // If no meter connected, return category-specific setup insights
   if (!hasMeterConnected) {
-    return generateSetupInsights(category, industryType);
+    return generateSetupInsights(category, industryType, energyProvider);
   }
 
-  const benchmark = getBenchmark(category, industryType);
+  const benchmark = getBenchmark(category, industryType, energyProvider);
   
-  // Daily usage insights
-  if (energyData.daily_total > 0) {
-    if (energyData.daily_total > benchmark.dailyUsage.high) {
-      insights.push({
-        id: 'high-usage',
-        type: 'alert',
-        title: `High ${getCategoryDisplayName(category, industryType)} Usage`,
-        description: `Your daily usage of ${energyData.daily_total.toFixed(1)} kWh is above the typical ${getCategoryDisplayName(category, industryType).toLowerCase()} range of ${benchmark.dailyUsage.normal} kWh.`,
-        icon: AlertTriangle,
-        severity: 'alert',
-        category,
-        industryType,
-        priority: 9,
-        actionable: true,
-        recommendation: getUsageRecommendation(category, 'high', industryType)
-      });
-    } else if (energyData.daily_total < benchmark.dailyUsage.low) {
-      insights.push({
-        id: 'low-usage',
-        type: 'info',
-        title: `Efficient ${getCategoryDisplayName(category, industryType)} Usage`,
-        description: `Your daily usage of ${energyData.daily_total.toFixed(1)} kWh is below typical ${getCategoryDisplayName(category, industryType).toLowerCase()} usage. Great job!`,
-        icon: Lightbulb,
-        severity: 'success',
-        category,
-        industryType,
-        priority: 3
-      });
+  // Solar-specific insights
+  if (energyProvider === 'Solar') {
+    // Power generation insights
+    if (energyData.power_generated > 0) {
+      if (energyData.power_generated > benchmark.dailyUsage.high) {
+        insights.push({
+          id: 'high-generation',
+          type: 'alert',
+          title: `High Solar Generation`,
+          description: `Your system is generating ${energyData.power_generated.toFixed(1)} kW, which is above the typical range of ${benchmark.dailyUsage.normal} kW for your ${getCategoryDisplayName(category, industryType).toLowerCase()} setup.`,
+          icon: Sun,
+          severity: 'success',
+          category,
+          industryType,
+          priority: 9
+        });
+      } else if (energyData.power_generated < benchmark.dailyUsage.low) {
+        insights.push({
+          id: 'low-generation',
+          type: 'info',
+          title: `Low Solar Generation`,
+          description: `Your system is generating ${energyData.power_generated.toFixed(1)} kW. This might be due to weather conditions or system maintenance.`,
+          icon: Sun,
+          severity: 'info',
+          category,
+          industryType,
+          priority: 3
+        });
+      }
+    }
+
+    // Battery state insights
+    if (energyData.battery_state !== undefined) {
+      if (energyData.battery_state > 80) {
+        insights.push({
+          id: 'battery-full',
+          type: 'efficiency',
+          title: 'Battery Fully Charged',
+          description: `Your battery is at ${energyData.battery_state}% capacity. Consider using stored energy during peak hours.`,
+          icon: Battery,
+          severity: 'success',
+          category,
+          industryType,
+          priority: 7
+        });
+      } else if (energyData.battery_state < 20) {
+        insights.push({
+          id: 'battery-low',
+          type: 'alert',
+          title: 'Low Battery Charge',
+          description: `Your battery is at ${energyData.battery_state}% capacity. Consider reducing load or checking solar panel performance.`,
+          icon: Battery,
+          severity: 'warning',
+          category,
+          industryType,
+          priority: 8,
+          actionable: true,
+          recommendation: 'Check solar panels for obstructions and reduce non-essential loads.'
+        });
+      }
+    }
+
+    // Load consumption insights
+    if (energyData.load_consumption > 0) {
+      const selfConsumption = energyData.power_generated > 0 ? 
+        Math.min(100, (energyData.load_consumption / energyData.power_generated) * 100) : 0;
+      
+      if (selfConsumption > 90) {
+        insights.push({
+          id: 'high-self-consumption',
+          type: 'efficiency',
+          title: 'Excellent Self-Consumption',
+          description: `You're consuming ${selfConsumption.toFixed(1)}% of your generated solar energy. This is very efficient!`,
+          icon: Lightbulb,
+          severity: 'success',
+          category,
+          industryType,
+          priority: 6
+        });
+      } else if (selfConsumption < 30) {
+        insights.push({
+          id: 'low-self-consumption',
+          type: 'recommendation',
+          title: 'Low Self-Consumption',
+          description: `You're only consuming ${selfConsumption.toFixed(1)}% of your generated solar energy. Consider shifting usage to daylight hours.`,
+          icon: Lightbulb,
+          severity: 'warning',
+          category,
+          industryType,
+          priority: 5,
+          actionable: true,
+          recommendation: 'Run high-energy appliances during peak solar generation hours (10AM-2PM).'
+        });
+      }
+    }
+  } 
+  // Standard meter insights
+  else {
+    // Daily usage insights
+    if (energyData.daily_total > 0) {
+      if (energyData.daily_total > benchmark.dailyUsage.high) {
+        insights.push({
+          id: 'high-usage',
+          type: 'alert',
+          title: `High ${getCategoryDisplayName(category, industryType)} Usage`,
+          description: `Your daily usage of ${energyData.daily_total.toFixed(1)} kWh is above the typical ${getCategoryDisplayName(category, industryType).toLowerCase()} range of ${benchmark.dailyUsage.normal} kWh.`,
+          icon: AlertTriangle,
+          severity: 'alert',
+          category,
+          industryType,
+          priority: 9,
+          actionable: true,
+          recommendation: getUsageRecommendation(category, 'high', industryType)
+        });
+      } else if (energyData.daily_total < benchmark.dailyUsage.low) {
+        insights.push({
+          id: 'low-usage',
+          type: 'info',
+          title: `Efficient ${getCategoryDisplayName(category, industryType)} Usage`,
+          description: `Your daily usage of ${energyData.daily_total.toFixed(1)} kWh is below typical ${getCategoryDisplayName(category, industryType).toLowerCase()} usage. Great job!`,
+          icon: Lightbulb,
+          severity: 'success',
+          category,
+          industryType,
+          priority: 3
+        });
+      }
+    }
+
+    // Cost insights
+    if (energyData.daily_cost > 0) {
+      const monthlyCostProjection = energyData.daily_cost * 30;
+      if (monthlyCostProjection > benchmark.monthlyBudget) {
+        insights.push({
+          id: 'high-cost',
+          type: 'cost',
+          title: 'Budget Exceeded',
+          description: `At KSh ${energyData.daily_cost.toFixed(2)}/day, your monthly cost will be KSh ${monthlyCostProjection.toFixed(2)}, exceeding the typical ${getCategoryDisplayName(category, industryType).toLowerCase()} budget of KSh ${benchmark.monthlyBudget.toLocaleString()}.`,
+          icon: DollarSign,
+          severity: 'warning',
+          category,
+          industryType,
+          priority: 8,
+          actionable: true,
+          recommendation: getCostRecommendation(category, industryType)
+        });
+      }
     }
   }
 
-  // Cost insights
-  if (energyData.daily_cost > 0) {
-    const monthlyCostProjection = energyData.daily_cost * 30;
-    if (monthlyCostProjection > benchmark.monthlyBudget) {
-      insights.push({
-        id: 'high-cost',
-        type: 'cost',
-        title: 'Budget Exceeded',
-        description: `At KSh ${energyData.daily_cost.toFixed(2)}/day, your monthly cost will be KSh ${monthlyCostProjection.toFixed(2)}, exceeding the typical ${getCategoryDisplayName(category, industryType).toLowerCase()} budget of KSh ${benchmark.monthlyBudget.toLocaleString()}.`,
-        icon: DollarSign,
-        severity: 'warning',
-        category,
-        industryType,
-        priority: 8,
-        actionable: true,
-        recommendation: getCostRecommendation(category, industryType)
-      });
-    }
-  }
-
-  // Efficiency insights
+  // Efficiency insights (common for both solar and standard meters)
   if (energyData.efficiency_score > 0) {
     if (energyData.efficiency_score >= benchmark.efficiency.excellent) {
       insights.push({
         id: 'excellent-efficiency',
         type: 'efficiency',
-        title: `Excellent ${getCategoryDisplayName(category, industryType)} Efficiency`,
-        description: `Your efficiency score of ${energyData.efficiency_score}% is excellent for ${getCategoryDisplayName(category, industryType).toLowerCase()} operations.`,
+        title: energyProvider === 'Solar' 
+          ? `Excellent Solar System Efficiency` 
+          : `Excellent ${getCategoryDisplayName(category, industryType)} Efficiency`,
+        description: energyProvider === 'Solar'
+          ? `Your solar system efficiency of ${energyData.efficiency_score}% is excellent.`
+          : `Your efficiency score of ${energyData.efficiency_score}% is excellent for ${getCategoryDisplayName(category, industryType).toLowerCase()} operations.`,
         icon: Lightbulb,
         severity: 'success',
         category,
@@ -202,48 +391,58 @@ export const generateMeterSpecificInsights = (
       insights.push({
         id: 'poor-efficiency',
         type: 'efficiency',
-        title: 'Efficiency Improvement Needed',
-        description: `Your efficiency score of ${energyData.efficiency_score}% is below the ${getCategoryDisplayName(category, industryType).toLowerCase()} average of ${benchmark.efficiency.good}%.`,
+        title: energyProvider === 'Solar' 
+          ? 'Solar System Efficiency Improvement Needed' 
+          : 'Efficiency Improvement Needed',
+        description: energyProvider === 'Solar'
+          ? `Your solar system efficiency of ${energyData.efficiency_score}% is below optimal. Check for panel obstructions or system issues.`
+          : `Your efficiency score of ${energyData.efficiency_score}% is below the ${getCategoryDisplayName(category, industryType).toLowerCase()} average of ${benchmark.efficiency.good}%.`,
         icon: AlertTriangle,
         severity: 'warning',
         category,
         industryType,
         priority: 7,
         actionable: true,
-        recommendation: getEfficiencyRecommendation(category, industryType)
+        recommendation: energyProvider === 'Solar' 
+          ? 'Clean solar panels, check for shading, and ensure system components are functioning properly.'
+          : getEfficiencyRecommendation(category, industryType)
       });
     }
   }
 
-  // Peak hours insights
+  // Peak hours insights (different for solar vs standard meters)
   if (analytics.peakHours?.length > 0) {
     const userPeakHour = analytics.peakHours[0]?.hour;
     if (userPeakHour && benchmark.peakHours.includes(`${userPeakHour.toString().padStart(2, '0')}:00`)) {
       insights.push({
         id: 'peak-alignment',
         type: 'peak',
-        title: 'Peak Hour Usage Detected',
-        description: `Your peak usage at ${userPeakHour}:00 aligns with typical ${getCategoryDisplayName(category, industryType).toLowerCase()} peak hours. Consider load shifting to reduce costs.`,
+        title: energyProvider === 'Solar' ? 'Peak Solar Generation' : 'Peak Hour Usage Detected',
+        description: energyProvider === 'Solar'
+          ? `Your peak solar generation at ${userPeakHour}:00 aligns with optimal sun hours. This is when your system performs best.`
+          : `Your peak usage at ${userPeakHour}:00 aligns with typical ${getCategoryDisplayName(category, industryType).toLowerCase()} peak hours. Consider load shifting to reduce costs.`,
         icon: Clock,
-        severity: 'warning',
+        severity: energyProvider === 'Solar' ? 'success' : 'warning',
         category,
         industryType,
         priority: 6,
-        actionable: true,
-        recommendation: getPeakHourRecommendation(category, industryType)
+        actionable: energyProvider !== 'Solar', // Only actionable for standard meters
+        recommendation: energyProvider === 'Solar'
+          ? 'Maximize energy usage during these hours to get the most from your solar system.'
+          : getPeakHourRecommendation(category, industryType)
       });
     }
   }
 
   // Device breakdown insights
   if (analytics.deviceBreakdown?.length > 0) {
-    const deviceInsights = generateDeviceInsights(analytics.deviceBreakdown, category, industryType, benchmark);
+    const deviceInsights = generateDeviceInsights(analytics.deviceBreakdown, category, industryType, benchmark, energyProvider);
     insights.push(...deviceInsights);
   }
 
   // Trend insights
   if (energyData.cost_trend) {
-    const trendInsight = generateTrendInsight(energyData.cost_trend, category, industryType);
+    const trendInsight = generateTrendInsight(energyData.cost_trend, category, industryType, energyProvider);
     if (trendInsight) insights.push(trendInsight);
   }
 
@@ -252,47 +451,87 @@ export const generateMeterSpecificInsights = (
 };
 
 // Generate setup insights for users without connected meters
-const generateSetupInsights = (category: MeterCategory, industryType?: IndustryType): EnergyInsight[] => {
+const generateSetupInsights = (category: MeterCategory, industryType?: IndustryType, energyProvider?: string): EnergyInsight[] => {
   const categoryName = getCategoryDisplayName(category, industryType);
-  const benchmark = getBenchmark(category, industryType);
+  const benchmark = getBenchmark(category, industryType, energyProvider);
   
-  return [
-    {
-      id: 'setup-required',
-      type: 'info',
-      title: `${categoryName} Meter Setup Required`,
-      description: `Connect your ${categoryName.toLowerCase()} smart meter to get personalized insights and real-time monitoring tailored to your usage patterns.`,
-      icon: Info,
-      severity: 'info',
-      category,
-      industryType,
-      priority: 10,
-      actionable: true,
-      recommendation: 'Go to Settings → Meter Setup to connect your smart meter and start monitoring your energy usage.'
-    },
-    {
-      id: 'category-benefits',
-      type: 'info',
-      title: `${categoryName} Energy Monitoring Benefits`,
-      description: `Once connected, you'll get insights specific to ${categoryName.toLowerCase()} usage patterns, including peak hour analysis, cost optimization, and efficiency benchmarking.`,
-      icon: Lightbulb,
-      severity: 'info',
-      category,
-      industryType,
-      priority: 8
-    },
-    {
-      id: 'expected-usage',
-      type: 'info',
-      title: `Typical ${categoryName} Usage`,
-      description: `${categoryName} meters typically use ${benchmark.dailyUsage.normal} kWh/day (KSh ${benchmark.dailyCost.normal}/day). Connect your meter to see how you compare.`,
-      icon: Battery,
-      severity: 'info',
-      category,
-      industryType,
-      priority: 6
-    }
-  ];
+  if (energyProvider === 'Solar') {
+    return [
+      {
+        id: 'solar-setup-required',
+        type: 'info',
+        title: `${categoryName} Solar Setup Required`,
+        description: `Connect your ${categoryName.toLowerCase()} solar inverter to get personalized insights and real-time monitoring tailored to your solar generation patterns.`,
+        icon: Sun,
+        severity: 'info',
+        category,
+        industryType,
+        priority: 10,
+        actionable: true,
+        recommendation: 'Go to Settings → Solar Setup to connect your solar inverter and start monitoring your solar generation.'
+      },
+      {
+        id: 'solar-benefits',
+        type: 'info',
+        title: `${categoryName} Solar Monitoring Benefits`,
+        description: `Once connected, you'll get insights specific to ${categoryName.toLowerCase()} solar generation patterns, including efficiency analysis, battery monitoring, and self-consumption optimization.`,
+        icon: Lightbulb,
+        severity: 'info',
+        category,
+        industryType,
+        priority: 8
+      },
+      {
+        id: 'expected-generation',
+        type: 'info',
+        title: `Typical ${categoryName} Solar Generation`,
+        description: `${categoryName} solar systems typically generate ${benchmark.dailyUsage.normal} kWh/day. Connect your inverter to see how you compare.`,
+        icon: Battery,
+        severity: 'info',
+        category,
+        industryType,
+        priority: 6
+      }
+    ];
+  } else {
+    return [
+      {
+        id: 'setup-required',
+        type: 'info',
+        title: `${categoryName} Meter Setup Required`,
+        description: `Connect your ${categoryName.toLowerCase()} smart meter to get personalized insights and real-time monitoring tailored to your usage patterns.`,
+        icon: Info,
+        severity: 'info',
+        category,
+        industryType,
+        priority: 10,
+        actionable: true,
+        recommendation: 'Go to Settings → Meter Setup to connect your smart meter and start monitoring your energy usage.'
+      },
+      {
+        id: 'category-benefits',
+        type: 'info',
+        title: `${categoryName} Energy Monitoring Benefits`,
+        description: `Once connected, you'll get insights specific to ${categoryName.toLowerCase()} usage patterns, including peak hour analysis, cost optimization, and efficiency benchmarking.`,
+        icon: Lightbulb,
+        severity: 'info',
+        category,
+        industryType,
+        priority: 8
+      },
+      {
+        id: 'expected-usage',
+        type: 'info',
+        title: `Typical ${categoryName} Usage`,
+        description: `${categoryName} meters typically use ${benchmark.dailyUsage.normal} kWh/day (KSh ${benchmark.dailyCost.normal}/day). Connect your meter to see how you compare.`,
+        icon: Battery,
+        severity: 'info',
+        category,
+        industryType,
+        priority: 6
+      }
+    ];
+  }
 };
 
 // Helper functions
@@ -370,7 +609,8 @@ const generateDeviceInsights = (
   deviceBreakdown: any[],
   category: MeterCategory,
   industryType: IndustryType | undefined,
-  benchmark: BaseBenchmark
+  benchmark: BaseBenchmark,
+  energyProvider?: string
 ): EnergyInsight[] => {
   const insights: EnergyInsight[] = [];
   
@@ -396,15 +636,21 @@ const generateDeviceInsights = (
       insights.push({
         id: `high-${deviceName}`,
         type: 'device',
-        title: `High ${device.device} Usage`,
-        description: `${device.device} accounts for ${device.percentage}% of your usage (KSh ${device.cost.toFixed(2)}), above the typical ${deviceBenchmark.normal}% for ${getCategoryDisplayName(category, industryType).toLowerCase()}.`,
+        title: energyProvider === 'Solar'
+          ? `High ${device.device} Load`
+          : `High ${device.device} Usage`,
+        description: energyProvider === 'Solar'
+          ? `${device.device} accounts for ${device.percentage}% of your load (KSh ${device.cost.toFixed(2)}), above the typical ${deviceBenchmark.normal}% for ${getCategoryDisplayName(category, industryType).toLowerCase()}.`
+          : `${device.device} accounts for ${device.percentage}% of your usage (KSh ${device.cost.toFixed(2)}), above the typical ${deviceBenchmark.normal}% for ${getCategoryDisplayName(category, industryType).toLowerCase()}.`,
         icon: Zap,
         severity: 'warning',
         category,
         industryType,
         priority: 5,
         actionable: true,
-        recommendation: `Consider optimizing ${device.device.toLowerCase()} usage or upgrading to more efficient alternatives.`
+        recommendation: energyProvider === 'Solar'
+          ? `Consider optimizing ${device.device.toLowerCase()} load or shifting usage to peak solar generation hours.`
+          : `Consider optimizing ${device.device.toLowerCase()} usage or upgrading to more efficient alternatives.`
       });
     }
   });
@@ -415,36 +661,47 @@ const generateDeviceInsights = (
 const generateTrendInsight = (
   trend: 'up' | 'down' | 'stable',
   category: MeterCategory,
-  industryType?: IndustryType
+  industryType?: IndustryType,
+  energyProvider?: string
 ): EnergyInsight | null => {
   const categoryName = getCategoryDisplayName(category, industryType);
   
   switch (trend) {
     case 'up':
       return {
-        id: 'cost-trend-up',
+        id: energyProvider === 'Solar' ? 'generation-trend-up' : 'cost-trend-up',
         type: 'trend',
-        title: 'Rising Energy Costs',
-        description: `Your ${categoryName.toLowerCase()} energy costs are trending upward. This may indicate increased usage or equipment inefficiency.`,
+        title: energyProvider === 'Solar' ? 'Increasing Solar Generation' : 'Rising Energy Costs',
+        description: energyProvider === 'Solar'
+          ? `Your ${categoryName.toLowerCase()} solar generation is trending upward. This indicates improving system performance or weather conditions.`
+          : `Your ${categoryName.toLowerCase()} energy costs are trending upward. This may indicate increased usage or equipment inefficiency.`,
         icon: TrendingUp,
-        severity: 'warning',
+        severity: energyProvider === 'Solar' ? 'success' : 'warning',
         category,
         industryType,
         priority: 7,
-        actionable: true,
-        recommendation: 'Monitor your usage patterns and check for any equipment that might be consuming more energy than usual.'
+        actionable: energyProvider !== 'Solar', // Only actionable for standard meters
+        recommendation: energyProvider === 'Solar'
+          ? 'Continue monitoring to ensure consistent performance.'
+          : 'Monitor your usage patterns and check for any equipment that might be consuming more energy than usual.'
       };
     case 'down':
       return {
-        id: 'cost-trend-down',
+        id: energyProvider === 'Solar' ? 'generation-trend-down' : 'cost-trend-down',
         type: 'trend',
-        title: 'Decreasing Energy Costs',
-        description: `Your ${categoryName.toLowerCase()} energy costs are trending downward. Keep up the excellent energy management!`,
+        title: energyProvider === 'Solar' ? 'Decreasing Solar Generation' : 'Decreasing Energy Costs',
+        description: energyProvider === 'Solar'
+          ? `Your ${categoryName.toLowerCase()} solar generation is trending downward. Check for system issues or seasonal variations.`
+          : `Your ${categoryName.toLowerCase()} energy costs are trending downward. Keep up the excellent energy management!`,
         icon: TrendingDown,
-        severity: 'success',
+        severity: energyProvider === 'Solar' ? 'warning' : 'success',
         category,
         industryType,
-        priority: 3
+        priority: energyProvider === 'Solar' ? 7 : 3,
+        actionable: energyProvider === 'Solar', // Only actionable for solar
+        recommendation: energyProvider === 'Solar'
+          ? 'Check solar panels for obstructions, clean if necessary, and verify system components are functioning properly.'
+          : undefined
       };
     default:
       return null;

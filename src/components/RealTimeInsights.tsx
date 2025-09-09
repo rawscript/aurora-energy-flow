@@ -2,13 +2,15 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Lightbulb, AlertTriangle, Info, ExternalLink } from 'lucide-react';
+import { Lightbulb, AlertTriangle, Info, ExternalLink, Sun, Zap } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useProfile } from '@/hooks/useProfile';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
 import { generateMeterSpecificInsights, getCategoryDisplayName, type MeterCategory, type IndustryType } from '@/utils/meterInsights';
 
 const RealTimeInsights = () => {
   const { energyData, analytics, hasMeterConnected, error, loading } = useRealTimeEnergy();
+  const { provider: energyProvider, providerConfig } = useEnergyProvider(); // Get energy provider from context
   const { profile } = useProfile();
   
   // Get meter category and industry type from profile with fallbacks
@@ -21,7 +23,8 @@ const RealTimeInsights = () => {
     analytics,
     meterCategory,
     industryType,
-    hasMeterConnected
+    hasMeterConnected,
+    energyProvider // Pass energy provider to generate solar-specific insights
   );
   
   // Handle error state by adding error insight
@@ -161,7 +164,9 @@ const RealTimeInsights = () => {
             <p className="text-sm text-muted-foreground mt-2">
               {hasMeterConnected 
                 ? 'Start using energy to generate insights'
-                : 'Connect your smart meter to get personalized insights'}
+                : energyProvider === 'Solar'
+                ? 'Connect your solar inverter to get personalized insights'
+                : `Connect your ${providerConfig.terminology.device} to get personalized insights`}
             </p>
           </div>
         )}
@@ -169,7 +174,9 @@ const RealTimeInsights = () => {
         <div className="pt-2 text-xs text-muted-foreground border-t border-slate-700/50">
           {hasMeterConnected 
             ? `Insights are tailored for ${getCategoryDisplayName(meterCategory, industryType).toLowerCase()} usage patterns based on your actual energy data.`
-            : `Connect your ${getCategoryDisplayName(meterCategory, industryType).toLowerCase()} smart meter to get personalized insights based on your actual usage patterns.`}
+            : energyProvider === 'Solar'
+            ? 'Connect your solar inverter to get personalized insights based on your actual solar generation patterns.'
+            : `Connect your ${providerConfig.terminology.device} to get personalized insights based on your actual usage patterns.`}
         </div>
       </CardContent>
     </Card>
