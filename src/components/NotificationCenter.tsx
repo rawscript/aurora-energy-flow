@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,12 +26,17 @@ import {
   Smartphone,
   Mail,
   MessageSquare,
-  Power
+  Power,
+  Sun,
+  Battery,
+  Lightbulb,
+  Home
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
 
 const NotificationCenter = () => {
   const { 
@@ -49,6 +54,7 @@ const NotificationCenter = () => {
     getNotificationActions
   } = useNotifications();
   
+  const { provider, providerConfig } = useEnergyProvider();
   const isMobile = useIsMobile();
   const [selectedNotification, setSelectedNotification] = useState<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -58,7 +64,7 @@ const NotificationCenter = () => {
     switch (type) {
       case 'token_low':
       case 'token_depleted':
-        return <Zap className="h-5 w-5 text-yellow-500" />;
+        return providerConfig.type === 'solar' ? <Sun className="h-5 w-5 text-yellow-500" /> : <Zap className="h-5 w-5 text-yellow-500" />;
       case 'token_purchase':
         return <CreditCard className="h-5 w-5 text-green-500" />;
       case 'power_restored':
@@ -101,7 +107,7 @@ const NotificationCenter = () => {
     switch (type) {
       case 'token_low':
       case 'token_depleted':
-        return 'border-yellow-500/30 bg-yellow-500/5';
+        return providerConfig.type === 'solar' ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-yellow-500/30 bg-yellow-500/5';
       case 'token_purchase':
         return 'border-green-500/30 bg-green-500/5';
       case 'high_usage':
@@ -199,6 +205,108 @@ const NotificationCenter = () => {
   const hasReadNotifications = readNotifications.length > 0;
   const isEmptyState = status?.status === 'empty' || notifications.length === 0;
 
+  // Energy management context-aware empty state
+  const getEnergyAwareEmptyState = () => {
+    const providerType = providerConfig?.type || 'electricity';
+    const deviceName = providerConfig?.terminology?.device || 'smart meter';
+    const creditsName = providerConfig?.terminology?.credits || 'tokens';
+    
+    // Different empty state messages based on provider type
+    const providerMessages = {
+      solar: {
+        title: "Harness Solar Power Insights",
+        description: "Once your solar system is connected, you'll receive notifications about energy production, battery status, and grid interactions.",
+        features: [
+          {
+            icon: <Sun className="h-4 w-4 text-yellow-500" />,
+            text: "Solar production alerts and efficiency tips"
+          },
+          {
+            icon: <Battery className="h-4 w-4 text-green-500" />,
+            text: "Battery charge status and optimization"
+          },
+          {
+            icon: <TrendingUp className="h-4 w-4 text-blue-500" />,
+            text: "Grid export/import notifications"
+          },
+          {
+            icon: <Lightbulb className="h-4 w-4 text-aurora-green" />,
+            text: "Energy saving recommendations"
+          }
+        ]
+      },
+      electricity: {
+        title: "Stay Informed About Your Energy",
+        description: "Once your smart meter is connected, you'll receive notifications about usage patterns, billing reminders, and efficiency insights.",
+        features: [
+          {
+            icon: <Zap className="h-4 w-4 text-yellow-500" />,
+            text: `${creditsName.charAt(0).toUpperCase() + creditsName.slice(1)} balance alerts and low balance warnings`
+          },
+          {
+            icon: <Home className="h-4 w-4 text-aurora-green" />,
+            text: "Daily usage reports and peak hour alerts"
+          },
+          {
+            icon: <TrendingUp className="h-4 w-4 text-blue-500" />,
+            text: "Efficiency tips and consumption patterns"
+          },
+          {
+            icon: <CreditCard className="h-4 w-4 text-green-500" />,
+            text: `${creditsName.charAt(0).toUpperCase() + creditsName.slice(1)} purchase confirmations and history`
+          }
+        ]
+      }
+    };
+    
+    const messages = providerMessages[providerType as keyof typeof providerMessages] || providerMessages.electricity;
+    
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <BellOff className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+        <h3 className="text-lg font-medium text-muted-foreground mb-2">
+          {messages.title}
+        </h3>
+        <p className="text-sm text-muted-foreground max-w-md mb-6">
+          {messages.description}
+        </p>
+        
+        {/* Setup encouragement */}
+        <div className="bg-slate-800/30 rounded-lg p-4 max-w-md">
+          <h4 className="text-sm font-medium mb-3 text-aurora-green-light">Get Started with Notifications</h4>
+          <div className="space-y-2 text-xs text-muted-foreground">
+            {messages.features.map((feature, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                {feature.icon}
+                <span>{feature.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2 mt-6">
+          <Button
+            onClick={() => {
+              // Dispatch a custom event to navigate to settings
+              window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
+            }}
+            className="bg-aurora-green hover:bg-aurora-green/80"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Setup {providerConfig?.name} {deviceName}
+          </Button>
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Check for Notifications
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Header */}
@@ -278,59 +386,7 @@ const NotificationCenter = () => {
         <CardContent className="p-0">
           <ScrollArea className={`${isMobile ? 'h-96' : 'h-[600px]'} w-full`}>
             {isEmptyState ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <BellOff className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-                <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                  No Notifications Yet
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-md mb-6">
-                  You haven't received any notifications yet. Once you set up your smart meter and start using the system, 
-                  you'll receive energy alerts, token notifications, and helpful insights here.
-                </p>
-                
-                {/* Setup encouragement */}
-                <div className="bg-slate-800/30 rounded-lg p-4 max-w-md">
-                  <h4 className="text-sm font-medium mb-3 text-aurora-green-light">Get Started with Notifications</h4>
-                  <div className="space-y-2 text-xs text-muted-foreground">
-                    <div className="flex items-center space-x-2">
-                      <Settings className="h-4 w-4 text-orange-500" />
-                      <span>Set up your smart meter to receive token alerts</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Zap className="h-4 w-4 text-yellow-500" />
-                      <span>Get low balance warnings and usage insights</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <CreditCard className="h-4 w-4 text-green-500" />
-                      <span>Receive token purchase confirmations</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <TrendingUp className="h-4 w-4 text-blue-500" />
-                      <span>Get efficiency tips and energy-saving recommendations</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 mt-6">
-                  <Button
-                    onClick={() => {
-                      // Dispatch a custom event to navigate to settings
-                      window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
-                    }}
-                    className="bg-aurora-green hover:bg-aurora-green/80"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Setup Smart Meter
-                  </Button>
-                  <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Check for Notifications
-                  </Button>
-                </div>
-              </div>
+              getEnergyAwareEmptyState()
             ) : (
               <div className="divide-y divide-slate-700/50">
                 {notifications.map((notification) => {
@@ -417,8 +473,12 @@ const NotificationCenter = () => {
                             <div className="flex flex-wrap gap-2 mb-2">
                               {notification.tokenBalance !== undefined && (
                                 <Badge variant="secondary" className="text-xs bg-slate-700/50">
-                                  <Zap className="h-3 w-3 mr-1" />
-                                  Balance: KSh {notification.tokenBalance.toFixed(2)}
+                                  {providerConfig.type === 'solar' ? (
+                                    <Sun className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <Zap className="h-3 w-3 mr-1" />
+                                  )}
+                                  {providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Balance: KSh {notification.tokenBalance.toFixed(2)}
                                 </Badge>
                               )}
                               {notification.estimatedDays !== undefined && (
@@ -435,7 +495,9 @@ const NotificationCenter = () => {
                             <div className="mb-2 p-2 bg-slate-800/50 rounded border border-aurora-green/20">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="text-xs text-muted-foreground mb-1">Token Code:</p>
+                                  <p className="text-xs text-muted-foreground mb-1">
+                                    {providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Code:
+                                  </p>
                                   <p className="text-sm font-mono text-aurora-green-light bg-slate-900/50 p-1 rounded">
                                     {notification.metadata.token_code}
                                   </p>
@@ -567,7 +629,13 @@ const NotificationCenter = () => {
                       {key === 'system_updates' && <Settings className="h-4 w-4 text-orange-500" />}
                       {key === 'purchase_confirmations' && <CreditCard className="h-4 w-4 text-green-500" />}
                       <div>
-                        <span className="text-sm capitalize">{key.replace('_', ' ')}</span>
+                        <span className="text-sm capitalize">
+                          {key === 'token_alerts' 
+                            ? `${providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Alerts`
+                            : key === 'purchase_confirmations'
+                            ? `${providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Purchase Confirmations`
+                            : key.replace('_', ' ')}
+                        </span>
                         {pref.setup_required && (
                           <p className="text-xs text-muted-foreground">Setup required</p>
                         )}
@@ -590,8 +658,8 @@ const NotificationCenter = () => {
               <div className="text-center">
                 <p className="text-xs text-muted-foreground mb-2">
                   {preferences.has_meter 
-                    ? 'Your smart meter is connected and notifications are active.'
-                    : 'Connect your smart meter to activate all notification types.'
+                    ? `Your ${providerConfig.terminology.device} is connected and notifications are active.`
+                    : `Connect your ${providerConfig.terminology.device} to activate all notification types.`
                   }
                 </p>
                 {!preferences.has_meter && (
@@ -604,7 +672,7 @@ const NotificationCenter = () => {
                     className="bg-aurora-green hover:bg-aurora-green/80"
                   >
                     <Settings className="h-4 w-4 mr-2" />
-                    Setup Smart Meter
+                    Setup {providerConfig.name} {providerConfig.terminology.device}
                   </Button>
                 )}
               </div>
