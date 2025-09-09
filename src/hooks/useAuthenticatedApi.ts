@@ -24,7 +24,8 @@ interface CacheEntry {
 
 // Global cache for RPC results to prevent duplicate calls
 const rpcCache = new Map<string, CacheEntry>();
-const DEFAULT_CACHE_DURATION = 30000; // 30 seconds
+const DEFAULT_CACHE_DURATION = 60000; // 1 minute (increased from 30 seconds)
+const MAX_CACHE_DURATION = 300000; // 5 minutes maximum cache
 
 /**
  * Production-ready authenticated API hook
@@ -39,7 +40,7 @@ export const useAuthenticatedApi = () => {
   
   // Cache session validity to prevent frequent checks
   const sessionValidityCache = useRef<{ isValid: boolean; timestamp: number } | null>(null);
-  const VALIDITY_CACHE_DURATION = 5000; // 5 seconds
+  const VALIDITY_CACHE_DURATION = 10000; // 10 seconds (increased from 5 seconds)
 
   // Memoized user ID to prevent unnecessary re-renders
   const userId = useMemo(() => user?.id || null, [user?.id]);
@@ -122,10 +123,12 @@ export const useAuthenticatedApi = () => {
   // Set cached RPC result
   const setCachedResult = useCallback((cacheKey: string, data: any, cacheDuration: number) => {
     const now = Date.now();
+    // Cap cache duration to prevent overly long caching
+    const effectiveCacheDuration = Math.min(cacheDuration, MAX_CACHE_DURATION);
     rpcCache.set(cacheKey, {
       data,
       timestamp: now,
-      expiresAt: now + cacheDuration
+      expiresAt: now + effectiveCacheDuration
     });
   }, []);
 

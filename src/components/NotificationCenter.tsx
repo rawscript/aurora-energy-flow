@@ -27,10 +27,7 @@ import {
   Mail,
   MessageSquare,
   Power,
-  Sun,
-  Battery,
-  Lightbulb,
-  Home
+  Sun
 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
@@ -205,108 +202,6 @@ const NotificationCenter = () => {
   const hasReadNotifications = readNotifications.length > 0;
   const isEmptyState = status?.status === 'empty' || notifications.length === 0;
 
-  // Energy management context-aware empty state
-  const getEnergyAwareEmptyState = () => {
-    const providerType = providerConfig?.type || 'electricity';
-    const deviceName = providerConfig?.terminology?.device || 'smart meter';
-    const creditsName = providerConfig?.terminology?.credits || 'tokens';
-    
-    // Different empty state messages based on provider type
-    const providerMessages = {
-      solar: {
-        title: "Harness Solar Power Insights",
-        description: "Once your solar system is connected, you'll receive notifications about energy production, battery status, and grid interactions.",
-        features: [
-          {
-            icon: <Sun className="h-4 w-4 text-yellow-500" />,
-            text: "Solar production alerts and efficiency tips"
-          },
-          {
-            icon: <Battery className="h-4 w-4 text-green-500" />,
-            text: "Battery charge status and optimization"
-          },
-          {
-            icon: <TrendingUp className="h-4 w-4 text-blue-500" />,
-            text: "Grid export/import notifications"
-          },
-          {
-            icon: <Lightbulb className="h-4 w-4 text-aurora-green" />,
-            text: "Energy saving recommendations"
-          }
-        ]
-      },
-      electricity: {
-        title: "Stay Informed About Your Energy",
-        description: "Once your smart meter is connected, you'll receive notifications about usage patterns, billing reminders, and efficiency insights.",
-        features: [
-          {
-            icon: <Zap className="h-4 w-4 text-yellow-500" />,
-            text: `${creditsName.charAt(0).toUpperCase() + creditsName.slice(1)} balance alerts and low balance warnings`
-          },
-          {
-            icon: <Home className="h-4 w-4 text-aurora-green" />,
-            text: "Daily usage reports and peak hour alerts"
-          },
-          {
-            icon: <TrendingUp className="h-4 w-4 text-blue-500" />,
-            text: "Efficiency tips and consumption patterns"
-          },
-          {
-            icon: <CreditCard className="h-4 w-4 text-green-500" />,
-            text: `${creditsName.charAt(0).toUpperCase() + creditsName.slice(1)} purchase confirmations and history`
-          }
-        ]
-      }
-    };
-    
-    const messages = providerMessages[providerType as keyof typeof providerMessages] || providerMessages.electricity;
-    
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <BellOff className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-        <h3 className="text-lg font-medium text-muted-foreground mb-2">
-          {messages.title}
-        </h3>
-        <p className="text-sm text-muted-foreground max-w-md mb-6">
-          {messages.description}
-        </p>
-        
-        {/* Setup encouragement */}
-        <div className="bg-slate-800/30 rounded-lg p-4 max-w-md">
-          <h4 className="text-sm font-medium mb-3 text-aurora-green-light">Get Started with Notifications</h4>
-          <div className="space-y-2 text-xs text-muted-foreground">
-            {messages.features.map((feature, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                {feature.icon}
-                <span>{feature.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 mt-6">
-          <Button
-            onClick={() => {
-              // Dispatch a custom event to navigate to settings
-              window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
-            }}
-            className="bg-aurora-green hover:bg-aurora-green/80"
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Setup {providerConfig?.name} {deviceName}
-          </Button>
-          <Button
-            onClick={handleRefresh}
-            variant="outline"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Check for Notifications
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* Header */}
@@ -330,7 +225,7 @@ const NotificationCenter = () => {
               </div>
               <div>
                 <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
-                  Notifications
+                  {providerConfig.name} Notifications
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   {isEmptyState ? 'No notifications yet' : `${unreadCount} unread • ${notifications.length} total`}
@@ -386,7 +281,63 @@ const NotificationCenter = () => {
         <CardContent className="p-0">
           <ScrollArea className={`${isMobile ? 'h-96' : 'h-[600px]'} w-full`}>
             {isEmptyState ? (
-              getEnergyAwareEmptyState()
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <BellOff className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                  No Notifications Yet
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-md mb-6">
+                  You haven't received any notifications yet. Once you set up your {providerConfig.terminology.device} and start using the {providerConfig.name} system, 
+                  you'll receive energy alerts, {providerConfig.terminology.credits} notifications, and helpful insights here.
+                </p>
+                
+                {/* Setup encouragement */}
+                <div className="bg-slate-800/30 rounded-lg p-4 max-w-md">
+                  <h4 className="text-sm font-medium mb-3 text-aurora-green-light">Get Started with {providerConfig.name} Notifications</h4>
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center space-x-2">
+                      <Settings className="h-4 w-4 text-orange-500" />
+                      <span>Set up your {providerConfig.terminology.device} to receive {providerConfig.terminology.credits} alerts</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {providerConfig.type === 'solar' ? (
+                        <Sun className="h-4 w-4 text-yellow-500" />
+                      ) : (
+                        <Zap className="h-4 w-4 text-yellow-500" />
+                      )}
+                      <span>Get low balance warnings and usage insights</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <CreditCard className="h-4 w-4 text-green-500" />
+                      <span>Receive {providerConfig.terminology.credits} purchase confirmations</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-4 w-4 text-blue-500" />
+                      <span>Get efficiency tips and energy-saving recommendations</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 mt-6">
+                  <Button
+                    onClick={() => {
+                      // Dispatch a custom event to navigate to settings
+                      window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
+                    }}
+                    className="bg-aurora-green hover:bg-aurora-green/80"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Setup {providerConfig.name} {providerConfig.terminology.device}
+                  </Button>
+                  <Button
+                    onClick={handleRefresh}
+                    variant="outline"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Check for Notifications
+                  </Button>
+                </div>
+              </div>
             ) : (
               <div className="divide-y divide-slate-700/50">
                 {notifications.map((notification) => {
@@ -614,7 +565,7 @@ const NotificationCenter = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-lg text-aurora-purple-light flex items-center space-x-2">
               <Settings className="h-5 w-5" />
-              <span>Notification Preferences</span>
+              <span>{providerConfig.name} Notification Preferences</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -658,8 +609,8 @@ const NotificationCenter = () => {
               <div className="text-center">
                 <p className="text-xs text-muted-foreground mb-2">
                   {preferences.has_meter 
-                    ? `Your ${providerConfig.terminology.device} is connected and notifications are active.`
-                    : `Connect your ${providerConfig.terminology.device} to activate all notification types.`
+                    ? `Your ${providerConfig.terminology.device} is connected and ${providerConfig.name} notifications are active.`
+                    : `Connect your ${providerConfig.terminology.device} to activate all ${providerConfig.name} notification types.`
                   }
                 </p>
                 {!preferences.has_meter && (

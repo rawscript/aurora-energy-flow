@@ -6,6 +6,7 @@ import SolarPanel from '@/components/ui/SolarPanel';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useProfile } from '@/hooks/useProfile';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RealTimeInsights from './RealTimeInsights';
@@ -45,8 +46,9 @@ interface EnergyDashboardProps {
   energyProvider?: string;
 }
 
-const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
-  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy();
+const EnergyDashboard = () => {
+  const { provider: energyProvider } = useEnergyProvider(); // Get energy provider from context
+  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
   const { profile } = useProfile();
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);
@@ -139,12 +141,10 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">
-                    {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
-                      ? 'No Solar Inverter Connected'
-                      : 'No Smart Meter Connected'}
+                    {energyProvider === 'Solar' ? 'No Solar Inverter Connected' : 'No Smart Meter Connected'}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                    {energyProvider === 'Solar'
                       ? 'Connect your solar inverter to start monitoring real solar energy generation'
                       : 'Connect your Kenya Power smart meter to start monitoring real energy usage'}
                   </p>
@@ -154,18 +154,17 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                 onClick={() => window.location.hash = '#meter'}
                 className="bg-aurora-green hover:bg-aurora-green/80"
               >
-                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
-                  ? (
-                    <>
-                      <Sun className="h-4 w-4 mr-2" />
-                      Setup Inverter
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-4 w-4 mr-2" />
-                      Setup Meter
-                    </>
-                  )}
+                {energyProvider === 'Solar' ? (
+                  <>
+                    <Sun className="h-4 w-4 mr-2" />
+                    Setup Inverter
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Setup Meter
+                  </>
+                )}
               </Button>
             </div>
           </CardContent>
@@ -173,7 +172,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
 
         {/* Empty Stats - Mobile Optimized */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+          {energyProvider === 'Solar' ? (
             <>
               <StatCard
                 icon={Battery}
@@ -245,15 +244,13 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
         <Card className="bg-aurora-card border-aurora-green/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
-              {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
-                ? 'Real-time Solar Generation'
-                : 'Real-time Energy Usage'}
+              {energyProvider === 'Solar' ? 'Real-time Solar Generation' : 'Real-time Energy Usage'}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`${isMobile ? 'h-48' : 'h-64'} flex items-center justify-center`}>
               <div className="text-center">
-                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+                {energyProvider === 'Solar' ? (
                   <>
                     <Sun className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                     <p className="text-muted-foreground">No solar data available</p>
@@ -276,14 +273,12 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
           <Card className="bg-aurora-card border-aurora-blue/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
-                  ? 'Solar Monitoring Benefits'
-                  : 'What You\'ll Get'}
+                {energyProvider === 'Solar' ? 'Solar Monitoring Benefits' : 'What You\'ll Get'}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+                {energyProvider === 'Solar' ? (
                   <>
                     <div className="flex items-start space-x-3">
                       <Sun className="h-5 w-5 text-aurora-green mt-1" />
@@ -339,14 +334,12 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
           <Card className="bg-aurora-card border-aurora-purple/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
-                  ? 'Solar Setup Guide'
-                  : 'Getting Started'}
+                {energyProvider === 'Solar' ? 'Solar Setup Guide' : 'Getting Started'}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+                {energyProvider === 'Solar' ? (
                   <>
                     <div className="flex items-start space-x-3">
                       <div className="w-6 h-6 bg-aurora-green rounded-full flex items-center justify-center text-xs font-bold text-black">1</div>
@@ -413,7 +406,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
             <div className="flex items-center space-x-2">
               <div className={`w-3 h-3 rounded-full animate-pulse ${hasMeterConnected ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
               <span className="text-sm text-aurora-green-light">
-                {hasMeterConnected ? 'Live Smart Meter Data' : 'Demo Smart Meter Data'}
+                {hasMeterConnected ? energyProvider === 'Solar' ? 'Live Solar Data' : 'Live Smart Meter Data' : 'Demo Smart Meter Data'}
               </span>
               {safeEnergyData.daily_total === 0 && (
                 <span className="text-xs text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
@@ -428,7 +421,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
               disabled={!hasMeterConnected}
             >
               <Zap className="h-4 w-4 mr-2" />
-              {hasMeterConnected ? 'Get Reading' : 'Setup Required'}
+              {hasMeterConnected ? energyProvider === 'Solar' ? 'Get Solar Reading' : 'Get Reading' : 'Setup Required'}
             </Button>
           </div>
         </CardContent>
@@ -536,7 +529,9 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
       {/* Real-time Usage Chart - Mobile Optimized */}
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg sm:text-xl text-aurora-green-light">Real-time Energy Usage</CardTitle>
+          <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
+            {energyProvider === 'Solar' ? 'Real-time Solar Generation' : 'Real-time Energy Usage'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
@@ -579,8 +574,12 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <Battery className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No usage data yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Start using energy to see your usage pattern</p>
+                  <p className="text-muted-foreground">
+                    {energyProvider === 'Solar' ? 'No solar generation data yet' : 'No usage data yet'}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {energyProvider === 'Solar' ? 'Start generating solar energy to see your generation pattern' : 'Start using energy to see your usage pattern'}
+                  </p>
                 </div>
               </div>
             )}
@@ -592,7 +591,9 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
       {safeAnalytics.hourlyPattern.length > 0 && (
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">24-Hour Usage Pattern</CardTitle>
+            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
+              {energyProvider === 'Solar' ? '24-Hour Solar Generation Pattern' : '24-Hour Usage Pattern'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
@@ -617,8 +618,8 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                   />
                   <Bar
                     dataKey="usage"
-                    fill="#3b82f6"
-                    name="Usage (kWh)"
+                    fill={energyProvider === 'Solar' ? "#f59e0b" : "#3b82f6"}
+                    name={energyProvider === 'Solar' ? "Generation (kW)" : "Usage (kWh)"}
                     radius={[2, 2, 0, 0]}
                   />
                 </BarChart>
@@ -633,9 +634,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-              {energyProvider === 'KPLC' ? 'Device Usage Breakdown' : 
-               energyProvider === 'Solar' ? 'Solar Load Breakdown' : 
-               'Device Usage Breakdown'}
+              {energyProvider === 'Solar' ? 'Solar Load Breakdown' : 'Device Usage Breakdown'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -682,7 +681,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                       <div className="text-right">
                         <span className="text-sm font-medium">{device.percentage}%</span>
                         <p className="text-xs text-muted-foreground">
-                          {energyProvider === 'KPLC' ? `KSh ${device.cost.toFixed(2)}` : `${device.cost.toFixed(2)} kWh`}
+                          {energyProvider === 'Solar' ? `${device.cost.toFixed(2)} kW` : `KSh ${device.cost.toFixed(2)}`}
                         </p>
                       </div>
                     </div>
@@ -707,7 +706,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                       <div className="text-right">
                         <span className="text-sm font-medium">{device.percentage}%</span>
                         <p className="text-xs text-muted-foreground">
-                          {energyProvider === 'KPLC' ? `KSh ${device.cost.toFixed(2)}` : `${device.cost.toFixed(2)} kWh`}
+                          {energyProvider === 'Solar' ? `${device.cost.toFixed(2)} kW` : `KSh ${device.cost.toFixed(2)}`}
                         </p>
                       </div>
                     </div>
@@ -717,17 +716,17 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
             ) : (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  {energyProvider === 'KPLC' ? (
-                    <>
-                      <House className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No device data yet</p>
-                      <p className="text-sm text-muted-foreground mt-2">Use energy to see device breakdown</p>
-                    </>
-                  ) : (
+                  {energyProvider === 'Solar' ? (
                     <>
                       <Sun className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <p className="text-muted-foreground">No solar load data yet</p>
                       <p className="text-sm text-muted-foreground mt-2">Use your solar system to see load breakdown</p>
+                    </>
+                  ) : (
+                    <>
+                      <House className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No device data yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use energy to see device breakdown</p>
                     </>
                   )}
                 </div>
@@ -740,9 +739,7 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
         <Card className="bg-aurora-card border-aurora-purple/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-              {energyProvider === 'KPLC' ? 'Weekly Trend' : 
-               energyProvider === 'Solar' ? 'Solar Weekly Trend' : 
-               'Weekly Trend'}
+              {energyProvider === 'Solar' ? 'Solar Weekly Trend' : 'Weekly Trend'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -768,21 +765,13 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                     <Line
                       type="monotone"
                       dataKey="usage"
-                      stroke={energyProvider === 'KPLC' ? "#a855f7" : 
-                             energyProvider === 'Solar' ? "#f59e0b" : 
-                             "#a855f7"}
+                      stroke={energyProvider === 'Solar' ? "#f59e0b" : "#a855f7"}
                       strokeWidth={isMobile ? 2 : 3}
-                      dot={{ fill: energyProvider === 'KPLC' ? '#a855f7' : 
-                                   energyProvider === 'Solar' ? '#f59e0b' : 
-                                   '#a855f7', strokeWidth: 2, r: isMobile ? 3 : 4 }}
-                      activeDot={{ r: isMobile ? 4 : 6, stroke: energyProvider === 'KPLC' ? '#a855f7' : 
-                                   energyProvider === 'Solar' ? '#f59e0b' : 
-                                   '#a855f7', strokeWidth: 2 }}
-                      name={energyProvider === 'KPLC' ? "Usage (kWh)" : 
-                            energyProvider === 'Solar' ? "Power (kW)" : 
-                            "Usage (kWh)"}
+                      dot={{ fill: energyProvider === 'Solar' ? '#f59e0b' : '#a855f7', strokeWidth: 2, r: isMobile ? 3 : 4 }}
+                      activeDot={{ r: isMobile ? 4 : 6, stroke: energyProvider === 'Solar' ? '#f59e0b' : '#a855f7', strokeWidth: 2 }}
+                      name={energyProvider === 'Solar' ? "Generation (kW)" : "Usage (kWh)"}
                     />
-                    {(energyProvider === 'KPLC' || energyProvider === '') && (
+                    {(energyProvider !== 'Solar') && (
                       <Line
                         type="monotone"
                         dataKey="efficiency"
@@ -799,17 +788,17 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
             ) : (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
-                  {energyProvider === 'KPLC' ? (
-                    <>
-                      <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No weekly data yet</p>
-                      <p className="text-sm text-muted-foreground mt-2">Use your meter for a week to see trends</p>
-                    </>
-                  ) : (
+                  {energyProvider === 'Solar' ? (
                     <>
                       <SolarPanel className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                       <p className="text-muted-foreground">No solar weekly data yet</p>
                       <p className="text-sm text-muted-foreground mt-2">Use your solar system for a week to see trends</p>
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                      <p className="text-muted-foreground">No weekly data yet</p>
+                      <p className="text-sm text-muted-foreground mt-2">Use your meter for a week to see trends</p>
                     </>
                   )}
                 </div>
