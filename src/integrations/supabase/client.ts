@@ -20,7 +20,7 @@ const supabase = createClient<Database>(
     auth: {
       persistSession: true,
       autoRefreshToken: false, // Disable auto refresh to prevent self-triggered refreshes
-      detectSessionInUrl: true,
+      detectSessionInUrl: false, // Disable session detection in URL to prevent automatic refreshes
       flowType: 'pkce'
     },
     global: {

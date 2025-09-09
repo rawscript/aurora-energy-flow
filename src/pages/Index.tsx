@@ -209,7 +209,7 @@ const Index = () => {
         content = <MeterSetup />;
         break;
       case 'tokens':
-        content = <KPLCTokenDashboard />;
+        content = <KPLCTokenDashboard energyProvider={provider as any} />;
         break;
       default:
         const Component = config.component;

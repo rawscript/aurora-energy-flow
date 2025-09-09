@@ -125,6 +125,23 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   // Quick purchase amounts
   const quickAmounts = [100, 200, 500, 1000];
 
+  // Get provider display name
+  const getProviderDisplayName = (provider: string) => {
+    switch (provider) {
+      case 'KPLC':
+      case '':
+        return 'KPLC token';
+      case 'Solar':
+        return 'solar';
+      case 'SunCulture':
+        return 'SunCulture';
+      case 'M-KOPA Solar':
+        return 'M-KOPA Solar';
+      default:
+        return 'energy';
+    }
+  };
+
   // Get data source icon
   const getDataSourceIcon = (source?: string) => {
     switch (source) {
@@ -162,7 +179,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
 
   // Auto-refresh every 5 minutes (much less frequent)
   useEffect(() => {
-    if (!hasValidSession || !analytics) return;
+    if (!hasValidSession() || !analytics) return;
 
     const interval = setInterval(() => {
       console.log('Auto-refreshing token data...');
@@ -185,12 +202,12 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     );
   }
 
-  if (!hasValidSession) {
+  if (!hasValidSession()) {
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
         <p className="text-muted-foreground">
-          Please sign in to view {energyProvider === 'KPLC' ? 'token' : 'solar'} data
+          Please sign in to view {getProviderDisplayName(energyProvider)} data
         </p>
       </div>
     );

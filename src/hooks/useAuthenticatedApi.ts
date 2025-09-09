@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -50,23 +50,52 @@ export const useAuthenticatedApi = () => {
     
     // Use cached result if it's recent
     if (sessionValidityCache.current && (now - sessionValidityCache.current.timestamp) < VALIDITY_CACHE_DURATION) {
+      console.log('Using cached session validity result:', sessionValidityCache.current.isValid);
       return sessionValidityCache.current.isValid;
     }
 
     // Perform validation
     if (!isAuthenticated || !user || !session) {
+      console.log('Session invalid - missing auth data:', {
+        isAuthenticated,
+        user: !!user,
+        session: !!session
+      });
       sessionValidityCache.current = { isValid: false, timestamp: now };
       return false;
     }
 
     const nowSeconds = Math.floor(now / 1000);
     const expiresAt = session.expires_at || 0;
-    const isValid = expiresAt > (nowSeconds + 300); // 5-minute buffer
+    // Remove buffer entirely for more lenient validation
+    const isValid = expiresAt > nowSeconds;
+
+    // Debug logging to understand the session validation
+    console.log('Session validation check:', {
+      isAuthenticated,
+      user: !!user,
+      session: !!session,
+      expiresAt,
+      nowSeconds,
+      timeUntilExpiry: expiresAt - nowSeconds,
+      isValid
+    });
 
     // Cache the result
     sessionValidityCache.current = { isValid, timestamp: now };
     return isValid;
   }, [isAuthenticated, user, session]);
+
+  // Check if user is authenticated
+  const isUserAuthenticated = useCallback(() => {
+    const result = !!user && !!session;
+    console.log('isAuthenticated check:', {
+      user: !!user,
+      session: !!session,
+      result
+    });
+    return result;
+  }, [user, session]);
 
   // Clear caches when session changes
   const clearCache = useCallback(() => {
@@ -164,6 +193,14 @@ export const useAuthenticatedApi = () => {
 
       if (error) {
         console.error(`RPC call ${functionName} failed:`, error);
+        
+        // Check if this is an authentication error that might trigger token refresh
+        if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
+          console.log('Authentication error detected in RPC call, clearing session cache to prevent token refresh loop');
+          // Clear session cache to force revalidation
+          sessionValidityCache.current = null;
+        }
+        
         if (showErrorToast) {
           toast({
             title: "Operation Failed",
@@ -182,6 +219,13 @@ export const useAuthenticatedApi = () => {
       return data;
     } catch (error) {
       console.error(`Error calling ${functionName}:`, error);
+      
+      // Check if this is an authentication error that might trigger token refresh
+      if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
+        console.log('Authentication error detected in RPC call catch block, clearing session cache to prevent token refresh loop');
+        // Clear session cache to force revalidation
+        sessionValidityCache.current = null;
+      }
       
       // Only show toast for first retry attempt
       if (showErrorToast && retryCount === 0) {
@@ -244,13 +288,17 @@ export const useAuthenticatedApi = () => {
   }, [hasValidSession, session]);
 
   // Clear session validity cache when session changes
-  useMemo(() => {
+  useEffect(() => {
+    console.log('Session access token changed, clearing session validity cache', {
+      oldToken: sessionValidityCache.current?.timestamp ? 'exists' : 'none',
+      newToken: session?.access_token ? 'exists' : 'none'
+    });
     sessionValidityCache.current = null;
   }, [session?.access_token]);
 
   return {
     // Status checks (optimized)
-    isAuthenticated,
+    isAuthenticated: isUserAuthenticated,
     hasValidSession,
     
     // User data (from context, no API calls)

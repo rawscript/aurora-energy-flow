@@ -563,7 +563,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       isInitialized.current = false;
       lastFetchTime.current = 0;
     }
-  }, [hasValidSession(), user, fetchTokenAnalytics, fetchTransactions]);
+  }, [hasValidSession, user, fetchTokenAnalytics, fetchTransactions]);
 
   // Set up real-time subscription with improved error handling
   useEffect(() => {
@@ -580,7 +580,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
         supabase.removeChannel(subscriptionRef.current);
       }
     };
-  }, [hasValidSession()]);
+  }, [hasValidSession]);
 
   return {
     analytics,
@@ -589,6 +589,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     loading,
     purchasing,
     error,
+    hasValidSession,
     fetchTokenAnalytics,
     fetchTransactions,
     checkKPLCBalance,

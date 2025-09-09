@@ -1128,7 +1128,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         }
       }
     };
-  }, [userId, hasValidSession(), hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
+  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
 
   // Cleanup on unmount
   useEffect(() => {
