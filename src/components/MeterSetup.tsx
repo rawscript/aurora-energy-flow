@@ -349,28 +349,28 @@ const MeterSetup = ({}: MeterSetupProps) => {
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg sm:text-xl text-aurora-green-light flex items-center gap-2">
-            {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+            {providerConfig.type === 'solar' ? (
               <>
                 <SolarPanel className="h-5 w-5 sm:h-6 sm:w-6" />
-                Solar Inverter Setup
+                {providerConfig.terminology.setup}
               </>
             ) : (
               <>
                 <Gauge className="h-5 w-5 sm:h-6 sm:w-6" />
-                Smart Meter Setup
+                {providerConfig.terminology.setup}
               </>
             )}
           </CardTitle>
           <p className="text-sm text-gray-400">
-            {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
-              ? 'Connect your solar inverter to start monitoring your solar energy generation.'
-              : 'Connect your Kenya Power smart meter to start monitoring your real energy usage.'}
+            {providerConfig.type === 'solar'
+              ? `Connect your ${providerConfig.terminology.device} to start monitoring your solar energy generation.`
+              : `Connect your Kenya Power smart meter to start monitoring your real energy usage.`}
           </p>
           <div className="mt-2 p-2 bg-aurora-green/10 border border-aurora-green/20 rounded-md">
             <p className="text-xs text-aurora-green-light flex items-center">
               <Check className="h-4 w-4 mr-1 flex-shrink-0" />
-              {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
-                ? 'Setting up your inverter enables real-time solar generation data collection and personalized insights'
+              {providerConfig.type === 'solar'
+                ? `Setting up your ${providerConfig.terminology.device} enables real-time solar generation data collection and personalized insights`
                 : 'Setting up your meter enables real-time data collection and personalized insights'}
             </p>
           </div>
@@ -381,11 +381,11 @@ const MeterSetup = ({}: MeterSetupProps) => {
         <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2' : 'grid-cols-3'} bg-aurora-card border border-aurora-green/20`}>
           <TabsTrigger value="current" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs sm:text-sm">
             <Gauge className="h-4 w-4 mr-1" />
-            {isMobile ? 'Current' : 'Current Meter'}
+            {isMobile ? 'Current' : providerConfig.terminology.setup.replace('Setup', 'Current')}
           </TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs sm:text-sm">
             <History className="h-4 w-4 mr-1" />
-            {isMobile ? 'History' : 'Meter History'}
+            {isMobile ? 'History' : providerConfig.terminology.setup.replace('Setup', 'History')}
           </TabsTrigger>
           {!isMobile && (
             <TabsTrigger value="new" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs sm:text-sm">
@@ -406,9 +406,9 @@ const MeterSetup = ({}: MeterSetupProps) => {
                   Your Saved Information
                 </CardTitle>
                 <p className="text-sm text-green-700">
-                  {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
-                    ? 'We found some information from your signup. You can edit it during meter/ inverter setup process.'
-                    : 'We found some information from your signup. You can edit it during meter/ inverter setup process.'}
+                  {providerConfig.type === 'solar'
+                    ? 'We found some information from your signup. You can edit or add to it below.'
+                    : 'We found some information from your signup. You can edit or add to it below.'}
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -426,7 +426,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                 )}
                 {profile.meter_category && (
                   <div className="flex items-center gap-2 text-sm">
-                    {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                    {providerConfig.type === 'solar' ? (
                       <SolarPanel className="h-4 w-4 text-green-600" />
                     ) : (
                       <Building className="h-4 w-4 text-green-600" />
@@ -444,12 +444,12 @@ const MeterSetup = ({}: MeterSetupProps) => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg text-aurora-green-light">
-                      {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Connected Inverter' : 'Connected Meter'}
+                      {providerConfig.type === 'solar' ? `Connected ${providerConfig.terminology.device}` : 'Connected Meter'}
                     </CardTitle>
                     <div className="flex mt-1 space-x-2">
                       {profile?.meter_category && (
                         <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-                          {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                          {providerConfig.type === 'solar' ? (
                             <SolarPanel className="h-3 w-3 mr-1" />
                           ) : (
                             <Building className="h-3 w-3 mr-1" />
@@ -489,7 +489,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">
-                      {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Inverter ID' : 'Meter Number'}
+                      {providerConfig.type === 'solar' ? `${providerConfig.terminology.device} ID` : 'Meter Number'}
                     </Label>
                     <p className="font-mono text-lg text-aurora-green-light">
                       {profile.meter_number}
@@ -514,10 +514,10 @@ const MeterSetup = ({}: MeterSetupProps) => {
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">
-                      {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Inverter Category' : 'Meter Category'}
+                      {providerConfig.type === 'solar' ? `${providerConfig.terminology.device} Category` : 'Meter Category'}
                     </Label>
                     <div className="flex items-center space-x-2">
-                      {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                      {providerConfig.type === 'solar' ? (
                         <SolarPanel className="h-4 w-4 text-amber-400" />
                       ) : (
                         <Building className="h-4 w-4 text-amber-400" />
@@ -560,24 +560,24 @@ const MeterSetup = ({}: MeterSetupProps) => {
                   className="w-full border-aurora-blue/30 hover:bg-aurora-blue/10"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  {isMobile ? 'Change' : 'Setup Different'} {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Inverter' : 'Meter'}
+                  {isMobile ? 'Change' : 'Setup Different'} {providerConfig.type === 'solar' ? providerConfig.terminology.device : 'Meter'}
                 </Button>
               </CardContent>
             </Card>
           ) : (
             <Card className="bg-aurora-card border-yellow-500/20">
               <CardContent className="p-6 text-center">
-                {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                {providerConfig.type === 'solar' ? (
                   <SolarPanel className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
                 ) : (
                   <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
                 )}
                 <h3 className="text-lg font-medium mb-2">
-                  No {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Inverter' : 'Meter'} Connected
+                  No {providerConfig.type === 'solar' ? providerConfig.terminology.device : 'Meter'} Connected
                 </h3>
                 <p className="text-muted-foreground mb-4">
-                  {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
-                    ? 'Connect your solar inverter to start monitoring your energy generation based on your category'
+                  {providerConfig.type === 'solar'
+                    ? `Connect your ${providerConfig.terminology.device} to start monitoring your energy generation based on your category`
                     : 'Connect your smart meter to start monitoring your energy usage based on your category'}
                 </p>
                 <Button
@@ -585,7 +585,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                   className="bg-aurora-green hover:bg-aurora-green/80"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Setup {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Inverter' : 'Meter'}
+                  Setup {providerConfig.type === 'solar' ? providerConfig.terminology.device : 'Meter'}
                 </Button>
               </CardContent>
             </Card>
@@ -596,16 +596,20 @@ const MeterSetup = ({}: MeterSetupProps) => {
         <TabsContent value="history" className="space-y-4">
           <Card className="bg-aurora-card border-aurora-blue/20">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-aurora-blue-light">Previous Meters</CardTitle>
+              <CardTitle className="text-lg text-aurora-blue-light">
+                {providerConfig.terminology.setup.replace('Setup', 'Previous')}
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                Select from previously used meters or add a new one
+                {providerConfig.terminology.setup.replace('Setup', 'Select from previously used').replace('Device', 'devices').replace('or', 'or add a new one')}
               </p>
             </CardHeader>
             <CardContent className="space-y-3">
               {historyLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aurora-blue mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">Loading meter history...</p>
+                  <p className="text-muted-foreground">
+                    {providerConfig.terminology.setup.replace('Setup', 'Loading').replace('Device', 'device').replace('history', 'history...')}
+                  </p>
                 </div>
               ) : meterHistory.length > 0 ? (
                 <>
@@ -620,7 +624,11 @@ const MeterSetup = ({}: MeterSetupProps) => {
                     >
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
-                          <Gauge className={`h-5 w-5 ${meter.is_current ? 'text-aurora-green' : 'text-aurora-blue-light'}`} />
+                          {providerConfig.type === 'solar' ? (
+                            <SolarPanel className={`h-5 w-5 ${meter.is_current ? 'text-aurora-green' : 'text-aurora-blue-light'}`} />
+                          ) : (
+                            <Gauge className={`h-5 w-5 ${meter.is_current ? 'text-aurora-green' : 'text-aurora-blue-light'}`} />
+                          )}
                           <div>
                             <div className="flex items-center space-x-2">
                               <p className="font-mono text-sm font-medium">
@@ -638,7 +646,10 @@ const MeterSetup = ({}: MeterSetupProps) => {
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {meter.location && `${meter.location} • `}
-                              Used: {new Date(meter.created_at).toLocaleDateString()}
+                              {providerConfig.type === 'solar' 
+                                ? 'Used: ' 
+                                : 'Used: '}
+                              {new Date(meter.created_at).toLocaleDateString()}
                             </p>
                             <div className="flex items-center mt-1">
                               {meter.meter_category && (
@@ -681,20 +692,26 @@ const MeterSetup = ({}: MeterSetupProps) => {
                       className="w-full border-aurora-green/30 hover:bg-aurora-green/10"
                     >
                       <Plus className="h-4 w-4 mr-2" />
-                      Add New Meter
+                      {providerConfig.type === 'solar' ? 'Add New Inverter' : 'Add New Meter'}
                     </Button>
                   </div>
                 </>
               ) : (
                 <div className="text-center py-8">
-                  <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground mb-4">No previous meters found</p>
+                  {providerConfig.type === 'solar' ? (
+                    <SolarPanel className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  ) : (
+                    <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  )}
+                  <p className="text-muted-foreground mb-4">
+                    {providerConfig.terminology.setup.replace('Setup', 'No previous').replace('Device', 'devices found')}
+                  </p>
                   <Button
                     onClick={() => setActiveTab('new')}
                     className="bg-aurora-green hover:bg-aurora-green/80"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    Setup First Meter
+                    {providerConfig.terminology.setup.replace('Setup', 'Setup First')}
                   </Button>
                 </div>
               )}
@@ -707,10 +724,10 @@ const MeterSetup = ({}: MeterSetupProps) => {
           <Card className="bg-aurora-card border-aurora-purple/20">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg text-aurora-purple-light">
-                {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'Add New Inverter' : 'Add New Meter'}
+                {providerConfig.terminology.setup.replace('Setup', 'Add New')}
               </CardTitle>
               <p className="text-sm text-muted-foreground">
-                {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
+                {providerConfig.type === 'solar'
                   ? 'Enter your inverter details to connect a new solar inverter'
                   : 'Enter your meter details to connect a new smart meter'}
               </p>
@@ -726,7 +743,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                         <FormLabel className="text-aurora-purple-light">Energy Provider</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                            {providerConfig.type === 'solar' ? (
                               <Sun className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                             ) : (
                               <Zap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -771,7 +788,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                           <FormLabel className="text-aurora-green-light">{selectedProviderObj.meterLabel}</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                              {providerConfig.type === 'solar' ? (
                                 <SolarPanel className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                               ) : (
                                 <Gauge className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -786,7 +803,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                           <FormDescription className="text-xs">
                             {selectedProviderObj.placeholder.includes("KPLC")
                               ? "Find this 11-digit number on your electricity bill or meter display"
-                              : provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
+                              : providerConfig.type === 'solar'
                                 ? "Find this ID on your inverter display or documentation"
                                 : "Find this number on your bill or device"}
                           </FormDescription>
@@ -944,7 +961,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                   >
                     {isLoading ? (
                       'Connecting...'
-                    ) : provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                    ) : providerConfig.type === 'solar' ? (
                       'Connect Solar Inverter'
                     ) : (
                       'Connect Smart Meter'
@@ -964,7 +981,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
           className="w-full bg-aurora-green hover:bg-aurora-green/80 h-12"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add New Meter
+          Add New {providerConfig.terminology.device}
         </Button>
       )}
 
@@ -976,12 +993,12 @@ const MeterSetup = ({}: MeterSetupProps) => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">
-              {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar'
+              {providerConfig.type === 'solar'
                 ? 'Finding Your Inverter ID:'
                 : 'Finding Your Meter Number:'}
             </h4>
             <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
-              {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+              {providerConfig.type === 'solar' ? (
                 <>
                   <li>• Check your inverter documentation or display panel</li>
                   <li>• Look for a serial number or device ID on your inverter</li>
@@ -1012,7 +1029,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Troubleshooting:</h4>
             <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
-              <li>• Ensure your {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? 'inverter ID' : 'meter number'} is correct</li>
+              <li>• Ensure your {providerConfig.type === 'solar' ? 'inverter ID' : 'meter number'} is correct</li>
               <li>• Contact support if connection fails</li>
               <li>• Check your internet connection</li>
             </ul>
