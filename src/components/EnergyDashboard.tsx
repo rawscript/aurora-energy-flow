@@ -138,9 +138,15 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                   <AlertCircle className="h-6 w-6 text-yellow-500" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold">No Smart Meter Connected</h3>
+                  <h3 className="text-lg font-semibold">
+                    {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                      ? 'No Solar Inverter Connected'
+                      : 'No Smart Meter Connected'}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
-                    Connect your Kenya Power smart meter to start monitoring real energy usage
+                    {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                      ? 'Connect your solar inverter to start monitoring real solar energy generation'
+                      : 'Connect your Kenya Power smart meter to start monitoring real energy usage'}
                   </p>
                 </div>
               </div>
@@ -148,8 +154,18 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
                 onClick={() => window.location.hash = '#meter'}
                 className="bg-aurora-green hover:bg-aurora-green/80"
               >
-                <Zap className="h-4 w-4 mr-2" />
-                Setup Meter
+                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                  ? (
+                    <>
+                      <Sun className="h-4 w-4 mr-2" />
+                      Setup Inverter
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Setup Meter
+                    </>
+                  )}
               </Button>
             </div>
           </CardContent>
@@ -157,50 +173,99 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
 
         {/* Empty Stats - Mobile Optimized */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard
-            icon={Battery}
-            title="Current Usage"
-            value="— kW"
-            color="aurora-green-light"
-            isEmpty={true}
-          />
+          {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+            <>
+              <StatCard
+                icon={Battery}
+                title="Battery State"
+                value="— %"
+                color="aurora-green-light"
+                isEmpty={true}
+              />
+              <StatCard
+                icon={Sun}
+                title="Power Generated"
+                value="— kW"
+                color="aurora-blue-light"
+                isEmpty={true}
+              />
+              <StatCard
+                icon={House}
+                title="Batteries Connected"
+                value="—"
+                color="aurora-purple-light"
+                isEmpty={true}
+              />
+              <StatCard
+                icon={Monitor}
+                title="Load Consumption"
+                value="— kW"
+                color="emerald-400"
+                isEmpty={true}
+              />
+            </>
+          ) : (
+            <>
+              <StatCard
+                icon={Battery}
+                title="Current Usage"
+                value="— kW"
+                color="aurora-green-light"
+                isEmpty={true}
+              />
 
-          <StatCard
-            icon={House}
-            title="Daily Total"
-            value="— kWh"
-            color="aurora-blue-light"
-            isEmpty={true}
-          />
+              <StatCard
+                icon={House}
+                title="Daily Total"
+                value="— kWh"
+                color="aurora-blue-light"
+                isEmpty={true}
+              />
 
-          <StatCard
-            icon={Sun}
-            title="Cost Today"
-            value="KSh —"
-            color="aurora-purple-light"
-            isEmpty={true}
-          />
+              <StatCard
+                icon={Sun}
+                title="Cost Today"
+                value="KSh —"
+                color="aurora-purple-light"
+                isEmpty={true}
+              />
 
-          <StatCard
-            icon={Monitor}
-            title="Efficiency"
-            value="—%"
-            color="emerald-400"
-            isEmpty={true}
-          />
+              <StatCard
+                icon={Monitor}
+                title="Efficiency"
+                value="—%"
+                color="emerald-400"
+                isEmpty={true}
+              />
+            </>
+          )}
         </div>
 
         {/* Empty Chart */}
         <Card className="bg-aurora-card border-aurora-green/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl text-aurora-green-light">Real-time Energy Usage</CardTitle>
+            <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
+              {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                ? 'Real-time Solar Generation'
+                : 'Real-time Energy Usage'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`${isMobile ? 'h-48' : 'h-64'} flex items-center justify-center`}>
               <div className="text-center">
-                <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <p className="text-muted-foreground">No usage data available</p>
-                <p className="text-sm text-muted-foreground mt-2">Connect your smart meter to see real-time usage</p>
+                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+                  <>
+                    <Sun className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">No solar data available</p>
+                    <p className="text-sm text-muted-foreground mt-2">Connect your solar inverter to see real-time generation</p>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">No usage data available</p>
+                    <p className="text-sm text-muted-foreground mt-2">Connect your smart meter to see real-time usage</p>
+                  </>
+                )}
               </div>
             </div>
           </CardContent>
@@ -210,62 +275,126 @@ const EnergyDashboard = ({ energyProvider = '' }: EnergyDashboardProps) => {
         <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'lg:grid-cols-2 gap-6'}`}>
           <Card className="bg-aurora-card border-aurora-blue/20">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">What You'll Get</CardTitle>
+              <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
+                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                  ? 'Solar Monitoring Benefits'
+                  : 'What You\'ll Get'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <TrendingUp className="h-5 w-5 text-aurora-green mt-1" />
-                  <div>
-                    <h4 className="font-medium">Real-time Monitoring</h4>
-                    <p className="text-sm text-muted-foreground">Track your electricity usage as it happens</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <Battery className="h-5 w-5 text-aurora-blue mt-1" />
-                  <div>
-                    <h4 className="font-medium">Usage Analytics</h4>
-                    <p className="text-sm text-muted-foreground">Detailed breakdowns and efficiency scores</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <Sun className="h-5 w-5 text-aurora-purple mt-1" />
-                  <div>
-                    <h4 className="font-medium">Cost Optimization</h4>
-                    <p className="text-sm text-muted-foreground">Identify peak hours and reduce bills</p>
-                  </div>
-                </div>
+                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+                  <>
+                    <div className="flex items-start space-x-3">
+                      <Sun className="h-5 w-5 text-aurora-green mt-1" />
+                      <div>
+                        <h4 className="font-medium">Real-time Solar Generation</h4>
+                        <p className="text-sm text-muted-foreground">Track your solar energy production as it happens</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Battery className="h-5 w-5 text-aurora-blue mt-1" />
+                      <div>
+                        <h4 className="font-medium">Battery Monitoring</h4>
+                        <p className="text-sm text-muted-foreground">Monitor your battery charge levels and health</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Monitor className="h-5 w-5 text-aurora-purple mt-1" />
+                      <div>
+                        <h4 className="font-medium">Consumption Analytics</h4>
+                        <p className="text-sm text-muted-foreground">Understand your energy consumption patterns</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-start space-x-3">
+                      <TrendingUp className="h-5 w-5 text-aurora-green mt-1" />
+                      <div>
+                        <h4 className="font-medium">Real-time Monitoring</h4>
+                        <p className="text-sm text-muted-foreground">Track your electricity usage as it happens</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Battery className="h-5 w-5 text-aurora-blue mt-1" />
+                      <div>
+                        <h4 className="font-medium">Usage Analytics</h4>
+                        <p className="text-sm text-muted-foreground">Detailed breakdowns and efficiency scores</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <Sun className="h-5 w-5 text-aurora-purple mt-1" />
+                      <div>
+                        <h4 className="font-medium">Cost Optimization</h4>
+                        <p className="text-sm text-muted-foreground">Identify peak hours and reduce bills</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card className="bg-aurora-card border-aurora-purple/20">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">Getting Started</CardTitle>
+              <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
+                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                  ? 'Solar Setup Guide'
+                  : 'Getting Started'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-aurora-green rounded-full flex items-center justify-center text-xs font-bold text-black">1</div>
-                  <div>
-                    <h4 className="font-medium">Find Your Meter Number</h4>
-                    <p className="text-sm text-muted-foreground">Check your Kenya Power bill or meter display</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-aurora-blue rounded-full flex items-center justify-center text-xs font-bold text-black">2</div>
-                  <div>
-                    <h4 className="font-medium">Setup Your Profile</h4>
-                    <p className="text-sm text-muted-foreground">Enter your details and meter category</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-6 h-6 bg-aurora-purple rounded-full flex items-center justify-center text-xs font-bold text-black">3</div>
-                  <div>
-                    <h4 className="font-medium">Start Monitoring</h4>
-                    <p className="text-sm text-muted-foreground">Begin tracking your energy usage and costs</p>
-                  </div>
-                </div>
+                {energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
+                  <>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-aurora-green rounded-full flex items-center justify-center text-xs font-bold text-black">1</div>
+                      <div>
+                        <h4 className="font-medium">Find Your Inverter ID</h4>
+                        <p className="text-sm text-muted-foreground">Check your solar inverter display or documentation</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-aurora-blue rounded-full flex items-center justify-center text-xs font-bold text-black">2</div>
+                      <div>
+                        <h4 className="font-medium">Setup Your Profile</h4>
+                        <p className="text-sm text-muted-foreground">Enter your details and solar system information</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-aurora-purple rounded-full flex items-center justify-center text-xs font-bold text-black">3</div>
+                      <div>
+                        <h4 className="font-medium">Start Monitoring</h4>
+                        <p className="text-sm text-muted-foreground">Begin tracking your solar energy generation and consumption</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-aurora-green rounded-full flex items-center justify-center text-xs font-bold text-black">1</div>
+                      <div>
+                        <h4 className="font-medium">Find Your Meter Number</h4>
+                        <p className="text-sm text-muted-foreground">Check your Kenya Power bill or meter display</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-aurora-blue rounded-full flex items-center justify-center text-xs font-bold text-black">2</div>
+                      <div>
+                        <h4 className="font-medium">Setup Your Profile</h4>
+                        <p className="text-sm text-muted-foreground">Enter your details and meter category</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-aurora-purple rounded-full flex items-center justify-center text-xs font-bold text-black">3</div>
+                      <div>
+                        <h4 className="font-medium">Start Monitoring</h4>
+                        <p className="text-sm text-muted-foreground">Begin tracking your energy usage and costs</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

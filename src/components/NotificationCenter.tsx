@@ -42,13 +42,10 @@ const NotificationCenter = () => {
     status,
     preferences,
     error,
-    checkAndFetchNotifications,
-    checkNotificationStatus,
-    getNotificationPreferences,
+    refreshNotifications,
     markAsRead, 
     markAllAsRead,
     deleteNotification,
-    deleteAllRead,
     getNotificationActions
   } = useNotifications();
   
@@ -129,7 +126,11 @@ const NotificationCenter = () => {
     if (deleteTarget === 'single' && selectedNotification) {
       await deleteNotification(selectedNotification.id);
     } else if (deleteTarget === 'all-read') {
-      await deleteAllRead();
+      // Implement delete all read functionality
+      const readNotifications = notifications.filter(n => n.isRead);
+      for (const notification of readNotifications) {
+        await deleteNotification(notification.id);
+      }
     }
     setShowDeleteDialog(false);
     setDeleteTarget(null);
@@ -137,7 +138,7 @@ const NotificationCenter = () => {
   };
 
   const handleRefresh = () => {
-    checkAndFetchNotifications(true);
+    refreshNotifications();
   };
 
   // Show loading state only during initial load
@@ -164,6 +165,9 @@ const NotificationCenter = () => {
                 <p className="text-muted-foreground mb-4 max-w-md">
                   We encountered an issue while loading your notifications. This might be temporary.
                 </p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Please try again or check your connection.
+                </p>
                 <div className="flex space-x-2">
                   <Button 
                     onClick={handleRefresh}
@@ -173,7 +177,10 @@ const NotificationCenter = () => {
                     Try Again
                   </Button>
                   <Button 
-                    onClick={() => window.location.hash = '#settings'}
+                    onClick={() => {
+                      // Dispatch a custom event to navigate to settings
+                      window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
+                    }}
                     variant="outline"
                   >
                     <Settings className="h-4 w-4 mr-2" />
@@ -306,7 +313,10 @@ const NotificationCenter = () => {
 
                 <div className="flex flex-col sm:flex-row gap-2 mt-6">
                   <Button
-                    onClick={() => window.location.hash = '#settings'}
+                    onClick={() => {
+                      // Dispatch a custom event to navigate to settings
+                      window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
+                    }}
                     className="bg-aurora-green hover:bg-aurora-green/80"
                   >
                     <Settings className="h-4 w-4 mr-2" />
@@ -586,7 +596,10 @@ const NotificationCenter = () => {
                 </p>
                 {!preferences.has_meter && (
                   <Button
-                    onClick={() => window.location.hash = '#settings'}
+                    onClick={() => {
+                      // Dispatch a custom event to navigate to settings
+                      window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
+                    }}
                     size="sm"
                     className="bg-aurora-green hover:bg-aurora-green/80"
                   >

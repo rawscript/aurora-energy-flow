@@ -1,11 +1,12 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Wifi, WifiOff, Zap, Clock, AlertTriangle, Link } from 'lucide-react';
+import { Wifi, WifiOff, Zap, Clock, AlertTriangle, Link, Sun } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
+import SolarPanel from '@/components/ui/SolarPanel';
 
 interface SmartMeterStatusProps {
   onNavigateToMeter?: () => void;
@@ -14,10 +15,16 @@ interface SmartMeterStatusProps {
 const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
   const { recentReadings, hasMeterConnected, error, loading } = useRealTimeEnergy();
   const { user } = useAuth();
+  const { provider, providerConfig } = useEnergyProvider();
   
   const lastReading = recentReadings[0];
   const isConnected = hasMeterConnected && lastReading && 
     new Date().getTime() - new Date(lastReading.reading_date).getTime() < 300000; // 5 minutes
+
+  const isSolarProvider = providerConfig.type === 'solar';
+  const deviceLabel = isSolarProvider ? 'Inverter' : 'Meter';
+  const connectionLabel = isSolarProvider ? 'Inverter' : 'Smart Meter';
+  const statusTitle = isSolarProvider ? 'Solar Inverter Status' : 'Smart Meter Status';
 
   const handleSetupMeter = () => {
     if (onNavigateToMeter) {
@@ -30,12 +37,17 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
       <CardHeader>
         <CardTitle className="text-lg flex items-center space-x-2">
           {isConnected ? (
-            <Wifi className="h-5 w-5 text-aurora-green-light" />
+            isSolarProvider ? (
+              <Sun className="h-5 w-5 text-aurora-green-light" />
+            ) : (
+              <Wifi className="h-5 w-5 text-aurora-green-light" />
+            )
+          ) : isSolarProvider ? (
+            <AlertTriangle className="h-5 w-5 text-yellow-400" />
           ) : (
             <WifiOff className="h-5 w-5 text-red-400" />
           )}
-          <span>Smart Meter Status</span>
-      
+          <span>{statusTitle}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -52,7 +64,9 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
         {lastReading && (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Meter Number</span>
+              <span className="text-sm text-muted-foreground">
+                {isSolarProvider ? 'Inverter ID' : 'Meter Number'}
+              </span>
               <span className="text-sm font-mono">{lastReading.meter_number}</span>
             </div>
             
@@ -67,9 +81,15 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Latest Consumption</span>
+              <span className="text-sm text-muted-foreground">
+                {isSolarProvider ? 'Latest Generation' : 'Latest Consumption'}
+              </span>
               <div className="flex items-center space-x-2">
-                <Zap className="h-4 w-4 text-aurora-green-light" />
+                {isSolarProvider ? (
+                  <Sun className="h-4 w-4 text-aurora-green-light" />
+                ) : (
+                  <Zap className="h-4 w-4 text-aurora-green-light" />
+                )}
                 <span className="text-sm font-semibold">
                   {Number(lastReading.kwh_consumed).toFixed(2)} kWh
                 </span>
@@ -87,7 +107,7 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
               onClick={handleSetupMeter}
             >
               <Link className="h-4 w-4 mr-2" />
-              Connect Real Smart Meter
+              {isSolarProvider ? 'Connect Real Solar Inverter' : 'Connect Real Smart Meter'}
             </Button>
           </div>
         )}
@@ -95,14 +115,16 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
         <div className="pt-2 border-t border-slate-700">
           <div className="text-xs text-muted-foreground">
             {loading 
-              ? 'Loading meter status...'
+              ? `Loading ${connectionLabel.toLowerCase()} status...`
               : error 
-                ? 'Unable to connect to meter. Please check your setup.'
+                ? `Unable to connect to ${connectionLabel.toLowerCase()}. Please check your setup.`
                 : !hasMeterConnected 
-                  ? 'No meter connected. Set up your smart meter to get real-time data.'
+                  ? `No ${connectionLabel.toLowerCase()} connected. Set up your ${isSolarProvider ? 'solar inverter' : 'smart meter'} to get real-time data.`
                   : isConnected
-                    ? 'Real-time data from Kenya Power smart meters'
-                    : 'Meter connected but no recent readings. Checking connection...'}
+                    ? isSolarProvider 
+                      ? 'Real-time data from solar inverter'
+                      : 'Real-time data from Kenya Power smart meters'
+                    : `${deviceLabel} connected but no recent readings. Checking connection...`}
           </div>
         </div>
       </CardContent>

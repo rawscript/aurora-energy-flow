@@ -136,14 +136,20 @@ export const useNotifications = () => {
       }
 
       // Fetch notifications using centralized auth
-      const notifications = await callRpc('get_user_notifications_safe', {
-        p_limit: MAX_NOTIFICATIONS,
-        p_unread_only: false
-      }, { 
-        showErrorToast: false,
-        cacheKey: `notifications_${userId}`,
-        cacheDuration: 30000 // Cache for 30 seconds
-      });
+      let notifications = [];
+      try {
+        notifications = await callRpc('get_user_notifications_safe', {
+          p_limit: MAX_NOTIFICATIONS,
+          p_unread_only: false
+        }, { 
+          showErrorToast: false,
+          cacheKey: `notifications_${userId}`,
+          cacheDuration: 30000 // Cache for 30 seconds
+        });
+      } catch (error) {
+        console.log('Error fetching notifications:', error);
+        // Don't fail the whole operation if notifications fail
+      }
 
       // Fetch preferences separately using centralized auth
       let preferences = null;
@@ -166,7 +172,12 @@ export const useNotifications = () => {
 
     } catch (error) {
       console.error('Error fetching notification data:', error);
-      throw error;
+      // Return empty data instead of throwing to prevent UI crashes
+      return {
+        notifications: [],
+        preferences: null,
+        needs_initialization: false
+      };
     } finally {
       isOperationInProgress.current = false;
     }

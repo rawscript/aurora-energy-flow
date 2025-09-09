@@ -243,10 +243,19 @@ const Index = () => {
       handleTabChange("meter");
     };
 
+    const handleNavigateToTab = (event: CustomEvent) => {
+      const tab = event.detail;
+      if (tab) {
+        handleTabChange(tab);
+      }
+    };
+
     window.addEventListener('navigate-to-meter', handleNavigateToMeter);
+    window.addEventListener('navigate-to-tab', handleNavigateToTab as EventListener);
     
     return () => {
       window.removeEventListener('navigate-to-meter', handleNavigateToMeter);
+      window.removeEventListener('navigate-to-tab', handleNavigateToTab as EventListener);
     };
   }, [handleTabChange]);
 
