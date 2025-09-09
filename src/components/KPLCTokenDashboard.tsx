@@ -65,6 +65,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   // Handle token purchase
   const handlePurchaseTokens = useCallback(async () => {
     const amount = parseFloat(purchaseAmount);
+    const terminology = getProviderTerminology(energyProvider);
 
     // Validate amount
     if (isNaN(amount) || amount < 10) {
@@ -93,7 +94,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     if (result) {
       toast({
         title: "Purchase Successful",
-        description: `Successfully purchased KSh ${amount} worth of ${energyProvider === 'KPLC' ? 'tokens' : 'credits'}.`,
+        description: `Successfully purchased KSh ${amount} worth of ${terminology.data}.`,
       });
       setPurchaseDialogOpen(false);
       setPurchaseAmount('200'); // Reset to default
@@ -125,18 +126,87 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   // Quick purchase amounts
   const quickAmounts = [100, 200, 500, 1000];
 
+  // Get provider-specific terminology
+  const getProviderTerminology = (provider: string) => {
+    // Handle empty or undefined provider as KPLC (default)
+    if (!provider) {
+      return {
+        data: 'token',
+        balance: 'Token',
+        credits: 'Tokens',
+        purchase: 'KPLC Tokens',
+        setup: 'meter',
+        transaction: 'token',
+        transactions: 'Token Transactions',
+        noData: 'No token data available',
+        setupPrompt: 'Set up your meter to start tracking usage'
+      };
+    }
+
+    // Handle KPLC specifically
+    if (provider === 'KPLC') {
+      return {
+        data: 'token',
+        balance: 'Token',
+        credits: 'Tokens',
+        purchase: 'KPLC Tokens',
+        setup: 'meter',
+        transaction: 'token',
+        transactions: 'Token Transactions',
+        noData: 'No token data available',
+        setupPrompt: 'Set up your meter to start tracking usage'
+      };
+    }
+
+    // Handle solar providers
+    if (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar') {
+      return {
+        data: 'solar',
+        balance: 'Solar',
+        credits: 'Solar Credits',
+        purchase: 'Solar Credits',
+        setup: 'inverter',
+        transaction: 'credit',
+        transactions: 'Solar Transactions',
+        noData: 'No solar data available',
+        setupPrompt: 'Set up your inverter to start tracking usage'
+      };
+    }
+
+    // Handle other providers (KenGEn, IPP, Other)
+    return {
+      data: 'energy',
+      balance: 'Energy',
+      credits: 'Credits',
+      purchase: 'Energy Credits',
+      setup: 'meter', // Default to meter for other providers
+      transaction: 'credit',
+      transactions: 'Transactions',
+      noData: 'No energy data available',
+      setupPrompt: 'Set up your energy device to start tracking usage'
+    };
+  };
+
   // Get provider display name
   const getProviderDisplayName = (provider: string) => {
+    // Handle empty or undefined provider as KPLC (default)
+    if (!provider) {
+      return 'KPLC token';
+    }
+
     switch (provider) {
       case 'KPLC':
-      case '':
         return 'KPLC token';
       case 'Solar':
-        return 'solar';
       case 'SunCulture':
-        return 'SunCulture';
       case 'M-KOPA Solar':
-        return 'M-KOPA Solar';
+        return 'solar';
+      case 'KenGEn':
+        return 'KenGEn credit';
+      case 'IPP':
+        return 'IPP credit';
+      case 'Other':
+        return 'energy';
       default:
         return 'energy';
     }
@@ -195,7 +265,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-aurora-green-light mx-auto mb-4"></div>
           <p className="text-sm text-muted-foreground">
-            Loading {energyProvider === 'KPLC' ? 'token' : 'solar'} data...
+            Loading {getProviderTerminology(energyProvider).data} data...
           </p>
         </div>
       </div>
@@ -214,14 +284,16 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   }
 
   if (!analytics || analytics.data_source === 'no_meter') {
+    const terminology = getProviderTerminology(energyProvider);
+    
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
         <p className="text-muted-foreground">
-          No {energyProvider === 'KPLC' ? 'token' : 'solar'} data available
+          {terminology.noData}
         </p>
         <p className="text-sm text-muted-foreground mt-2">
-          Set up your {energyProvider === 'KPLC' ? 'meter' : 'inverter'} to start tracking usage
+          {terminology.setupPrompt}
         </p>
         <Button
           onClick={handleRefresh}
@@ -338,7 +410,9 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
               <div className="flex items-center space-x-2">
                 <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-aurora-green-light" />
                 <div>
-                  <p className="text-xs sm:text-sm text-muted-foreground">Token Balance</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    {getProviderTerminology(energyProvider).balance} Balance
+                  </p>
                   <p className={`text-lg sm:text-2xl font-bold ${getBalanceColor(analytics.current_balance)}`}>
                     KSh {analytics.current_balance.toFixed(2)}
                   </p>
@@ -407,7 +481,9 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                 {getProviderIcon()}
                 <div>
                   <p className="text-sm font-medium">
-                    Live {energyProvider === 'KPLC' ? 'KPLC' : 'Solar'} Balance
+                    Live {energyProvider === 'KPLC' ? 'KPLC' : 
+                         energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? 'Solar' : 
+                         energyProvider || 'Energy'} Balance
                   </p>
                   <p className="text-2xl font-bold text-green-400">
                     KSh {kplcBalance.balance.toFixed(2)}
@@ -433,8 +509,8 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
               <div className={`w-3 h-3 rounded-full ${analytics.current_balance > 100 ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
               <span className="text-sm">
                 {analytics.current_balance > 100
-                  ? `${energyProvider === 'KPLC' ? 'Token' : 'Solar'} balance is healthy`
-                  : `Low ${energyProvider === 'KPLC' ? 'token' : 'solar'} balance - consider purchasing`}
+                  ? `${getProviderTerminology(energyProvider).balance} balance is healthy`
+                  : `Low ${getProviderTerminology(energyProvider).data} balance - consider purchasing`}
               </span>
             </div>
             <div className="flex space-x-2">
@@ -457,18 +533,20 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                     disabled={purchasing}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    {purchasing ? 'Processing...' : `Buy ${energyProvider === 'KPLC' ? 'Tokens' : 'Credits'}`}
+                    {purchasing ? 'Processing...' : `Buy ${getProviderTerminology(energyProvider).credits}`}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md bg-aurora-card border-aurora-green/20">
                   <DialogHeader>
                     <DialogTitle className="text-aurora-green-light">
-                      Purchase {energyProvider === 'KPLC' ? 'KPLC Tokens' : 'Solar Credits'}
+                      Purchase {getProviderTerminology(energyProvider).purchase}
                     </DialogTitle>
                     <DialogDescription>
-                      {energyProvider === 'KPLC'
+                      {energyProvider === 'KPLC' || !energyProvider
                         ? 'Buy electricity tokens directly from KPLC. You\'ll receive a token code to enter in your meter.'
-                        : 'Buy solar credits for your solar provider. You\'ll receive a transaction reference.'}
+                        : energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
+                        ? 'Buy solar credits for your solar provider. You\'ll receive a transaction reference.'
+                        : 'Buy energy credits for your provider. You\'ll receive a transaction reference.'}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -592,14 +670,14 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                         <span className="font-medium">KSh {parseFloat(purchaseAmount || '0').toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm mt-1">
-                        <span>{energyProvider === 'KPLC' ? 'Token Units' : 'Credits'}:</span>
+                        <span>{getProviderTerminology(energyProvider).balance} Units:</span>
                         <span className="font-medium">{parseFloat(purchaseAmount || '0').toFixed(2)} units</span>
                       </div>
                       <div className="flex justify-between items-center text-sm mt-1">
                         <span>Payment Method:</span>
                         <span className="font-medium">{paymentMethod}</span>
                       </div>
-                      {energyProvider !== 'KPLC' && (
+                      {energyProvider && energyProvider !== 'KPLC' && (
                         <div className="flex justify-between items-center text-sm mt-1">
                           <span>Provider:</span>
                           <span className="font-medium">{energyProvider}</span>
@@ -630,7 +708,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                       ) : (
                         <>
                           <CheckCircle className="h-4 w-4 mr-2" />
-                          {energyProvider === 'KPLC' ? 'Purchase Tokens' : 'Buy Credits'}
+                          {energyProvider === 'KPLC' || !energyProvider ? 'Purchase Tokens' : 'Buy Credits'}
                         </>
                       )}
                     </Button>
@@ -646,8 +724,9 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
       {chartData.length > 0 && (
         <Card className="bg-aurora-card border-aurora-blue/20">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-              {energyProvider === 'KPLC' ? 'Token Balance History' : 'Solar Credit History'}
+            <CardTitle className="text-lg sm:text-xl font-bold flex items-center">
+              <Wallet className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-aurora-green-light" />
+              Live {getProviderTerminology(energyProvider).balance} Balance
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -674,7 +753,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                       borderRadius: '8px',
                       fontSize: isMobile ? '12px' : '14px'
                     }}
-                    formatter={(value) => [`KSh ${Number(value).toFixed(2)}`, energyProvider === 'KPLC' ? 'Balance' : 'Credits']}
+                    formatter={(value) => [`KSh ${Number(value).toFixed(2)}`, getProviderTerminology(energyProvider).balance]}
                   />
                   <Area
                     type="monotone"
@@ -695,7 +774,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
       <Card className="bg-aurora-card border-aurora-purple/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-            Recent {energyProvider === 'KPLC' ? 'Transactions' : 'Solar Transactions'}
+            Recent {getProviderTerminology(energyProvider).transactions}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -719,7 +798,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                   <div>
                     <p className="font-medium text-sm">
                       {transaction.transaction_type === 'purchase'
-                        ? energyProvider === 'KPLC' ? 'Token Purchase' : 'Solar Credit Purchase'
+                        ? `${getProviderTerminology(energyProvider).balance} ${getProviderTerminology(energyProvider).transaction === 'token' ? 'Purchase' : 'Credit Purchase'}`
                         : transaction.transaction_type === 'consumption'
                           ? 'Energy Consumption'
                           : transaction.transaction_type === 'refund'
@@ -734,7 +813,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                     )}
                     {transaction.token_code && (
                       <p className="text-xs text-aurora-green-light font-mono">
-                        {energyProvider === 'KPLC' ? 'Code' : 'Ref'}: {transaction.token_code}
+                        {getProviderTerminology(energyProvider).transaction === 'token' ? 'Code' : 'Ref'}: {transaction.token_code}
                       </p>
                     )}
                   </div>
@@ -761,17 +840,23 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
 
           {transactions.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
-              {energyProvider === 'KPLC' ? (
+              {energyProvider === 'KPLC' || !energyProvider ? (
                 <>
                   <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No transactions yet</p>
                   <p className="text-sm mt-2">Purchase your first tokens to get started</p>
                 </>
-              ) : (
+              ) : energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? (
                 <>
                   <Sun className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No solar transactions yet</p>
                   <p className="text-sm mt-2">Purchase your first solar credits to get started</p>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No energy transactions yet</p>
+                  <p className="text-sm mt-2">Purchase your first energy credits to get started</p>
                 </>
               )}
             </div>
@@ -788,7 +873,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                 <Calendar className="h-5 w-5 text-emerald-400" />
                 <div>
                   <p className="text-sm font-medium">
-                    Last {energyProvider === 'KPLC' ? 'Token' : 'Solar Credit'} Purchase
+                    Last {getProviderTerminology(energyProvider).balance} Purchase
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(analytics.last_purchase_date), { addSuffix: true })}
