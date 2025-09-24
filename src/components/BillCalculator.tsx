@@ -1,21 +1,22 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DollarSign, Calculator } from 'lucide-react';
+import { calculateKenyanElectricityBill, formatKES, formatKwh } from '@/utils/kenyanBillCalculator';
 
 const BillCalculator = () => {
   const [usage, setUsage] = useState<string>('');
-  const [rate, setRate] = useState<string>('0.15');
+  const [rate, setRate] = useState<string>('10.00'); // Updated default rate to KES 10.00 per kWh
   const [days, setDays] = useState<string>('30');
   const [estimatedBill, setEstimatedBill] = useState<number>(0);
   const [savings, setSavings] = useState<number>(0);
+  const [billBreakdown, setBillBreakdown] = useState<ReturnType<typeof calculateKenyanElectricityBill> | null>(null);
 
   const calculateBill = useCallback(() => {
     const dailyUsage = parseFloat(usage) || 0;
-    const energyRate = parseFloat(rate) || 0;
+    const energyRate = parseFloat(rate) || 10.00; // Updated default rate
     const billingDays = parseInt(days) || 30;
     
     const monthlyUsage = dailyUsage * billingDays;
@@ -24,6 +25,14 @@ const BillCalculator = () => {
     
     setEstimatedBill(bill);
     setSavings(potentialSavings);
+    
+    // Calculate detailed Kenyan bill breakdown
+    if (monthlyUsage > 0) {
+      const breakdown = calculateKenyanElectricityBill(monthlyUsage, energyRate);
+      setBillBreakdown(breakdown);
+    } else {
+      setBillBreakdown(null);
+    }
   }, [usage, rate, days]);
 
   useEffect(() => {
@@ -85,7 +94,7 @@ const BillCalculator = () => {
                 <DollarSign className="h-12 w-12 text-aurora-blue-light mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground mb-1">Estimated Bill</p>
                 <p className="text-3xl font-bold text-aurora-blue-light">
-                  ksh{estimatedBill.toFixed(2)}
+                  {formatKES(estimatedBill)}
                 </p>
               </CardContent>
             </Card>
@@ -97,26 +106,114 @@ const BillCalculator = () => {
                 </div>
                 <p className="text-sm text-muted-foreground mb-1">Potential Savings</p>
                 <p className="text-3xl font-bold text-aurora-green-light">
-                  ksh{savings.toFixed(2)}
+                  {formatKES(savings)}
                 </p>
               </CardContent>
             </Card>
           </div>
 
+          {/* Detailed Bill Breakdown */}
+          {billBreakdown && (
+            <Card className="bg-slate-800/50 border-aurora-green/30 mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg text-aurora-green-light">Detailed Bill Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-aurora-blue-light">Energy Charge</h3>
+                    <div className="flex justify-between">
+                      <span>Rate: {formatKES(billBreakdown.energyChargeRate)}/kWh</span>
+                      <span>{formatKwh(billBreakdown.energyChargeKwh)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Total:</span>
+                      <span>{formatKES(billBreakdown.energyCharge)}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-aurora-purple-light">Levies & Adjustments</h3>
+                    <div className="flex justify-between">
+                      <span>Fuel Levy ({formatKES(billBreakdown.fuelLevyRate)}/kWh):</span>
+                      <span>{formatKES(billBreakdown.fuelLevy)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Forex Levy ({formatKES(billBreakdown.forexLevyRate)}/kWh):</span>
+                      <span>{formatKES(billBreakdown.forexLevy)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Inflation Adjustment ({formatKES(billBreakdown.inflationAdjustmentRate)}/kWh):</span>
+                      <span>{formatKES(billBreakdown.inflationAdjustment)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>EPRA Levy ({formatKES(billBreakdown.epraLevyRate)}/kWh):</span>
+                      <span>{formatKES(billBreakdown.epraLevy)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>WRA Levy ({formatKES(billBreakdown.wraLevyRate)}/kWh):</span>
+                      <span>{formatKES(billBreakdown.wraLevy)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>REP Levy ({formatKES(billBreakdown.repLevyRate)}/kWh):</span>
+                      <span>{formatKES(billBreakdown.repLevy)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="border-t border-slate-700 pt-3">
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal (before VAT):</span>
+                    <span>{formatKES(billBreakdown.subtotalBeforeVat)}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-amber-400">VAT Calculation</h3>
+                  <div className="flex justify-between">
+                    <span>Applicable on: Energy Charge + Fuel Levy + Forex Levy + Inflation Adjustment</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>VAT Base:</span>
+                    <span>{formatKES(billBreakdown.vatBase)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>VAT Rate: {(billBreakdown.vatRate * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="flex justify-between font-medium">
+                    <span>VAT Amount:</span>
+                    <span>{formatKES(billBreakdown.vatAmount)}</span>
+                  </div>
+                </div>
+                
+                <div className="border-t border-slate-700 pt-3">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Final Total:</span>
+                    <span className="text-aurora-green-light">{formatKES(billBreakdown.finalTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground mt-1">
+                    <span>Effective Rate:</span>
+                    <span>{formatKES(billBreakdown.costPerKwh)}/kWh</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="bg-slate-800/50 rounded-lg p-6 mt-6">
             <h3 className="text-lg font-semibold text-aurora-green-light mb-4">Usage Breakdown</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Estima\\Monthly Usage:</span>
-                <span className="font-medium">{((parseFloat(usage) || 0) * parseInt(days)).toFixed(1)} kWh</span>
+                <span className="text-muted-foreground">Estimated Monthly Usage:</span>
+                <span className="font-medium">{formatKwh((parseFloat(usage) || 0) * parseInt(days))}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Average Daily Cost:</span>
-                <span className="font-medium">${(estimatedBill / parseInt(days)).toFixed(2)}</span>
+                <span className="font-medium">{formatKES(estimatedBill / parseInt(days) || 0)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Energy Rate:</span>
-                <span className="font-medium">${rate}/kWh</span>
+                <span className="font-medium">{formatKES(parseFloat(rate) || 10.00)}/kWh</span>
               </div>
             </div>
           </div>
@@ -169,4 +266,3 @@ const BillCalculator = () => {
 };
 
 export default BillCalculator;
-//used dedicated API to give customised recommedndations rather than suggestions
