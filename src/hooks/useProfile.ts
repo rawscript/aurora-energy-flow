@@ -188,7 +188,7 @@ export const useProfile = () => {
         return false;
       }
 
-      if (updates.energy_provider && !['', 'KPLC', 'Solar', 'KenGEn', 'IPP', 'Other'].includes(updates.energy_provider)) {
+      if (updates.energy_provider && !['', 'KPLC', 'Solar', 'IPP', 'Other'].includes(updates.energy_provider)) {
         toast({
           title: "Validation Error",
           description: "Please select a valid energy provider from the dropdown.",

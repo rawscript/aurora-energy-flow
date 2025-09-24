@@ -36,7 +36,7 @@ serve(async (req) => {
 
     // Validate specific fields
     if (p_updates.energy_provider &&
-        !['', 'KPLC', 'Solar', 'KenGEn', 'IPP', 'Other'].includes(p_updates.energy_provider)) {
+        !['', 'KPLC', 'Solar', 'IPP', 'Other'].includes(p_updates.energy_provider)) {
       return new Response(JSON.stringify({
         error: `Invalid energy provider: ${p_updates.energy_provider}`,
         code: "INVALID_PROVIDER"

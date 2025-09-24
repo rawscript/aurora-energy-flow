@@ -822,7 +822,7 @@ export type CustomSupabaseClient = {
     updateProfile: (params: {
       p_user_id: string;
       p_updates: {
-        energy_provider?: 'KPLC' | 'Solar' | 'KenGEn' | 'IPP' | 'Other' | '';
+        energy_provider?: 'KPLC' | 'Solar' | 'IPP' | 'Other' | '';
         notifications_enabled?: boolean;
         auto_optimize?: boolean;
         energy_rate?: number;

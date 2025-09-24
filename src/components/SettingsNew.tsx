@@ -232,7 +232,6 @@ const SettingsNew = () => {
                 <SelectContent>
                   <SelectItem value="Solar">Solar</SelectItem>
                   <SelectItem value="KPLC">Kenya Power</SelectItem>
-                  <SelectItem value="KenGEn">KenGEn</SelectItem>
                   <SelectItem value="IPP">Independent Power Producers (IPPs)</SelectItem>
                   <SelectItem value="Other">Other Provider</SelectItem>
                 </SelectContent>

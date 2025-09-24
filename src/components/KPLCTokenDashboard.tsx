@@ -201,8 +201,6 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
       case 'SunCulture':
       case 'M-KOPA Solar':
         return 'solar';
-      case 'KenGEn':
-        return 'KenGEn credit';
       case 'IPP':
         return 'IPP credit';
       case 'Other':

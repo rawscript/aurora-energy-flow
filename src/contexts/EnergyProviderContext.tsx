@@ -83,31 +83,6 @@ const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     },
     icon: 'Sun'
   },
-  'KenGEn': {
-    name: 'KenGEn',
-    type: 'grid',
-    features: ['grid_power', 'industrial'],
-    terminology: {
-      device: 'meter',
-      credits: 'credits',
-      payment: 'postpaid',
-      setup: 'Meter Setup',
-      dashboard: 'Energy Credits'
-    },
-    settings: {
-      supportsBatteries: false,
-      supportsInverters: false,
-      supportsTokens: false,
-      supportsPayAsYouGo: false,
-      defaultRate: 0.18
-    },
-    colors: {
-      primary: '#3b82f6',
-      secondary: '#2563eb',
-      accent: '#60a5fa'
-    },
-    icon: 'Building'
-  },
   'IPP': {
     name: 'Independent Power Producers',
     type: 'hybrid',

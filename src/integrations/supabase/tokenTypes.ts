@@ -32,7 +32,7 @@ export interface TokenTransaction {
   balance_after: number;
   status: string;
   metadata?: any;
-  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '' | string;
+  provider?: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'IPP' | 'Other' | '' | string;
 }
 
 // KPLC balance interface

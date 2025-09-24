@@ -380,7 +380,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
     amount: number,
     paymentMethod: string = 'M-PESA',
     phoneNumber?: string,
-    provider: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'KenGEn' | 'IPP' | 'Other' | '' = ''
+    provider: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'IPP' | 'Other' | '' = ''
   ) => {
     if (!hasValidSession() || purchasing) return null;
 
