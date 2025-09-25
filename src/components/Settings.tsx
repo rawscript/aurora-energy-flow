@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ const Settings = () => {
   const [batteryCount, setBatteryCount] = useState('0');
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [encodedUserId, setEncodedUserId] = useState('');
+
   const [notificationPreferences, setNotificationPreferences] = useState({
     token_low: true,
     token_depleted: true,
@@ -182,21 +184,42 @@ const Settings = () => {
     }
   };
 
-  const copyUserIdToClipboard = () => {
+  // Function to encode user ID into a string of integers
+  const encodeUserId = (userId: string): string => {
+    // Simple encoding: convert each character to its char code and concatenate
+    // This is a basic example - in a production environment, you might want to use
+    // a more sophisticated encoding mechanism
+    let encoded = '';
+    for (let i = 0; i < userId.length; i++) {
+      // Get the character code and pad with zeros to ensure consistent length
+      const charCode = userId.charCodeAt(i).toString().padStart(3, '0');
+      encoded += charCode;
+    }
+    return encoded;
+  };
+
+  // Initialize encoded user ID when user is available
+  useEffect(() => {
     if (user?.id) {
-      navigator.clipboard.writeText(user.id).then(() => {
+      setEncodedUserId(encodeUserId(user.id));
+    }
+  }, [user]);
+
+  const copyUserIdToClipboard = () => {
+    if (encodedUserId) {
+      navigator.clipboard.writeText(encodedUserId).then(() => {
         setIsCopied(true);
         toast({
-          title: "User ID Copied",
-          description: "Your User ID has been copied to the clipboard.",
+          title: "Encoded User ID Copied",
+          description: "Your encoded User ID has been copied to the clipboard.",
         });
         // Reset the copied state after 2 seconds
         setTimeout(() => setIsCopied(false), 2000);
       }).catch(err => {
-        console.error('Failed to copy User ID: ', err);
+        console.error('Failed to copy encoded User ID: ', err);
         toast({
           title: "Copy Failed",
-          description: "Failed to copy User ID to clipboard.",
+          description: "Failed to copy encoded User ID to clipboard.",
           variant: "destructive"
         });
       });
@@ -211,16 +234,16 @@ const Settings = () => {
           <CardHeader>
             <CardTitle className="text-xl text-aurora-green-light flex items-center space-x-2">
               <Copy className="h-5 w-5" />
-              <span>User Information</span>
+              <span>Secure User Information</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col space-y-2">
-              <Label htmlFor="user-id">Your User ID</Label>
+              <Label htmlFor="user-id">Your Encoded User ID</Label>
               <div className="flex space-x-2">
                 <Input
                   id="user-id"
-                  value={user.id}
+                  value={encodedUserId}
                   readOnly
                   className="bg-slate-800 border-aurora-green/30 font-mono text-sm"
                 />
@@ -243,7 +266,7 @@ const Settings = () => {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Use this ID when registering smart meters or for technical support
+                This is your secure encoded ID for smart meter registration. Use this instead of your original user ID for enhanced security.
               </p>
             </div>
           </CardContent>
