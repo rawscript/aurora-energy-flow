@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Zap, DollarSign, BatteryCharging } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Zap, DollarSign, BatteryCharging, Copy, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getEnergySettings, saveEnergySettings } from '@/utils/energySettings';
@@ -37,6 +37,8 @@ const SettingsNew = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile, loading, error, updateProfile } = useProfile();
+
+  const [isCopied, setIsCopied] = useState(false);
 
   // Load cached provider from localStorage on initial render
   useEffect(() => {
@@ -212,8 +214,73 @@ const SettingsNew = () => {
     }));
   };
 
+  const copyUserIdToClipboard = () => {
+    if (user?.id) {
+      navigator.clipboard.writeText(user.id).then(() => {
+        setIsCopied(true);
+        toast({
+          title: "User ID Copied",
+          description: "Your User ID has been copied to the clipboard.",
+        });
+        // Reset the copied state after 2 seconds
+        setTimeout(() => setIsCopied(false), 2000);
+      }).catch(err => {
+        console.error('Failed to copy User ID: ', err);
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy User ID to clipboard.",
+          variant: "destructive"
+        });
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {user && (
+        <Card className="bg-aurora-card border-aurora-green/20">
+          <CardHeader>
+            <CardTitle className="text-xl text-aurora-green-light flex items-center space-x-2">
+              <Copy className="h-5 w-5" />
+              <span>User Information</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col space-y-2">
+              <Label htmlFor="user-id">Your User ID</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="user-id"
+                  value={user.id}
+                  readOnly
+                  className="bg-slate-800 border-aurora-green/30 font-mono text-sm"
+                />
+                <Button
+                  onClick={copyUserIdToClipboard}
+                  variant="outline"
+                  className="border-aurora-green/30 text-aurora-green-light hover:bg-aurora-green/20"
+                >
+                  {isCopied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-1" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-1" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Use this ID when registering smart meters or for technical support
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader>
           <CardTitle className="text-xl text-aurora-green-light flex items-center space-x-2">
