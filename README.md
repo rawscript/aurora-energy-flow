@@ -26,3 +26,13 @@ The proxy-deployment directory includes:
 - [proxy-server.js](proxy-deployment/proxy-server.js) - Main proxy server implementation
 - [README.md](proxy-deployment/README.md) - Deployment instructions
 - Startup scripts for both Unix and Windows
+
+## Testing the Proxy Server
+
+After deploying the proxy server, you should test it to ensure it's working correctly:
+
+1. Update [test-proxy-endpoint.js](test-proxy-endpoint.js) with your deployed proxy server URL
+2. Run `node test-proxy-endpoint.js` to test the endpoints
+3. See [TESTING_PROXY.md](TESTING_PROXY.md) for detailed testing instructions
+
+Once you've confirmed the proxy server is working, update the proxyUrl in your smart-meter.html file to point to your deployed proxy server.

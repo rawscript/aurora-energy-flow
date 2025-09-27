@@ -34,6 +34,20 @@ app.use((req, res, next) => {
   next();
 });
 
+// Handle GET requests to the proxy endpoint with a helpful message
+app.get('/proxy/supabase-function', (req, res) => {
+  res.json({ 
+    message: 'This endpoint only accepts POST requests',
+    usage: 'POST to this endpoint with a JSON body containing { url, ...otherData }',
+    example: {
+      url: 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/your-function',
+      user_id: 'user123',
+      meter_number: 'meter456',
+      kwh_consumed: 10.5
+    }
+  });
+});
+
 // Proxy endpoint for Supabase functions
 app.post('/proxy/supabase-function', async (req, res) => {
   try {
@@ -83,10 +97,13 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Aurora Smart Meter Proxy Server',
+    description: 'This proxy server handles CORS issues between the smart meter simulator and Supabase',
     endpoints: {
       health: '/health',
-      proxy: '/proxy/supabase-function'
-    }
+      proxy: '/proxy/supabase-function',
+      docs: '/'
+    },
+    usage: 'POST to /proxy/supabase-function with { url, ...data } to proxy requests to Supabase'
   });
 });
 
@@ -94,4 +111,5 @@ app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
   console.log(`Health check endpoint: http://localhost:${PORT}/health`);
   console.log(`Proxy endpoint: http://localhost:${PORT}/proxy/supabase-function`);
+  console.log(`Server is ready to handle requests`);
 });
