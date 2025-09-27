@@ -16,3 +16,13 @@ For detailed deployment instructions, see:
 - [simulator/README.md](simulator/README.md) for simulator-specific information
 - [simulator/SMART_METER_DEPLOYMENT.md](simulator/SMART_METER_DEPLOYMENT.md) for smart meter deployment
 - [simulator/PROXY_DEPLOYMENT.md](simulator/PROXY_DEPLOYMENT.md) for proxy server deployment
+
+## Proxy Server Deployment
+
+A separate directory [proxy-deployment](proxy-deployment) contains all the necessary files for deploying just the proxy server. This is useful when you want to deploy the proxy server independently of the simulator.
+
+The proxy-deployment directory includes:
+- [package.json](proxy-deployment/package.json) - Node.js package file with dependencies
+- [proxy-server.js](proxy-deployment/proxy-server.js) - Main proxy server implementation
+- [README.md](proxy-deployment/README.md) - Deployment instructions
+- Startup scripts for both Unix and Windows
