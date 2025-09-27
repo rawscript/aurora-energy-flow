@@ -66,9 +66,23 @@ serve(async (req) => {
         }
       )
 
-      // Use the correct function name - insert_energy_reading instead of insert_energy_reading_improved
-      console.log('Calling insert_energy_reading function')
-      const { data, error } = await supabaseClient.rpc('insert_energy_reading', {
+      // First, ensure the user's profile has this meter number
+      console.log('Updating user profile with meter number if needed');
+      const { error: profileUpdateError } = await supabaseClient
+        .from('profiles')
+        .update({ meter_number: meter_number })
+        .eq('id', user_id)
+        .eq('meter_number', null); // Only update if meter_number is currently null
+
+      if (profileUpdateError && profileUpdateError.code !== 'PGRST116') {
+        console.warn('Warning: Could not update user profile with meter number:', profileUpdateError);
+      } else {
+        console.log('User profile updated with meter number');
+      }
+
+      // Use the improved function name - insert_energy_reading_improved
+      console.log('Calling insert_energy_reading_improved function')
+      const { data, error } = await supabaseClient.rpc('insert_energy_reading_improved', {
         p_user_id: user_id,
         p_meter_number: meter_number,
         p_kwh_consumed: kwh_consumed,
