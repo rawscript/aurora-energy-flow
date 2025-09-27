@@ -61,3 +61,26 @@ After deploying the proxy server, you should test it to ensure it's working corr
 3. See [TESTING_PROXY.md](TESTING_PROXY.md) for detailed testing instructions
 
 Once you've confirmed the proxy server is working, update the proxyUrl in your smart-meter.html file to point to your deployed proxy server.
+
+## Troubleshooting Network Issues
+
+If you're getting "Network Error: Unable to send data to proxy server" messages:
+
+1. **Check if the proxy server is running**:
+   - Visit your proxy server URL in a browser
+   - You should see a JSON response with server information
+
+2. **Run the diagnostic scripts**:
+   ```bash
+   node check-proxy-status.js
+   node comprehensive-proxy-test.js
+   ```
+
+3. **Refer to the troubleshooting guide**:
+   See [PROXY_TROUBLESHOOTING.md](PROXY_TROUBLESHOOTING.md) for detailed troubleshooting steps
+
+4. **Common fixes**:
+   - Restart your proxy server
+   - Verify the proxy URL in smart-meter.html is correct
+   - Check Render logs for any errors
+   - Ensure CORS is properly configured
