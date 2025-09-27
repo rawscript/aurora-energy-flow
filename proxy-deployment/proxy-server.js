@@ -10,17 +10,36 @@ const PORT = process.env.PORT || 3001;
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
 
 // Configure CORS to allow requests from common deployment domains
+// Using a custom function for origin verification to handle wildcards properly
 const corsOptions = {
-  origin: [
-    'https://aurora-smart-meter.onrender.com',
-    'https://*.netlify.app',
-    'https://*.vercel.app',
-    'https://*.herokuapp.com',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001'
-  ],
+  origin: function (origin, callback) {
+    // List of allowed origins (including wildcard patterns)
+    const allowedOrigins = [
+      'https://aurora-smart-meter.onrender.com',
+      'https://smart-simulator.netlify.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check exact matches
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Check Netlify wildcard pattern
+    if (origin.endsWith('.netlify.app')) {
+      return callback(null, true);
+    }
+    
+    // Log blocked origins for debugging
+    console.log(`CORS Debug - Blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -30,7 +49,7 @@ app.use(express.json());
 
 // Logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - ${req.ip}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - ${req.ip} - Origin: ${req.headers.origin || 'none'}`);
   next();
 });
 
