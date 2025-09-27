@@ -6,7 +6,8 @@ import SolarPanel from '@/components/ui/SolarPanel';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useProfile } from '@/hooks/useProfile';
-import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
+import { useMeter } from '@/contexts/MeterContext'; // Import meter context
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RealTimeInsights from './RealTimeInsights';
@@ -47,11 +48,16 @@ interface EnergyDashboardProps {
 }
 
 const EnergyDashboard = () => {
-  const { provider: energyProvider } = useEnergyProvider(); // Get energy provider from context
-  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
+  const { provider: energyProvider } = useEnergyProvider();
+  const { status: meterStatus, deviceType, meterNumber } = useMeter(); // Get meter status from context
+  const { energyData, recentReadings, analytics, loading, getNewReading } = useRealTimeEnergy(energyProvider);
   const { profile } = useProfile();
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);
+
+  // Determine if meter is connected based on meter context
+  const hasMeterConnected = meterStatus === 'connected';
+  const meterConnectionChecked = meterStatus !== 'checking';
 
   // Safe energy data with fallbacks
   const safeEnergyData = {

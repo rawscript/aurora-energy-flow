@@ -7,15 +7,17 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
-import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
+import { useMeter } from '@/contexts/MeterContext'; // Import meter context
 
 interface EnergyInsightsProps {
   onNavigateToMeter?: () => void;
 }
 
 const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) => {
-  const { provider: energyProvider, providerConfig } = useEnergyProvider(); // Get energy provider from context
-  const { energyData, analytics, loading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
+  const { provider: energyProvider, providerConfig } = useEnergyProvider();
+  const { status: meterStatus, deviceType } = useMeter(); // Get meter status from context
+  const { energyData, analytics, loading } = useRealTimeEnergy(energyProvider);
   const isMobile = useIsMobile();
 
   // Handle meter setup navigation
@@ -40,6 +42,10 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
       </div>
     );
   }
+
+  // Determine if meter is connected based on meter context
+  const hasMeterConnected = meterStatus === 'connected';
+  const meterConnectionChecked = meterStatus !== 'checking';
 
   // Show no meter connected state with proper navigation
   if (meterConnectionChecked && !hasMeterConnected) {

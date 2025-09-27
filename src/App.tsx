@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { EnergyProviderProvider } from "@/contexts/EnergyProviderContext";
+import { MeterProvider } from "@/contexts/MeterContext";
 import { lazy, Suspense, useState, useEffect } from "react";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -69,7 +70,9 @@ const AppContent = () => (
                 element={
                   <ProtectedRoute>
                     <EnergyProviderProvider>
-                      <Index />
+                      <MeterProvider>
+                        <Index />
+                      </MeterProvider>
                     </EnergyProviderProvider>
                   </ProtectedRoute>
                 }
