@@ -146,10 +146,12 @@ const AuthForm = () => {
         });
       } else if (data.session) {
         console.log('Sign in successful');
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in."
-        });
+        // Remove the toast here to prevent duplicate messages
+        // The auth success callback will handle the toast
+        // toast({
+        //   title: "Welcome back!",
+        //   description: "You have successfully signed in."
+        // });
         // Redirect to the original path or dashboard after successful sign-in
         navigate(from, { replace: true });
       }
@@ -175,10 +177,19 @@ const AuthForm = () => {
   // Set up auth success callback
   useEffect(() => {
     setOnAuthSuccess && setOnAuthSuccess(() => {
-      toast({
-        title: "Welcome!",
-        description: "You have been signed in successfully."
-      });
+      // Add a check to prevent duplicate toasts
+      const lastToastTime = localStorage.getItem('lastAuthToastTime');
+      const now = Date.now();
+      
+      // Only show toast if it's been more than 5 seconds since the last one
+      if (!lastToastTime || now - parseInt(lastToastTime) > 5000) {
+        localStorage.setItem('lastAuthToastTime', now.toString());
+        toast({
+          title: "Welcome!",
+          description: "You have been signed in successfully."
+        });
+      }
+      
       // Redirect to the original path or dashboard after successful authentication
       navigate(from, { replace: true });
     });

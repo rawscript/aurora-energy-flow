@@ -24,8 +24,8 @@ interface CacheEntry {
 
 // Global cache for RPC results to prevent duplicate calls
 const rpcCache = new Map<string, CacheEntry>();
-const DEFAULT_CACHE_DURATION = 60000; // 1 minute (increased from 30 seconds)
-const MAX_CACHE_DURATION = 300000; // 5 minutes maximum cache
+const DEFAULT_CACHE_DURATION = 120000; // Increase to 2 minutes (increased from 1 minute)
+const MAX_CACHE_DURATION = 600000; // Increase to 10 minutes maximum cache
 
 /**
  * Production-ready authenticated API hook
@@ -51,17 +51,17 @@ export const useAuthenticatedApi = () => {
     
     // Use cached result if it's recent
     if (sessionValidityCache.current && (now - sessionValidityCache.current.timestamp) < VALIDITY_CACHE_DURATION) {
-      console.log('Using cached session validity result:', sessionValidityCache.current.isValid);
+      // console.log('Using cached session validity result:', sessionValidityCache.current.isValid);
       return sessionValidityCache.current.isValid;
     }
 
     // Perform validation
     if (!isAuthenticated || !user || !session) {
-      console.log('Session invalid - missing auth data:', {
-        isAuthenticated,
-        user: !!user,
-        session: !!session
-      });
+      // console.log('Session invalid - missing auth data:', {
+      //   isAuthenticated,
+      //   user: !!user,
+      //   session: !!session
+      // });
       sessionValidityCache.current = { isValid: false, timestamp: now };
       return false;
     }
@@ -71,16 +71,17 @@ export const useAuthenticatedApi = () => {
     // Remove buffer entirely for more lenient validation
     const isValid = expiresAt > nowSeconds;
 
+    // Reduce debug logging to prevent console spam
     // Debug logging to understand the session validation
-    console.log('Session validation check:', {
-      isAuthenticated,
-      user: !!user,
-      session: !!session,
-      expiresAt,
-      nowSeconds,
-      timeUntilExpiry: expiresAt - nowSeconds,
-      isValid
-    });
+    // console.log('Session validation check:', {
+    //   isAuthenticated,
+    //   user: !!user,
+    //   session: !!session,
+    //   expiresAt,
+    //   nowSeconds,
+    //   timeUntilExpiry: expiresAt - nowSeconds,
+    //   isValid
+    // });
 
     // Cache the result
     sessionValidityCache.current = { isValid, timestamp: now };
@@ -90,11 +91,12 @@ export const useAuthenticatedApi = () => {
   // Check if user is authenticated
   const isUserAuthenticated = useCallback(() => {
     const result = !!user && !!session;
-    console.log('isAuthenticated check:', {
-      user: !!user,
-      session: !!session,
-      result
-    });
+    // Reduce debug logging to prevent console spam
+    // console.log('isAuthenticated check:', {
+    //   user: !!user,
+    //   session: !!session,
+    //   result
+    // });
     return result;
   }, [user, session]);
 
@@ -187,7 +189,7 @@ export const useAuthenticatedApi = () => {
     }
 
     try {
-      console.log(`Calling RPC: ${functionName}${cacheKey ? ` (cache: ${cacheKey})` : ''}`);
+      // console.log(`Calling RPC: ${functionName}${cacheKey ? ` (cache: ${cacheKey})` : ''}`);
       
       const { data, error } = await supabase.rpc(functionName, {
         ...params,
@@ -199,7 +201,7 @@ export const useAuthenticatedApi = () => {
         
         // Check if this is an authentication error that might trigger token refresh
         if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
-          console.log('Authentication error detected in RPC call, clearing session cache to prevent token refresh loop');
+          // console.log('Authentication error detected in RPC call, clearing session cache to prevent token refresh loop');
           // Clear session cache to force revalidation
           sessionValidityCache.current = null;
         }
@@ -225,7 +227,7 @@ export const useAuthenticatedApi = () => {
       
       // Check if this is an authentication error that might trigger token refresh
       if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
-        console.log('Authentication error detected in RPC call catch block, clearing session cache to prevent token refresh loop');
+        // console.log('Authentication error detected in RPC call catch block, clearing session cache to prevent token refresh loop');
         // Clear session cache to force revalidation
         sessionValidityCache.current = null;
       }

@@ -83,8 +83,13 @@ supabase.from = function(table) {
                   error: result.error
                 };
 
+                // Handle 400 errors specifically
+                if (result.error.code === '400') {
+                  console.warn(`Supabase 400 error for ${table}.${method}:`, errorContext);
+                  // Don't log to console.error to reduce noise, but still handle the error
+                }
                 // Only log non-PGRST116 errors (PGRST116 is "no rows found" which is expected)
-                if (result.error.code !== 'PGRST116') {
+                else if (result.error.code !== 'PGRST116') {
                   console.error(`Supabase ${method} error for ${table}:`, errorContext);
                 }
 

@@ -22,6 +22,30 @@ The Aurora Energy Flow application is functioning with the following capabilitie
   - `test-smart-meter-fix.js`
   - `SMART-METER-FIX-README.md`
 
+### Authentication Issues Fixed
+- **Issue**: Users experiencing repeated "successfully signed in" messages, 429 and 400 errors, and unexpected logouts
+- **Root Causes**: 
+  - Multiple SIGNED_IN events being triggered in the auth state change listener
+  - Too many requests being made to Supabase in a short time period
+  - Parameter validation failures in RPC function calls
+  - JWT tokens expiring without proper refresh
+- **Solutions Implemented**:
+  - Removed duplicate toast messages in AuthForm component
+  - Increased session validation caching duration
+  - Added rate limiting to prevent excessive requests
+  - Improved error handling for 400 errors
+  - Added debounce to auth success callbacks
+  - Created diagnostic tools for monitoring auth issues
+- **Files Modified**:
+  - `src/components/auth/AuthForm.tsx`
+  - `src/hooks/useAuth.tsx`
+  - `src/hooks/useAuthenticatedApi.ts`
+  - `src/integrations/supabase/client.ts`
+- **Files Created**:
+  - `src/hooks/useAuthDiagnostics.ts`
+  - `diagnose-auth-issues.js`
+  - `AUTHENTICATION-TROUBLESHOOTING.md`
+
 ### Provider Configuration Updates
 - Removed KenGEn as an energy provider option
 - Updated all references to reflect the change
@@ -64,6 +88,14 @@ To apply the smart meter fix:
    node diagnose-smart-meter-data-flow.js
    ```
 3. Test data flow by sending a reading from the smart meter simulator
+
+To troubleshoot authentication issues:
+1. Review the `AUTHENTICATION-TROUBLESHOOTING.md` guide
+2. Run the diagnostic script:
+   ```bash
+   node diagnose-auth-issues.js
+   ```
+3. Check browser console logs for detailed error information
 
 ## Verification
 
