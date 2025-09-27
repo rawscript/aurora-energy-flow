@@ -17,6 +17,31 @@ For detailed deployment instructions, see:
 - [simulator/SMART_METER_DEPLOYMENT.md](simulator/SMART_METER_DEPLOYMENT.md) for smart meter deployment
 - [simulator/PROXY_DEPLOYMENT.md](simulator/PROXY_DEPLOYMENT.md) for proxy server deployment
 
+## Deploying the Smart Meter Simulator
+
+The smart meter simulator is a static HTML file that can be easily deployed to Netlify:
+
+1. **Option 1: Drag-and-Drop (Easiest)**
+   - Visit [app.netlify.com](https://app.netlify.com)
+   - Drag and drop the [simulator/smart-meter.html](simulator/smart-meter.html) file onto the deployment area
+   - Netlify will automatically deploy your site
+
+2. **Option 2: GitHub Integration**
+   - Push the [simulator](simulator) directory to a GitHub repository
+   - Connect your repository to Netlify
+   - Configure the build settings:
+     - Publish directory: `.` (current directory)
+     - Build command: (leave empty)
+
+3. **Important Configuration**
+   Before deploying, update the proxy URL in [simulator/smart-meter.html](simulator/smart-meter.html):
+   ```javascript
+   const AURORA_CONFIG = {
+     // ... other config
+     proxyUrl: 'https://your-proxy-server.onrender.com/proxy/supabase-function' // Update this URL
+   };
+   ```
+
 ## Proxy Server Deployment
 
 A separate directory [proxy-deployment](proxy-deployment) contains all the necessary files for deploying just the proxy server. This is useful when you want to deploy the proxy server independently of the simulator.

@@ -1,0 +1,21 @@
+{
+  "name": "aurora-smart-meter-simulator",
+  "version": "1.0.0",
+  "description": "Aurora Smart Meter Simulator for testing energy consumption data",
+  "main": "smart-meter.html",
+  "scripts": {
+    "start": "npx serve .",
+    "test": "echo \"No tests required for static HTML file\" && exit 0"
+  },
+  "keywords": [
+    "aurora",
+    "energy",
+    "smart-meter",
+    "simulator"
+  ],
+  "author": "Aurora Energy Flow",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

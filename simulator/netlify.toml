@@ -1,0 +1,22 @@
+# Netlify configuration for Aurora Smart Meter Simulator
+[build]
+  # Since this is a static HTML file, we don't need a build command
+  command = ""
+  # The publish directory is the current directory since smart-meter.html is here
+  publish = "."
+  # No functions directory needed for this static deployment
+  functions = ""
+
+# Redirects for SPA (if needed in the future)
+[[redirects]]
+  from = "/*"
+  to = "/smart-meter.html"
+  status = 200
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
