@@ -8,7 +8,7 @@
   <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
   <style>
     .spin-wheel {
-      background: conic-gradient(from 0deg, #3b82f6 0 25%, #dbeafe 25% 50%, #3b82f6 50% 75%, #dbeafe 75% 100%);
+      background: conic-gradient(from 0deg, #3b82f6 0 25%, #dbeafe 25% 50%, #3b82f6 50 75%, #dbeafe 75% 100%);
       border-radius: 9999px;
       width: 160px;
       height: 160px;
@@ -113,11 +113,11 @@
   </div>
 
   <script>
-    // Aurora configuration
+    // Aurora configuration - UPDATED FOR CORRECT DATA FLOW
     const AURORA_CONFIG = {
       supabaseUrl: 'https://rcthtxwzsqvwivritzln.supabase.co',
       supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM',
-      functionName: 'super-action',
+      functionName: 'smart-meter-webhook', // Changed from 'super-action'
       // Proxy server URL - replace with your deployed proxy server URL
       proxyUrl: 'https://aurora-smart-meter-proxy.onrender.com/proxy/supabase-function' // Update this to your deployed proxy URL
     };
@@ -294,31 +294,26 @@
       // Decode user ID if it's encoded
       const originalUserId = isEncodedUserId(user) ? decodeUserId(user) : user;
       
-      // Prepare payload with the original user ID
+      // Prepare payload with CORRECT structure for smart-meter-webhook
       const payload = {
-        user_id: originalUserId,
         meter_number: meter,
         kwh_consumed: parseFloat(kwh),
-        timestamp: new Date().toISOString()
+        user_id: originalUserId,
+        cost_per_kwh: 25.0 // Add this field
+        // Remove the 'url' field - it's handled by the proxy
       };
       
       // Update response box
       document.getElementById("responseBox").textContent = "Sending data to Aurora...";
       
       try {
-        // Send data to Aurora through the proxy server
+        // Send data to Aurora through the proxy server with CORRECT structure
         const response = await fetch(AURORA_CONFIG.proxyUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            url: `${AURORA_CONFIG.supabaseUrl}/functions/v1/${AURORA_CONFIG.functionName}`,
-            user_id: originalUserId,
-            meter_number: meter,
-            kwh_consumed: parseFloat(kwh),
-            timestamp: new Date().toISOString()
-          })
+          body: JSON.stringify(payload) // Use the corrected payload
         });
         
         // Check if response is OK

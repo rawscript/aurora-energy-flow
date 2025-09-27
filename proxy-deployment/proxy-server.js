@@ -45,7 +45,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase payload limit
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -57,43 +57,41 @@ app.use((req, res, next) => {
 app.get('/proxy/supabase-function', (req, res) => {
   res.json({ 
     message: 'This endpoint only accepts POST requests',
-    usage: 'POST to this endpoint with a JSON body containing { url, ...otherData }',
+    usage: 'POST to this endpoint with a JSON body containing the data to send to Supabase',
     example: {
-      url: 'https://your-supabase-project.supabase.co/functions/v1/your-function',
-      user_id: 'user123',
-      meter_number: 'meter456',
-      kwh_consumed: 10.5
+      meter_number: 'KP-123456',
+      kwh_consumed: 15.75,
+      user_id: 'user-uuid',
+      cost_per_kwh: 25.0
     }
   });
 });
 
-// Proxy endpoint for Supabase functions
+// Proxy endpoint for Supabase functions - UPDATED FOR SMART METER DATA FLOW
 app.post('/proxy/supabase-function', async (req, res) => {
   try {
-    const { url, ...body } = req.body;
+    // Get the data from the request body
+    const payload = req.body;
     
-    console.log(`Proxying request to: ${url}`);
+    console.log('Proxying smart meter data to Supabase function:', JSON.stringify(payload, null, 2));
     
-    // Validate URL is from Supabase
-    if (!url || !url.includes('.supabase.co/functions/v1/')) {
-      console.warn(`Invalid Supabase URL attempted: ${url}`);
-      return res.status(400).json({ error: 'Invalid Supabase function URL' });
-    }
+    // Call the smart-meter-webhook function directly
+    const webhookUrl = `https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook`;
     
-    // Forward the request to Supabase
-    const response = await fetch(url, {
+    // Forward the request to the smart-meter-webhook function
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
       },
-      body: JSON.stringify(body)
+      body: JSON.stringify(payload)
     });
     
     const data = await response.json();
     
-    console.log(`Supabase response status: ${response.status}`);
+    console.log(`Supabase webhook response status: ${response.status}`);
     
     // Forward the response back to the client
     res.status(response.status).json(data);
@@ -122,7 +120,7 @@ app.get('/', (req, res) => {
       proxy: '/proxy/supabase-function',
       docs: '/'
     },
-    usage: 'POST to /proxy/supabase-function with { url, ...data } to proxy requests to Supabase'
+    usage: 'POST to /proxy/supabase-function with smart meter data to send it to Supabase'
   });
 });
 
