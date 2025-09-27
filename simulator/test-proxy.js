@@ -50,7 +50,7 @@ async function testProxy() {
     
     console.log('\n🎉 All tests completed successfully!');
     console.log('\n📝 To use the proxy server, make POST requests to /proxy/supabase-function with a JSON body containing:');
-    console.log('   { url: "https://your-supabase-project.supabase.co/functions/v1/your-function", ...otherData }');
+    console.log('   { url: "https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/your-function", ...otherData }');
   } catch (error) {
     console.error('❌ Error testing proxy server:', error.message);
     process.exit(1);
