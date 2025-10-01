@@ -26,7 +26,12 @@ const RealTimeInsights = () => {
     hasMeterConnected,
     energyProvider // Pass energy provider to generate solar-specific insights
   );
-  
+  //real data real data
+  const generateInsights =( )=>{
+    //EnergyInsights
+    //Energy dashboard
+    //notifications
+  }
   // Handle error state by adding error insight
   if (error && insights.length > 0) {
     insights.unshift({

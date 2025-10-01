@@ -48,6 +48,7 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
 
   // Check if user has a meter connected
   const checkConnection = useCallback(async () => {
+    // If no user, we can immediately set to disconnected
     if (!user) {
       setStatus('disconnected');
       setMeterNumber(null);
@@ -169,17 +170,10 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
     await checkConnection();
   }, [checkConnection]);
 
-  // Initialize connection check on mount and when user changes
+  // Initialize connection check when user or provider changes
   useEffect(() => {
     checkConnection();
-  }, [checkConnection]);
-
-  // Re-check connection when energy provider changes
-  useEffect(() => {
-    if (user) {
-      checkConnection();
-    }
-  }, [provider, user, checkConnection]);
+  }, [user, provider, checkConnection]);
 
   const contextValue: MeterContextType = {
     status,

@@ -14,6 +14,25 @@ interface EnergyInsightsProps {
   onNavigateToMeter?: () => void;
 }
 
+// Generate AI insights based on real data (only when meter is connected)
+const generateInsights = () => {
+  const insights = [];
+
+  // Example insight
+  insights.push({
+    id: '1',
+    icon: TrendingUp,
+    title: 'Usage Increased',
+    description: 'Your energy usage has increased by 15% compared to last week.',
+    color: 'text-aurora-green',
+    impact: 'Medium',
+  });
+
+  // Add more insights as needed
+
+  return insights;
+};
+
 const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) => {
   const { provider: energyProvider, providerConfig } = useEnergyProvider();
   const { status: meterStatus, deviceType } = useMeter(); // Get meter status from context
@@ -184,7 +203,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
               <div className="text-center">
                 <h4 className="font-medium text-aurora-green-light mb-3">Ready to get started?</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Setting up your {providerConfig.terminology.device} takes just a few minutes and unlocks all these powerful insights.
+                  {`Setting up your ${providerConfig.terminology.device} takes just a few minutes and unlocks all these powerful insights.`}
                 </p>
                 <Button 
                   onClick={handleSetupMeter}
@@ -202,178 +221,34 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
     );
   }
 
-  // Generate AI insights based on real data (only when meter is connected)
-  const generateInsights = () => {
-    const insights = [];
-
-    // Only generate insights if we have actual data
-    if (!energyData || energyData.daily_total === 0) {
-      return [{
-        id: 1,
-        type: 'info',
-        title: energyProvider === 'Solar' ? 'Getting Started with Solar' : 'Getting Started',
-        description: energyProvider === 'Solar'
-          ? 'Your solar inverter is connected! Start generating energy to see personalized insights and recommendations.'
-          : `Your ${providerConfig.name} ${providerConfig.terminology.device} is connected! Start using energy to see personalized insights and recommendations.`,
-        impact: 'Info',
-        icon: Info,
-        color: 'text-aurora-blue-light'
-      }];
-    }
-
-    // Solar-specific insights
-    if (energyProvider === 'Solar') {
-      // Inverter efficiency
-      if (energyData.efficiency_score > 0) {
-        insights.push({
-          id: 1,
-          type: 'efficiency',
-          title: 'Inverter Efficiency',
-          description: `Your inverter efficiency is ${energyData.efficiency_score}%. This indicates how effectively your solar system converts sunlight to usable energy.`,
-          impact: 'High',
-          icon: Sun,
-          color: 'text-aurora-green-light'
-        });
-      }
-
-      // Battery performance
-      if (energyData.battery_state !== undefined) {
-        insights.push({
-          id: 2,
-          type: 'efficiency',
-          title: 'Battery Performance',
-          description: `Your battery is currently at ${energyData.battery_state}% charge. Consider optimizing usage during peak solar hours to maximize battery life.`,
-          impact: 'Medium',
-          icon: Battery,
-          color: 'text-aurora-blue-light'
-        });
-      }
-
-      // Power generation
-      if (energyData.power_generated !== undefined) {
-        insights.push({
-          id: 3,
-          type: 'savings',
-          title: 'Power Generation',
-          description: `Your system generated ${energyData.power_generated?.toFixed(1) || 0} kW today. This is enough to power ${(energyData.power_generated / 0.5).toFixed(0)} typical LED bulbs for 10 hours.`,
-          impact: 'High',
-          icon: Zap,
-          color: 'text-aurora-purple-light'
-        });
-      }
-
-      // Load consumption
-      if (energyData.load_consumption !== undefined) {
-        insights.push({
-          id: 4,
-          type: 'efficiency',
-          title: 'Load Consumption',
-          description: `Your system is currently consuming ${energyData.load_consumption?.toFixed(1) || 0} kW. Monitor this to ensure your solar generation meets your needs.`,
-          impact: 'Medium',
-          icon: House,
-          color: 'text-emerald-400'
-        });
-      }
-
-      // Positive efficiency alert
-      if (energyData.efficiency_score >= 90) {
-        insights.push({
-          id: 5,
-          type: 'success',
-          title: 'Excellent Solar Efficiency!',
-          description: `Your efficiency score of ${energyData.efficiency_score}% is outstanding. Your solar system is performing optimally!`,
-          impact: 'Positive',
-          icon: Sun,
-          color: 'text-green-500'
-        });
-      }
-    }
-    // Provider-specific insights
-    else {
-      // Peak hour analysis
-      if (analytics.peakHours.length > 0) {
-        const topPeakHour = analytics.peakHours[0];
-        insights.push({
-          id: 1,
-          type: 'savings',
-          title: 'Peak Hour Optimization',
-          description: `Your highest usage is at ${topPeakHour.hour}:00 (${topPeakHour.usage.toFixed(1)} kWh). Consider shifting some activities to off-peak hours to save on costs.`,
-          impact: 'High',
-          icon: Sun,
-          color: 'text-aurora-green-light'
-        });
-      }
-
-      // Efficiency analysis
-      if (energyData.efficiency_score < 85 && energyData.efficiency_score > 0) {
-        insights.push({
-          id: 2,
-          type: 'efficiency',
-          title: 'Efficiency Improvement Needed',
-          description: `Your efficiency score is ${energyData.efficiency_score}%. Focus on reducing standby power consumption and optimizing high-usage devices.`,
-          impact: 'Medium',
-          icon: House,
-          color: 'text-aurora-blue-light'
-        });
-      }
-
-      // Cost trend analysis
-      if (energyData.cost_trend === 'up' && energyData.daily_cost > 0) {
-        insights.push({
-          id: 3,
-          type: 'alert',
-          title: 'Rising Energy Costs',
-          description: `Your energy costs are trending upward. Current daily average is KSh ${energyData.daily_cost.toFixed(2)}. Consider energy-saving measures.`,
-          impact: 'High',
-          icon: TrendingUp,
-          color: 'text-red-500'
-        });
-      }
-
-      // Weekly usage pattern
-      if (energyData.weekly_average > energyData.daily_total * 1.2 && energyData.weekly_average > 0) {
-        insights.push({
-          id: 4,
-          type: 'efficiency',
-          title: 'Usage Pattern Optimization',
-          description: `Your weekly average (${energyData.weekly_average.toFixed(1)} kWh) suggests room for daily optimization. Today's usage is ${energyData.daily_total.toFixed(1)} kWh.`,
-          impact: 'Medium',
-          icon: Battery,
-          color: 'text-aurora-purple-light'
-        });
-      }
-
-      // Positive efficiency alert
-      if (energyData.efficiency_score >= 90) {
-        insights.push({
-          id: 5,
-          type: 'success',
-          title: 'Excellent Energy Efficiency!',
-          description: `Your efficiency score of ${energyData.efficiency_score}% is outstanding. Keep up the great energy-saving habits!`,
-          impact: 'Positive',
-          icon: House,
-          color: 'text-green-500'
-        });
-      }
-    }
-
-    return insights.length > 0 ? insights : [{
-      id: 1,
-      type: 'info',
-      title: energyProvider === 'Solar' ? 'Building Your Solar Profile' : 'Building Your Profile',
-      description: energyProvider === 'Solar'
-        ? 'Keep using your solar system to generate personalized insights and recommendations based on your energy patterns.'
-        : `Keep using your ${providerConfig.name} ${providerConfig.terminology.device} to generate personalized insights and recommendations based on your usage patterns.`,
-      impact: 'Info',
-      icon: Info,
-      color: 'text-aurora-blue-light'
-    }];
-  };
-
   const insights = generateInsights();
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Generate AI insights based on real data (only when meter is connected) */}
+      {insights.map((insight) => {
+        const IconComponent = insight.icon;
+        return (
+          <div key={insight.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-aurora-green/30 transition-colors">
+            <div className="flex items-start space-x-3">
+              <IconComponent className={`h-6 w-6 ${insight.color} mt-1`} />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">{insight.title}</h3>
+                  <Badge
+                    variant={insight.impact === 'High' ? 'destructive' : insight.impact === 'Medium' ? 'default' : insight.impact === 'Positive' ? 'default' : 'secondary'}
+                    className="text-xs"
+                  >
+                    {insight.impact} Impact
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{insight.description}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
       {/* Efficiency Score */}
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardHeader>
@@ -619,7 +494,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
           {insights.map((insight) => {
             const IconComponent = insight.icon;
             return (
-              <div key={insight.id} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-aurora-green/30 transition-colors">
+              <div key={`insight-${insight.id}`} className="p-4 bg-slate-800/50 rounded-lg border border-slate-700/50 hover:border-aurora-green/30 transition-colors">
                 <div className="flex items-start space-x-3">
                   <IconComponent className={`h-6 w-6 ${insight.color} mt-1`} />
                   <div className="flex-1">

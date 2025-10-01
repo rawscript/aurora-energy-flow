@@ -22,11 +22,14 @@ const MobileDashboard = lazy(() => import("@/components/MobileDashboard"));
 // Loading component for tab content
 const TabLoadingSpinner = () => (
   <div className="flex items-center justify-center py-12">
-    <div className="relative">
-      <div className="w-8 h-8 bg-aurora-gradient rounded-full flex items-center justify-center animate-pulse">
-        <div className="h-4 w-4 bg-white rounded-sm"></div>
+    <div className="text-center">
+      <div className="relative inline-block">
+        <div className="w-8 h-8 bg-aurora-gradient rounded-full flex items-center justify-center animate-pulse">
+          <div className="h-4 w-4 bg-white rounded-sm"></div>
+        </div>
+        <div className="absolute inset-0 w-8 h-8 border-2 border-aurora-green/30 border-t-aurora-green rounded-full animate-spin"></div>
       </div>
-      <div className="absolute inset-0 w-8 h-8 border-2 border-aurora-green/30 border-t-aurora-green rounded-full animate-spin"></div>
+      <p className="text-aurora-green-light mt-4">Loading...</p>
     </div>
   </div>
 );

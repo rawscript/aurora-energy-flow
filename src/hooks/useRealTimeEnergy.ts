@@ -89,6 +89,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const { user, userId, hasValidSession, query } = useAuthenticatedApi();
   const { toast } = useToast();
   const { status: meterStatus, meterNumber: contextMeterNumber } = useMeter(); // Get meter status from context
+  
   const meterNumber = useRef<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
@@ -104,7 +105,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   // Determine if meter is connected based on context
   const hasMeterConnected = meterStatus === 'connected';
   const meterConnectionChecked = meterStatus !== 'checking';
-
+  
   // Calculate analytics based on readings
   const calculateAnalytics = useCallback((readings: EnergyReading[]) => {
     if (readings.length === 0) {
