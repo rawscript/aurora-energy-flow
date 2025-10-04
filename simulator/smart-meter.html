@@ -36,24 +36,25 @@
       return /^\d+$/.test(id) && id.length % 3 === 0;
     }
 
-    // Initialize the app
-    window.onload = () => {
-      updateConnectionStatus();
-      populateMeterSelect();
-      checkConnection();
-    };
-
     // Update connection status display
     function updateConnectionStatus() {
       const statusEl = document.getElementById("connectionStatus");
-      if (isConnected) {
-        statusEl.className = "mb-4 p-2 rounded text-center text-sm font-medium bg-green-100 text-green-800";
-        statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Connected to Aurora';
-        document.getElementById("spinButton").disabled = false;
-      } else {
-        statusEl.className = "mb-4 p-2 rounded text-center text-sm font-medium bg-yellow-100 text-yellow-800";
-        statusEl.innerHTML = '<i class="fas fa-plug"></i> Connecting to Aurora...';
-        document.getElementById("spinButton").disabled = true;
+      if (statusEl) {
+        if (isConnected) {
+          statusEl.className = "mb-4 p-2 rounded text-center text-sm font-medium bg-green-100 text-green-800";
+          statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Connected to Aurora';
+          const spinButton = document.getElementById("spinButton");
+          if (spinButton) {
+            spinButton.disabled = false;
+          }
+        } else {
+          statusEl.className = "mb-4 p-2 rounded text-center text-sm font-medium bg-yellow-100 text-yellow-800";
+          statusEl.innerHTML = '<i class="fas fa-plug"></i> Connecting to Aurora...';
+          const spinButton = document.getElementById("spinButton");
+          if (spinButton) {
+            spinButton.disabled = true;
+          }
+        }
       }
     }
 
@@ -80,14 +81,16 @@
     // Populate meter selector
     function populateMeterSelect() {
       const select = document.getElementById("meter_select");
-      select.innerHTML = '<option value="">– Select Registered Meter –</option>';
-      
-      meters.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m;
-        opt.textContent = m.split("::")[1];
-        select.appendChild(opt);
-      });
+      if (select) {
+        select.innerHTML = '<option value="">– Select Registered Meter –</option>';
+        
+        meters.forEach(m => {
+          const opt = document.createElement("option");
+          opt.value = m;
+          opt.textContent = m.split("::")[1];
+          select.appendChild(opt);
+        });
+      }
     }
 
     // Show toast notification
@@ -112,8 +115,15 @@
 
     // Register a new meter
     function registerMeter() {
-      let user = document.getElementById('user_id_input').value.trim();
-      const meter = document.getElementById('meter_number_input').value.trim();
+      const userIdInput = document.getElementById('user_id_input');
+      const meterNumberInput = document.getElementById('meter_number_input');
+      
+      if (!userIdInput || !meterNumberInput) {
+        return showToast("Form elements not found", false);
+      }
+      
+      let user = userIdInput.value.trim();
+      const meter = meterNumberInput.value.trim();
       
       if (!user || !meter) {
         return showToast("Both fields are required", false);
@@ -130,8 +140,8 @@
           meters.push(internalCombo);
           localStorage.setItem("aurora_meters", JSON.stringify(meters));
           populateMeterSelect();
-          document.getElementById('user_id_input').value = "";
-          document.getElementById('meter_number_input').value = "";
+          userIdInput.value = "";
+          meterNumberInput.value = "";
           showToast("Meter registered successfully ✔️");
         } else {
           showToast("Meter already registered", false);
@@ -143,8 +153,8 @@
           meters.push(combo);
           localStorage.setItem("aurora_meters", JSON.stringify(meters));
           populateMeterSelect();
-          document.getElementById('user_id_input').value = "";
-          document.getElementById('meter_number_input').value = "";
+          userIdInput.value = "";
+          meterNumberInput.value = "";
           showToast("Meter registered successfully ✔️");
         } else {
           showToast("Meter already registered", false);
@@ -156,26 +166,41 @@
     async function spin() {
       if (isSpinning || !isConnected) return;
       
-      const selected = document.getElementById("meter_select").value;
+      const meterSelect = document.getElementById("meter_select");
+      if (!meterSelect) {
+        return showToast("Meter selector not found", false);
+      }
+      
+      const selected = meterSelect.value;
       if (!selected) {
         return showToast("Select a meter first", false);
       }
       
       isSpinning = true;
-      document.getElementById("spinButton").disabled = true;
+      const spinButton = document.getElementById("spinButton");
+      if (spinButton) {
+        spinButton.disabled = true;
+      }
       
       // Add spinning animation
       const wheel = document.getElementById("wheel");
-      wheel.classList.remove("pulse");
+      if (wheel) {
+        wheel.classList.remove("pulse");
+      }
       
       // Generate random kWh reading
       const [user, meter] = selected.split("::");
       const kwh = (Math.random() * 15 + 5).toFixed(2); // 5-20 kWh
-      document.getElementById("kwhDisplay").textContent = kwh;
+      const kwhDisplay = document.getElementById("kwhDisplay");
+      if (kwhDisplay) {
+        kwhDisplay.textContent = kwh;
+      }
       
       // Animate the wheel
       angle += 360 + Math.random() * 1080;
-      wheel.style.transform = `rotate(${angle}deg)`;
+      if (wheel) {
+        wheel.style.transform = `rotate(${angle}deg)`;
+      }
       
       // Decode user ID if it's encoded
       const originalUserId = isEncodedUserId(user) ? decodeUserId(user) : user;
@@ -190,7 +215,10 @@
       };
       
       // Update response box
-      document.getElementById("responseBox").textContent = "Sending data to Aurora...";
+      const responseBox = document.getElementById("responseBox");
+      if (responseBox) {
+        responseBox.textContent = "Sending data to Aurora...";
+      }
       
       try {
         // Send data to Aurora through the proxy server with CORRECT structure
@@ -210,21 +238,25 @@
         const data = await response.json();
         
         // Update UI with response
-        document.getElementById("responseBox").textContent = JSON.stringify(data, null, 2);
+        if (responseBox) {
+          responseBox.textContent = JSON.stringify(data, null, 2);
+        }
         
         // Add to history
         const historyList = document.getElementById("history_log");
-        if (historyList.firstChild?.classList?.contains('italic')) {
-          historyList.innerHTML = '';
+        if (historyList) {
+          if (historyList.firstChild?.classList?.contains('italic')) {
+            historyList.innerHTML = '';
+          }
+          
+          const li = document.createElement("li");
+          li.className = "p-2 bg-blue-50 rounded flex justify-between";
+          li.innerHTML = `
+            <span>${new Date().toLocaleTimeString()}</span>
+            <span class="font-medium">${meter}: <span class="text-blue-600">${kwh} kWh</span></span>
+          `;
+          historyList.prepend(li);
         }
-        
-        const li = document.createElement("li");
-        li.className = "p-2 bg-blue-50 rounded flex justify-between";
-        li.innerHTML = `
-          <span>${new Date().toLocaleTimeString()}</span>
-          <span class="font-medium">${meter}: <span class="text-blue-600">${kwh} kWh</span></span>
-        `;
-        historyList.prepend(li);
         
         showToast("Reading sent to Aurora ✔️");
       } catch (error) {
@@ -232,19 +264,34 @@
         
         // More detailed error handling
         if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-          document.getElementById("responseBox").textContent = `❌ Network Error: Unable to send data to proxy server. Make sure the proxy server is running.`;
+          if (responseBox) {
+            responseBox.textContent = `❌ Network Error: Unable to send data to proxy server. Make sure the proxy server is running.`;
+          }
           showToast("Network Error: Check proxy server ❌", false);
         } else {
-          document.getElementById("responseBox").textContent = `❌ Error: ${error.message}`;
+          if (responseBox) {
+            responseBox.textContent = `❌ Error: ${error.message}`;
+          }
           showToast("Failed to send reading ❌", false);
         }
       } finally {
         // Reset spinning state
         setTimeout(() => {
           isSpinning = false;
-          document.getElementById("spinButton").disabled = false;
-          wheel.classList.add("pulse");
+          if (spinButton) {
+            spinButton.disabled = false;
+          }
+          if (wheel) {
+            wheel.classList.add("pulse");
+          }
         }, 1000);
       }
     }
+
+    // Initialize the app when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      updateConnectionStatus();
+      populateMeterSelect();
+      checkConnection();
+    });
   </script>
