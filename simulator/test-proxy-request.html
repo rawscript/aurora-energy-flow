@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Proxy Request Test</title>
+</head>
+<body>
+    <h1>Proxy Request Test</h1>
+    <button onclick="testProxyRequest()">Test Full Proxy Request</button>
+    <button onclick="testDirectSupabaseRequest()">Test Direct Supabase Request</button>
+    <button onclick="testHealthCheck()">Test Proxy Health Check</button>
+    <div id="result"></div>
+
+    <script>
+        async function testProxyRequest() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing full proxy request...';
+            
+            const proxyUrl = 'https://aurora-smart-meter-proxy.onrender.com/proxy/supabase-function';
+            const payload = {
+                url: 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook',
+                meter_number: 'test-meter-123',
+                kwh_consumed: 10.5,
+                user_id: '00000000-0000-0000-0000-000000000000', // Test UUID
+                cost_per_kwh: 25.0
+            };
+            
+            try {
+                const response = await fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                resultDiv.innerHTML = `<p>Status: ${response.status} ${response.statusText}</p>`;
+                
+                const responseText = await response.text();
+                resultDiv.innerHTML += `<p>Response: ${responseText}</p>`;
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        resultDiv.innerHTML += `<p style="color: green;">Success! ${JSON.stringify(data)}</p>`;
+                    } catch (e) {
+                        resultDiv.innerHTML += `<p style="color: green;">Success! Response: ${responseText}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML += `<p style="color: red;">Error from proxy</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to connect: ${error.message}</p>`;
+                console.error('Connection error:', error);
+            }
+        }
+        
+        async function testDirectSupabaseRequest() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing direct Supabase function request...';
+            
+            const functionUrl = 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
+            const payload = {
+                meter_number: 'test-meter-123',
+                kwh_consumed: 10.5,
+                user_id: '00000000-0000-0000-0000-000000000000', // Test UUID
+                cost_per_kwh: 25.0
+            };
+            
+            try {
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                resultDiv.innerHTML = `<p>Status: ${response.status} ${response.statusText}</p>`;
+                
+                const responseText = await response.text();
+                resultDiv.innerHTML += `<p>Response: ${responseText}</p>`;
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        resultDiv.innerHTML += `<p style="color: green;">Success! ${JSON.stringify(data)}</p>`;
+                    } catch (e) {
+                        resultDiv.innerHTML += `<p style="color: green;">Success! Response: ${responseText}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML += `<p style="color: red;">Error from Supabase function. Status: ${response.status}</p>`;
+                    resultDiv.innerHTML += `<p>Response text: ${responseText}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to connect: ${error.message}</p>`;
+                console.error('Connection error:', error);
+            }
+        }
+        
+        async function testHealthCheck() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing proxy health check...';
+            
+            const proxyUrl = 'https://aurora-smart-meter-proxy.onrender.com/health';
+            
+            try {
+                const response = await fetch(proxyUrl);
+                
+                resultDiv.innerHTML = `<p>Status: ${response.status} ${response.statusText}</p>`;
+                
+                const responseText = await response.text();
+                resultDiv.innerHTML += `<p>Response: ${responseText}</p>`;
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        resultDiv.innerHTML += `<p style="color: green;">Health check successful! ${JSON.stringify(data)}</p>`;
+                    } catch (e) {
+                        resultDiv.innerHTML += `<p style="color: green;">Health check successful! Response: ${responseText}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML += `<p style="color: red;">Health check failed</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to connect: ${error.message}</p>`;
+                console.error('Connection error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

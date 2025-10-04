@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Function Test</title>
+</head>
+<body>
+    <h1>Supabase Function Test</h1>
+    <button onclick="testSupabaseFunction()">Test Supabase Function</button>
+    <div id="result"></div>
+
+    <script>
+        async function testSupabaseFunction() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing Supabase function...';
+            
+            const url = 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
+            
+            try {
+                // Test with a simple GET request to see if the function exists
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    }
+                });
+                
+                resultDiv.innerHTML = `<p>Status: ${response.status} ${response.statusText}</p>`;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML += `<p style="color: green;">Success! Function exists: ${JSON.stringify(data)}</p>`;
+                } else {
+                    resultDiv.innerHTML += `<p style="color: orange;">Function might exist but doesn't accept GET requests. This is normal for webhook functions.</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to connect: ${error.message}</p>`;
+                console.error('Connection error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

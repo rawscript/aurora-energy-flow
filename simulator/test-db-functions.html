@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Functions Test</title>
+</head>
+<body>
+    <h1>Database Functions Test</h1>
+    <button onclick="testDbFunctions()">Test Database Functions</button>
+    <button onclick="testSmartMeterFunction()">Test Smart Meter Function Directly</button>
+    <div id="result"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase client
+        const supabaseUrl = 'https://rcthtxwzsqvwivritzln.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function testDbFunctions() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing database functions...';
+            
+            try {
+                // Test if we can connect to the database and list functions
+                resultDiv.innerHTML += '<p>Testing database connection...</p>';
+                
+                // Try a simple query to see if we can connect
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id')
+                    .limit(1);
+                
+                if (error) {
+                    resultDiv.innerHTML += `<p style="color: red;">Database connection error: ${JSON.stringify(error)}</p>`;
+                } else {
+                    resultDiv.innerHTML += `<p style="color: green;">Database connection successful</p>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to test functions: ${error.message}</p>`;
+                console.error('Test error:', error);
+            }
+        }
+        
+        async function testSmartMeterFunction() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing smart meter function directly...';
+            
+            try {
+                // Test the smart meter webhook function directly
+                const functionUrl = 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook';
+                const payload = {
+                    meter_number: 'test-meter-123',
+                    kwh_consumed: 10.5,
+                    user_id: '00000000-0000-0000-0000-000000000000', // Test UUID
+                    cost_per_kwh: 25.0
+                };
+                
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                resultDiv.innerHTML = `<p>Status: ${response.status} ${response.statusText}</p>`;
+                
+                const responseText = await response.text();
+                resultDiv.innerHTML += `<p>Response: ${responseText}</p>`;
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        resultDiv.innerHTML += `<p style="color: green;">Success! ${JSON.stringify(data)}</p>`;
+                    } catch (e) {
+                        resultDiv.innerHTML += `<p style="color: green;">Success! Response: ${responseText}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML += `<p style="color: red;">Error from Supabase function</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to connect: ${error.message}</p>`;
+                console.error('Connection error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
