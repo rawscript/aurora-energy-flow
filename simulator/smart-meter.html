@@ -119,7 +119,7 @@
       supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM',
       functionName: 'smart-meter-webhook', // Changed from 'super-action'
       // Proxy server URL - replace with your deployed proxy server URL
-      proxyUrl: 'https://YOUR_DEPLOYED_PROXY_SERVER_URL/proxy/supabase-function' // Update this to your deployed proxy URL
+      proxyUrl: 'https://aurora-smart-meter-proxy.onrender.com/proxy/supabase-function' // Update this to your deployed proxy URL
     };
 
     const meters = JSON.parse(localStorage.getItem("aurora_meters") || "[]");
