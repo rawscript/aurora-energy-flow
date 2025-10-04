@@ -10,7 +10,7 @@
 # Redirects for SPA (if needed in the future)
 [[redirects]]
   from = "/*"
-  to = "/smart-meter-complete.html"
+  to = "/smart-meter.html"
   status = 200
 
 # Headers for security
