@@ -54,6 +54,7 @@ app.post('/proxy/supabase-function', async (req, res) => {
     const { url, ...body } = req.body;
     
     console.log(`Proxying request to: ${url}`);
+    console.log(`Request body:`, JSON.stringify(body, null, 2));
     
     // Validate URL is from Supabase
     if (!url || !url.includes('.supabase.co/functions/v1/')) {
@@ -72,15 +73,29 @@ app.post('/proxy/supabase-function', async (req, res) => {
       body: JSON.stringify(body)
     });
     
-    const data = await response.json();
-    
+    const responseText = await response.text();
     console.log(`Supabase response status: ${response.status}`);
+    console.log(`Supabase response headers:`, [...response.headers.entries()]);
+    console.log(`Supabase response body:`, responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.log('Could not parse Supabase response as JSON:', responseText);
+      data = { rawResponse: responseText };
+    }
     
     // Forward the response back to the client
     res.status(response.status).json(data);
   } catch (error) {
     console.error('Proxy error:', error);
-    res.status(500).json({ error: 'Proxy request failed', details: error.message });
+    console.error('Proxy error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Proxy request failed', 
+      details: error.message,
+      stack: error.stack
+    });
   }
 });
 

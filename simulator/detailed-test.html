@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Detailed Supabase Function Test</title>
+</head>
+<body>
+    <h1>Detailed Supabase Function Test</h1>
+    <button onclick="testDetailedRequest()">Test Detailed Request</button>
+    <button onclick="testWithValidUser()">Test With Valid User</button>
+    <button onclick="testFunctionExists()">Test Function Exists</button>
+    <div id="result"></div>
+
+    <script>
+        async function testDetailedRequest() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing detailed request...';
+            
+            const functionUrl = 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
+            const payload = {
+                meter_number: 'test-meter-123',
+                kwh_consumed: 10.5,
+                user_id: '00000000-0000-0000-0000-000000000000', // Test UUID
+                cost_per_kwh: 25.0
+            };
+            
+            try {
+                resultDiv.innerHTML += '<p>Sending request to Supabase function...</p>';
+                
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                resultDiv.innerHTML += `<p>Supabase Response Status: ${response.status} ${response.statusText}</p>`;
+                
+                // Try to get response headers
+                resultDiv.innerHTML += '<p>Response Headers:</p><ul>';
+                for (let [key, value] of response.headers.entries()) {
+                    resultDiv.innerHTML += `<li>${key}: ${value}</li>`;
+                }
+                resultDiv.innerHTML += '</ul>';
+                
+                const responseText = await response.text();
+                resultDiv.innerHTML += `<p>Raw Response Text: ${responseText}</p>`;
+                
+                if (response.ok) {
+                    try {
+                        const data = JSON.parse(responseText);
+                        resultDiv.innerHTML += `<p style="color: green;">Success! ${JSON.stringify(data, null, 2)}</p>`;
+                    } catch (e) {
+                        resultDiv.innerHTML += `<p style="color: green;">Success! Response: ${responseText}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML += `<p style="color: red;">Error from Supabase function. Status: ${response.status}</p>`;
+                    
+                    // Try to parse error response
+                    try {
+                        const errorData = JSON.parse(responseText);
+                        resultDiv.innerHTML += `<p style="color: red;">Error Details: ${JSON.stringify(errorData, null, 2)}</p>`;
+                    } catch (e) {
+                        resultDiv.innerHTML += `<p style="color: red;">Error Response: ${responseText}</p>`;
+                    }
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Failed to connect: ${error.message}</p>`;
+                resultDiv.innerHTML += `<p>Error stack: ${error.stack}</p>`;
+                console.error('Connection error:', error);
+            }
+        }
+        
+        async function testWithValidUser() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing with a valid user...';
+            
+            // First, let's try to get a real user ID from the database
+            const supabaseUrl = 'https://rcthtxwzsqvwivritzln.supabase.co';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
+            
+            try {
+                // Try to get a valid user
+                const response = await fetch(`${supabaseUrl}/rest/v1/profiles?select=id,meter_number&limit=1`, {
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const profiles = await response.json();
+                    if (profiles && profiles.length > 0) {
+                        const user = profiles[0];
+                        resultDiv.innerHTML += `<p>Found user: ${user.id}, meter: ${user.meter_number}</p>`;
+                        
+                        // Now test the function with this user
+                        const functionUrl = 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook';
+                        const payload = {
+                            meter_number: user.meter_number || 'test-meter-123',
+                            kwh_consumed: 10.5,
+                            user_id: user.id,
+                            cost_per_kwh: 25.0
+                        };
+                        
+                        const funcResponse = await fetch(functionUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'apikey': supabaseKey,
+                                'Authorization': `Bearer ${supabaseKey}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        resultDiv.innerHTML += `<p>Function Response Status: ${funcResponse.status} ${funcResponse.statusText}</p>`;
+                        const responseText = await funcResponse.text();
+                        resultDiv.innerHTML += `<p>Function Response: ${responseText}</p>`;
+                    } else {
+                        resultDiv.innerHTML += '<p>No users found in database</p>';
+                    }
+                } else {
+                    resultDiv.innerHTML += `<p>Failed to get users: ${response.status}</p>`;
+                    const responseText = await response.text();
+                    resultDiv.innerHTML += `<p>Error: ${responseText}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error getting users: ${error.message}</p>`;
+            }
+        }
+        
+        async function testFunctionExists() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing if function exists...';
+            
+            const functionUrl = 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM';
+            
+            try {
+                // Try a GET request to see if the function exists
+                const response = await fetch(functionUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    }
+                });
+                
+                resultDiv.innerHTML += `<p>GET Response Status: ${response.status} ${response.statusText}</p>`;
+                
+                const responseText = await response.text();
+                resultDiv.innerHTML += `<p>GET Response: ${responseText}</p>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error testing function existence: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
