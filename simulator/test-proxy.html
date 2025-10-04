@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Proxy Server</title>
+</head>
+<body>
+    <h1>Test Proxy Server</h1>
+    <button onclick="testProxy()">Test Proxy Request</button>
+    <div id="result"></div>
+
+    <script>
+        async function testProxy() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Sending request...';
+            
+            try {
+                const response = await fetch('http://localhost:3001/proxy/supabase-function', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: 'https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook',
+                        meter_number: 'KP-12345',
+                        kwh_consumed: 10.5,
+                        user_id: 'test-user-id',
+                        cost_per_kwh: 25.0
+                    })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
