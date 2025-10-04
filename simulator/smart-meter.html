@@ -1,3 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Aurora Smart Meter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+  <style>
+    .spin-wheel {
+      background: conic-gradient(from 0deg, #3b82f6 0 25%, #dbeafe 25% 50%, #3b82f6 50% 75%, #dbeafe 75% 100%);
+      border-radius: 9999px;
+      width: 160px;
+      height: 160px;
+      border: 8px solid rgba(0,0,0,0.05);
+      position: relative;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(4px);
+      transition: transform 0.6s ease;
+    }
+
+    .spin-marker {
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 14px;
+      height: 14px;
+      background: #3b82f6;
+      border: 2px solid white;
+      border-radius: 9999px;
+      box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-white text-gray-800 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-xl bg-white/80 shadow-xl rounded-xl p-6 backdrop-blur-md border border-blue-100">
+    <h1 class="text-2xl font-bold mb-4 text-center text-blue-600">⚡ Aurora Smart Meter</h1>
+    
+    <!-- Info about encoded user IDs -->
+    <div class="mb-4 p-3 bg-blue-50 rounded-lg text-sm">
+      <p class="text-blue-800"><i class="fas fa-info-circle mr-2"></i> You can use either your original User ID or the encoded version. The system will automatically convert encoded IDs for you.</p>
+    </div>
+    
+    <!-- Info about proxy server -->
+    <div class="mb-4 p-3 bg-yellow-50 rounded-lg text-sm">
+      <p class="text-yellow-800"><i class="fas fa-exclamation-triangle mr-2"></i> If you're experiencing connection issues, make sure the proxy server is running. See documentation for deployment instructions. Update the proxy URL in the code to match your deployed proxy server.</p>
+    </div>
+    
+    <!-- Connection Status -->
+    <div id="connectionStatus" class="mb-4 p-2 rounded text-center text-sm font-medium bg-yellow-100 text-yellow-800">
+      <i class="fas fa-plug"></i> Connecting to Aurora...
+    </div>
+
+    <!-- Form -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <input id="user_id_input" class="px-4 py-2 rounded border focus:ring focus:ring-blue-300" placeholder="User ID (encoded or original)">
+      <input id="meter_number_input" class="px-4 py-2 rounded border focus:ring focus:ring-blue-300" placeholder="Meter Number">
+      <button onclick="registerMeter()" class="bg-blue-500 hover:bg-blue-600 text-white rounded px-4 py-2 flex items-center justify-center">
+        <i class="fas fa-plus mr-1"></i> Register
+      </button>
+    </div>
+
+    <!-- Meter Selector -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-1">Select Meter</label>
+      <select id="meter_select" class="w-full px-4 py-2 border rounded focus:ring focus:ring-blue-300">
+        <option value="">– Select Registered Meter –</option>
+      </select>
+    </div>
+
+    <!-- Wheel + Readout -->
+    <div class="flex flex-col items-center space-y-4 mb-6">
+      <div class="relative spin-wheel pulse" id="wheel">
+        <div class="spin-marker"></div>
+      </div>
+      <button onclick="spin()" id="spinButton" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded flex items-center disabled:opacity-50" disabled>
+        <i class="fas fa-sync-alt mr-2"></i> Spin Meter
+      </button>
+      <div class="text-center">
+        <p class="text-sm text-gray-600">kWh Consumed</p>
+        <p class="text-2xl font-bold text-blue-600" id="kwhDisplay">0.00</p>
+      </div>
+    </div>
+
+    <!-- Response -->
+    <div class="mt-6">
+      <h2 class="text-lg font-semibold mb-2 flex items-center">
+        <i class="fas fa-inbox mr-2"></i> Latest Response
+      </h2>
+      <pre id="responseBox" class="bg-gray-100 p-3 rounded text-sm max-h-40 overflow-auto font-mono">Waiting for data...</pre>
+    </div>
+
+    <!-- History -->
+    <div class="mt-4">
+      <h2 class="text-lg font-semibold mb-2 flex items-center">
+        <i class="fas fa-history mr-2"></i> Reading History
+      </h2>
+      <ul id="history_log" class="text-sm space-y-1 max-h-40 overflow-auto">
+        <li class="text-gray-500 italic">No readings yet</li>
+      </ul>
+    </div>
+  </div>
+
   <script>
     // Aurora configuration - UPDATED FOR CORRECT DATA FLOW
     const AURORA_CONFIG = {
@@ -5,7 +119,7 @@
       supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM',
       functionName: 'smart-meter-webhook', // Changed from 'super-action'
       // Proxy server URL - replace with your deployed proxy server URL
-      proxyUrl: 'http://localhost:3001/proxy/supabase-function' // Update this to your deployed proxy URL
+      proxyUrl: 'https://YOUR_DEPLOYED_PROXY_SERVER_URL/proxy/supabase-function' // Update this to your deployed proxy URL
     };
 
     const meters = JSON.parse(localStorage.getItem("aurora_meters") || "[]");
@@ -35,6 +149,13 @@
       // Check if the ID consists only of digits and has a length that's a multiple of 3
       return /^\d+$/.test(id) && id.length % 3 === 0;
     }
+
+    // Initialize the app when DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      updateConnectionStatus();
+      populateMeterSelect();
+      checkConnection();
+    });
 
     // Update connection status display
     function updateConnectionStatus() {
@@ -287,11 +408,6 @@
         }, 1000);
       }
     }
-
-    // Initialize the app when DOM is loaded
-    document.addEventListener('DOMContentLoaded', () => {
-      updateConnectionStatus();
-      populateMeterSelect();
-      checkConnection();
-    });
   </script>
+</body>
+</html>
