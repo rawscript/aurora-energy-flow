@@ -4,6 +4,7 @@ const fetch = require('node-fetch');
 require('dotenv').config();
 
 const app = express();
+// Use the PORT environment variable or default to 3001
 const PORT = process.env.PORT || 3001;
 
 // Supabase configuration from environment variables or defaults
@@ -13,13 +14,10 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6Ik
 const corsOptions = {
   origin: [
     'https://aurora-smart-meter.onrender.com',
+    'https://smart-simulator.netlify.app', // Add your Netlify domain
     'https://*.netlify.app',
     'https://*.vercel.app',
-    'https://*.herokuapp.com',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001'
+    'https://*.herokuapp.com'
   ],
   credentials: true,
   optionsSuccessStatus: 200
@@ -57,8 +55,8 @@ app.post('/proxy/supabase-function', async (req, res) => {
     
     const { url, ...body } = req.body;
     
-    console.log(`Proxying request to: ${url}`);
-    console.log(`Request payload:`, JSON.stringify(body, null, 2));
+    // Log the incoming request for debugging
+    console.log(`Proxying smart meter data to Supabase function:`, JSON.stringify(body, null, 2));
     
     // Validate URL is from Supabase
     if (!url || !url.includes('.supabase.co/functions/v1/')) {
@@ -78,10 +76,10 @@ app.post('/proxy/supabase-function', async (req, res) => {
       body: JSON.stringify(body)
     });
     
-    console.log(`Supabase response status: ${response.status}`);
+    console.log(`Supabase webhook response status: ${response.status}`);
     
     const responseText = await response.text();
-    console.log(`Supabase response body:`, responseText);
+    console.log(`Supabase webhook response body:`, responseText);
     
     let data;
     try {
@@ -104,7 +102,7 @@ app.post('/proxy/supabase-function', async (req, res) => {
     res.status(500).json({ 
       error: 'Proxy request failed', 
       details: error.message,
-      stack: error.stack
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
