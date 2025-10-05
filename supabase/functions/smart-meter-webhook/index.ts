@@ -92,6 +92,7 @@ serve(async (req) => {
       if (error) {
         console.error('Error inserting energy reading:', {
           error: error.message,
+          code: error.code,
           details: error.details,
           payload: { meter_number, kwh_consumed, user_id }
         })

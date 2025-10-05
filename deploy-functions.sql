@@ -1,7 +1,6 @@
--- Deploy only the functions required for smart meter to work
--- This avoids the conflicts with other functions
+-- This script combines all the required functions for the smart meter to work
 
--- Create a function to safely log errors (simplified version that doesn't depend on other functions)
+-- Create a function to safely log errors (simplified version)
 CREATE OR REPLACE PROCEDURE public.log_error(
   p_function_name TEXT,
   p_error_message TEXT,
@@ -15,7 +14,6 @@ SECURITY DEFINER
 AS $$
 BEGIN
   -- Simple error logging - just output to console
-  -- In production, you might want to create a proper error_logs table
   RAISE NOTICE 'ERROR in %: % (Detail: %)', p_function_name, p_error_message, p_error_detail;
 EXCEPTION WHEN OTHERS THEN
   -- If error logging fails, just continue
@@ -38,18 +36,11 @@ RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-DECLARE
-  v_notification_id UUID;
 BEGIN
   -- Simple notification - just return a generated UUID
-  -- In production, you might want to create a proper notifications table
   RETURN gen_random_uuid();
 END;
 $$;
-
--- Drop the energy reading functions if they exist
-DROP FUNCTION IF EXISTS public.insert_energy_reading_improved(UUID, TEXT, NUMERIC, NUMERIC);
-DROP FUNCTION IF EXISTS public.update_token_balance_improved(UUID, TEXT, DECIMAL, TEXT, BOOLEAN, TEXT, TEXT, TEXT);
 
 -- Create the insert_energy_reading_improved function
 CREATE OR REPLACE FUNCTION public.insert_energy_reading_improved(
@@ -66,7 +57,6 @@ DECLARE
   v_total_cost NUMERIC;
   v_reading_id UUID;
   v_profile_exists BOOLEAN;
-  v_error_context JSONB;
 BEGIN
   -- Validate input
   IF p_user_id IS NULL OR p_meter_number IS NULL THEN
@@ -123,15 +113,6 @@ BEGIN
       'consumption'
     );
   EXCEPTION WHEN OTHERS THEN
-    -- Log error but don't fail the transaction
-    v_error_context := jsonb_build_object(
-      'user_id', p_user_id,
-      'meter_number', p_meter_number,
-      'reading_id', v_reading_id,
-      'kwh_consumed', p_kwh_consumed,
-      'total_cost', v_total_cost
-    );
-
     -- Simple error logging
     RAISE NOTICE 'Failed to update token balance after energy reading: %', SQLERRM;
   END;
@@ -160,11 +141,6 @@ DECLARE
   v_new_balance DECIMAL(10,2);
   v_daily_avg DECIMAL(10,2);
   v_estimated_days INTEGER;
-  v_notification_created BOOLEAN := FALSE;
-  v_error_message TEXT;
-  v_transaction_id UUID;
-  v_token_units DECIMAL(10,2);
-  v_balance_record RECORD;
 BEGIN
   -- Validate input parameters
   IF p_user_id IS NULL OR p_meter_number IS NULL THEN
@@ -180,15 +156,10 @@ BEGIN
     RAISE EXCEPTION 'Invalid transaction type: %', p_transaction_type;
   END IF;
 
-  -- Lock the balance record for update to prevent race conditions
-  SELECT * FROM public.token_balances
-  WHERE user_id = p_user_id AND meter_number = p_meter_number
-  FOR UPDATE;
-
   -- Get current balance or create new record
   BEGIN
     -- Try to get existing balance
-    SELECT * INTO v_balance_record
+    SELECT * INTO v_current_balance
     FROM public.token_balances
     WHERE user_id = p_user_id AND meter_number = p_meter_number;
 
@@ -219,26 +190,17 @@ BEGIN
         NOW(),
         NOW()
       );
-
-      -- Get the newly created record
-      SELECT * INTO v_balance_record
-      FROM public.token_balances
-      WHERE user_id = p_user_id AND meter_number = p_meter_number;
     ELSE
-      v_current_balance := v_balance_record.current_balance;
-      v_daily_avg := v_balance_record.daily_consumption_avg;
+      v_daily_avg := v_current_balance.daily_consumption_avg;
     END IF;
 
     -- Calculate new balance based on transaction type
     IF p_transaction_type = 'purchase' THEN
       v_new_balance := v_current_balance + p_amount;
-      v_token_units := p_amount; -- For purchases, amount = token units
     ELSIF p_transaction_type = 'refund' THEN
       v_new_balance := v_current_balance + p_amount;
-      v_token_units := p_amount;
     ELSE -- consumption
       v_new_balance := GREATEST(0, v_current_balance - p_amount);
-      v_token_units := p_amount;
     END IF;
 
     -- Calculate daily average consumption (simple moving average)
@@ -274,7 +236,7 @@ BEGIN
       p_meter_number,
       p_transaction_type,
       p_amount,
-      v_token_units,
+      p_amount,
       p_reference_number,
       p_vendor,
       p_payment_method,
@@ -283,8 +245,7 @@ BEGIN
       'completed',
       NOW(),
       NOW()
-    )
-    RETURNING id INTO v_transaction_id;
+    );
 
     -- Update balance record
     UPDATE public.token_balances
@@ -310,54 +271,10 @@ BEGIN
       END
     WHERE id = p_user_id AND meter_number = p_meter_number;
 
-    -- Create low balance notification if needed and not forced (with error handling)
-    IF v_new_balance <= 50 AND p_transaction_type = 'consumption' AND NOT p_force THEN
-      BEGIN
-        -- Simple notification creation
-        v_transaction_id := public.create_notification_improved(
-          p_user_id,
-          CASE
-            WHEN v_new_balance <= 0 THEN 'KPLC Tokens Depleted! ⚠️'
-            WHEN v_new_balance <= 20 THEN 'CRITICAL: Very Low Token Balance! ❗'
-            ELSE 'Low Token Balance Warning 🔋'
-          END,
-          CASE
-            WHEN v_new_balance <= 0 THEN 'Your electricity tokens have been completely depleted. Purchase new tokens immediately to avoid power interruption.'
-            WHEN v_new_balance <= 20 THEN 'Your token balance is critically low (KSh ' || v_new_balance::text || '). Purchase more tokens now to avoid service interruption.'
-            ELSE 'Your token balance is running low (KSh ' || v_new_balance::text || '). Consider purchasing more tokens soon.'
-          END,
-          CASE
-            WHEN v_new_balance <= 0 THEN 'token_depleted'
-            ELSE 'token_low'
-          END,
-          CASE
-            WHEN v_new_balance <= 0 THEN 'critical'
-            WHEN v_new_balance <= 20 THEN 'high'
-            ELSE 'medium'
-          END,
-          v_new_balance,
-          v_estimated_days,
-          jsonb_build_object(
-            'transaction_id', v_transaction_id,
-            'previous_balance', v_current_balance,
-            'new_balance', v_new_balance,
-            'amount', p_amount,
-            'transaction_type', p_transaction_type
-          )
-        );
-        v_notification_created := TRUE;
-      EXCEPTION WHEN OTHERS THEN
-        -- Log error but don't fail the transaction
-        v_error_message := SQLERRM;
-        RAISE NOTICE 'Failed to create low balance notification: %', v_error_message;
-      END;
-    END IF;
-
     RETURN v_new_balance;
   EXCEPTION WHEN OTHERS THEN
     -- Log the error
-    v_error_message := SQLERRM;
-    RAISE NOTICE 'Unexpected error in update_token_balance_improved: %', v_error_message;
+    RAISE NOTICE 'Unexpected error in update_token_balance_improved: %', SQLERRM;
     RAISE;
   END;
 END;
