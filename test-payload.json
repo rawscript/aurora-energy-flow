@@ -1,0 +1,7 @@
+{
+  "url": "https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook",
+  "meter_number": "TEST123456",
+  "kwh_consumed": 10.5,
+  "user_id": "00000000-0000-0000-0000-000000000000",
+  "cost_per_kwh": 25.0
+}

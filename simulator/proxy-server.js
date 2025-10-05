@@ -51,10 +51,14 @@ app.get('/proxy/supabase-function', (req, res) => {
 // Proxy endpoint for Supabase functions
 app.post('/proxy/supabase-function', async (req, res) => {
   try {
+    console.log('=== NEW REQUEST RECEIVED ===');
+    console.log('Request headers:', req.headers);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     const { url, ...body } = req.body;
     
     console.log(`Proxying request to: ${url}`);
-    console.log(`Request body:`, JSON.stringify(body, null, 2));
+    console.log(`Request payload:`, JSON.stringify(body, null, 2));
     
     // Validate URL is from Supabase
     if (!url || !url.includes('.supabase.co/functions/v1/')) {
@@ -63,6 +67,7 @@ app.post('/proxy/supabase-function', async (req, res) => {
     }
     
     // Forward the request to Supabase
+    console.log('Sending request to Supabase...');
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -73,24 +78,29 @@ app.post('/proxy/supabase-function', async (req, res) => {
       body: JSON.stringify(body)
     });
     
-    const responseText = await response.text();
     console.log(`Supabase response status: ${response.status}`);
-    console.log(`Supabase response headers:`, [...response.headers.entries()]);
+    
+    const responseText = await response.text();
     console.log(`Supabase response body:`, responseText);
     
     let data;
     try {
       data = JSON.parse(responseText);
+      console.log(`Parsed Supabase response:`, JSON.stringify(data, null, 2));
     } catch (parseError) {
       console.log('Could not parse Supabase response as JSON:', responseText);
       data = { rawResponse: responseText };
     }
     
     // Forward the response back to the client
+    console.log(`Forwarding response with status ${response.status} to client`);
     res.status(response.status).json(data);
+    console.log('=== REQUEST HANDLED ===');
   } catch (error) {
+    console.error('=== PROXY ERROR ===');
     console.error('Proxy error:', error);
     console.error('Proxy error stack:', error.stack);
+    console.error('=== END PROXY ERROR ===');
     res.status(500).json({ 
       error: 'Proxy request failed', 
       details: error.message,
