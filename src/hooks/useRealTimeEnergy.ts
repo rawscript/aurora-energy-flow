@@ -95,7 +95,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
   const dataCache = useRef<{ data: EnergyData; readings: EnergyReading[]; timestamp: number; userId?: string } | null>(null);
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+  const CACHE_DURATION = 10 * 60 * 1000; // Increased cache duration to 10 minutes
 
   // Update the meterNumber ref when context meter number changes
   useEffect(() => {
@@ -332,8 +332,8 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         dataCache.current.readings[0]?.reading_date : now);
       const today = new Date();
       const isSameDay = cacheDate.getDate() === today.getDate() &&
-                        cacheDate.getMonth() === today.getMonth() &&
-                        cacheDate.getFullYear() === today.getFullYear();
+                      cacheDate.getMonth() === today.getMonth() &&
+                      cacheDate.getFullYear() === today.getFullYear();
 
       if (isCacheValid && isSameDay) {
         console.log('Using cached energy data (valid and relevant)');
@@ -347,9 +347,9 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       }
     }
 
-    // Prevent too frequent requests
-    if (!forceRefresh && (now - lastFetchTime.current) < 30000) {
-      console.log('Skipping fetch - too soon since last request');
+    // Prevent too frequent requests (rate limiting)
+    if (!forceRefresh && (now - lastFetchTime.current) < 60000) { // Increased to 1 minute
+      console.log('Skipping fetch - too soon since last request (rate limiting)');
       return;
     }
 
@@ -367,7 +367,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       loadingTimeoutRef.current = setTimeout(() => {
         setLoading(false);
         setError('Request timeout - please try again');
-      }, 10000);
+      }, 15000); // Increased timeout to 15 seconds
 
       console.log(`Fetching real data for meter: ${meterNumber.current}, page: ${page}, pageSize: ${pageSize}`);
 
@@ -375,159 +375,190 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-      const { data: readings, error: readingsError, count } = await query('energy_readings')
-        .select('*', { count: 'exact', head: false })
+      // First try to fetch with basic columns only
+      const selectQuery = `
+        id,
+        user_id,
+        meter_number,
+        kwh_consumed,
+        cost_per_kwh,
+        total_cost,
+        reading_date,
+        billing_period_start,
+        billing_period_end,
+        peak_usage,
+        off_peak_usage,
+        created_at
+      `;
+
+      const queryResult = await query('energy_readings')
+        .select(selectQuery, { count: 'exact', head: false })
         .eq('user_id', userId)
         .eq('meter_number', meterNumber.current)
         .gte('reading_date', oneWeekAgo.toISOString())
         .order('reading_date', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
+    
+    const { data: readings, error: readingsError } = queryResult;
+    
+    // Handle the case where we have readings
+    if (readings && Array.isArray(readings) && readings.length > 0) {
+      // Validate that we have actual reading objects, not error objects
+      const validReadings = readings.filter(r => 
+        r && typeof r === 'object' && 'id' in r && 'user_id' in r
+      );
       
-      if (readingsError && readingsError.code !== 'PGRST116') {
-        console.error('Error fetching energy readings:', readingsError);
-        throw readingsError;
+      if (validReadings.length === 0) {
+        throw new Error('No valid readings found');
       }
       
-      // Handle the case where we have readings
-      if (readings && readings.length > 0) {
-        console.log(`Found ${readings.length} energy readings`);
-        setRecentReadings(readings);
+      console.log(`Found ${validReadings.length} energy readings`);
+      setRecentReadings(validReadings);
+      
+      // Calculate basic stats from readings
+      const dailyReadings = validReadings.filter(r => {
+        const readingDate = new Date(r.reading_date);
+        const today = new Date();
+        return readingDate.getDate() === today.getDate() &&
+               readingDate.getMonth() === today.getMonth() &&
+               readingDate.getFullYear() === today.getFullYear();
+      });
+      
+      const dailyTotal = dailyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
+      const dailyCost = dailyReadings.reduce((sum, r) => sum + r.total_cost, 0);
+      const currentUsage = validReadings[0]?.kwh_consumed || 0;
+      
+      // Calculate weekly average
+      const weeklyReadings = validReadings.filter(r => {
+        const readingDate = new Date(r.reading_date);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - readingDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 7;
+      });
+      
+      const weeklyTotal = weeklyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
+      const weeklyAverage = weeklyTotal / 7;
+      
+      // Calculate monthly total
+      const monthlyReadings = validReadings.filter(r => {
+        const readingDate = new Date(r.reading_date);
+        const now = new Date();
+        return readingDate.getMonth() === now.getMonth() &&
+               readingDate.getFullYear() === now.getFullYear();
+      });
+      
+      const monthlyTotal = monthlyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
+      
+      // Calculate efficiency score based on usage patterns
+      const avgDailyUsage = weeklyTotal / 7;
+      let efficiencyScore = 87; // Default
+      
+      if (profileData?.meter_category === 'household') {
+        efficiencyScore = avgDailyUsage < 10 ? 95 : avgDailyUsage < 20 ? 87 : 75;
+      } else if (profileData?.meter_category === 'SME') {
+        efficiencyScore = avgDailyUsage < 50 ? 90 : avgDailyUsage < 100 ? 80 : 70;
+      } else if (profileData?.meter_category === 'industry') {
+        efficiencyScore = avgDailyUsage < 200 ? 85 : avgDailyUsage < 500 ? 75 : 65;
+      }
+      
+      // Determine cost trend
+      let costTrend: 'up' | 'down' | 'stable' = 'stable';
+      if (validReadings.length >= 2) {
+        const recent = validReadings[0].total_cost;
+        const previous = validReadings[1].total_cost;
         
-        // Calculate basic stats from readings
-        const dailyReadings = readings.filter(r => {
-          const readingDate = new Date(r.reading_date);
-          const today = new Date();
-          return readingDate.getDate() === today.getDate() &&
-                 readingDate.getMonth() === today.getMonth() &&
-                 readingDate.getFullYear() === today.getFullYear();
-        });
-        
-        const dailyTotal = dailyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
-        const dailyCost = dailyReadings.reduce((sum, r) => sum + r.total_cost, 0);
-        const currentUsage = readings[0]?.kwh_consumed || 0;
-        
-        // Calculate weekly average
-        const weeklyReadings = readings.filter(r => {
-          const readingDate = new Date(r.reading_date);
-          const now = new Date();
-          const diffTime = Math.abs(now.getTime() - readingDate.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= 7;
-        });
-        
-        const weeklyTotal = weeklyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
-        const weeklyAverage = weeklyTotal / 7;
-        
-        // Calculate monthly total
-        const monthlyReadings = readings.filter(r => {
-          const readingDate = new Date(r.reading_date);
-          const now = new Date();
-          return readingDate.getMonth() === now.getMonth() &&
-                 readingDate.getFullYear() === now.getFullYear();
-        });
-        
-        const monthlyTotal = monthlyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
-        
-        // Calculate efficiency score based on usage patterns
-        const avgDailyUsage = weeklyTotal / 7;
-        let efficiencyScore = 87; // Default
-        
-        if (profileData?.meter_category === 'household') {
-          efficiencyScore = avgDailyUsage < 10 ? 95 : avgDailyUsage < 20 ? 87 : 75;
-        } else if (profileData?.meter_category === 'SME') {
-          efficiencyScore = avgDailyUsage < 50 ? 90 : avgDailyUsage < 100 ? 80 : 70;
-        } else if (profileData?.meter_category === 'industry') {
-          efficiencyScore = avgDailyUsage < 200 ? 85 : avgDailyUsage < 500 ? 75 : 65;
+        if (recent > previous * 1.1) {
+          costTrend = 'up';
+        } else if (recent < previous * 0.9) {
+          costTrend = 'down';
         }
-        
-        // Determine cost trend
-        let costTrend: 'up' | 'down' | 'stable' = 'stable';
-        if (readings.length >= 2) {
-          const recent = readings[0].total_cost;
-          const previous = readings[1].total_cost;
-          
-          if (recent > previous * 1.1) {
-            costTrend = 'up';
-          } else if (recent < previous * 0.9) {
-            costTrend = 'down';
-          }
+      }
+      
+      // Find peak usage time
+      let peakHour = '18:00'; // Default
+      const hourlyUsage = new Map<number, number>();
+      
+      validReadings.forEach(reading => {
+        const hour = new Date(reading.reading_date).getHours();
+        hourlyUsage.set(hour, (hourlyUsage.get(hour) || 0) + reading.kwh_consumed);
+      });
+      
+      let maxUsage = 0;
+      let maxHour = 18;
+      
+      hourlyUsage.forEach((usage, hour) => {
+        if (usage > maxUsage) {
+          maxUsage = usage;
+          maxHour = hour;
         }
-        
-        // Find peak usage time
-        let peakHour = '18:00'; // Default
-        const hourlyUsage = new Map<number, number>();
-        
-        readings.forEach(reading => {
-          const hour = new Date(reading.reading_date).getHours();
-          hourlyUsage.set(hour, (hourlyUsage.get(hour) || 0) + reading.kwh_consumed);
-        });
-        
-        let maxUsage = 0;
-        let maxHour = 18;
-        
-        hourlyUsage.forEach((usage, hour) => {
-          if (usage > maxUsage) {
-            maxUsage = usage;
-            maxHour = hour;
-          }
-        });
-        
-        peakHour = `${maxHour.toString().padStart(2, '0')}:00`;
-        
-        // Set energy data
-        const newEnergyData = {
-          current_usage: currentUsage,
-          daily_total: dailyTotal,
-          daily_cost: dailyCost,
-          efficiency_score: efficiencyScore,
-          weekly_average: weeklyAverage,
-          monthly_total: monthlyTotal,
-          peak_usage_time: peakHour,
-          cost_trend: costTrend
-        };
+      });
+      
+      peakHour = `${maxHour.toString().padStart(2, '0')}:00`;
+      
+      // Set energy data
+      const newEnergyData = {
+        current_usage: currentUsage,
+        daily_total: dailyTotal,
+        daily_cost: dailyCost,
+        efficiency_score: efficiencyScore,
+        weekly_average: weeklyAverage,
+        monthly_total: monthlyTotal,
+        peak_usage_time: peakHour,
+        cost_trend: costTrend,
+        // Add solar-specific data if applicable (set to undefined for KPLC meters)
+        battery_state: energyProvider !== 'KPLC' ? (validReadings[0] as any)?.battery_state || 0 : undefined,
+        power_generated: energyProvider !== 'KPLC' ? (validReadings[0] as any)?.power_generated || 0 : undefined,
+        load_consumption: energyProvider !== 'KPLC' ? (validReadings[0] as any)?.load_consumption || 0 : undefined,
+        battery_count: energyProvider !== 'KPLC' ? (validReadings[0] as any)?.battery_count || 0 : undefined
+      };
 
-        setEnergyData(newEnergyData);
-        
-    // Cache the data with additional metadata for validation
-    dataCache.current = {
-      data: newEnergyData,
-      readings: readings,
-      timestamp: now
-    };
-        
-        // Calculate analytics
-        calculateAnalytics(readings);
-      } else {
-        // No readings found, but meter is connected - show zero state
-        console.log('No energy readings found for connected meter');
-        setEnergyData(EMPTY_ENERGY_DATA);
-        setRecentReadings([]);
-        setAnalytics(EMPTY_ANALYTICS);
-        setError(null); // Don't show error for empty data
-      }
+      setEnergyData(newEnergyData);
       
-      // Clear loading timeout on success
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-      }
-    } catch (error) {
-      console.error('Error fetching real energy data:', error);
+      // Cache the data with additional metadata for validation
+      dataCache.current = {
+        data: newEnergyData,
+        readings: validReadings,
+        timestamp: now,
+        userId: userId
+      };
       
-      // Clear loading timeout
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-      }
-      
-      setError('Failed to load energy data from your meter');
-      
-      // Reset to empty state on error
+      // Calculate analytics
+      calculateAnalytics(validReadings);
+    } else if (readingsError && readingsError.code !== 'PGRST116') {
+      console.error('Error fetching energy readings:', readingsError);
+      throw new Error(`Failed to fetch energy readings: ${readingsError.message}`);
+    } else {
+      // No readings found, but meter is connected - show zero state
+      console.log('No energy readings found for connected meter');
       setEnergyData(EMPTY_ENERGY_DATA);
       setRecentReadings([]);
       setAnalytics(EMPTY_ANALYTICS);
-    } finally {
-      setLoading(false);
+      setError(null); // Don't show error for empty data
     }
-  }, [userId, hasValidSession, hasMeterConnected, calculateAnalytics, profileData?.meter_category, query]);
+    
+    // Clear loading timeout on success
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+  } catch (error) {
+    console.error('Error fetching real energy data:', error);
+    
+    // Clear loading timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    setError('Failed to load energy data from your meter');
+    
+    // Reset to empty state on error
+    setEnergyData(EMPTY_ENERGY_DATA);
+    setRecentReadings([]);
+    setAnalytics(EMPTY_ANALYTICS);
+  } finally {
+    setLoading(false);
+  }
+}, [userId, hasValidSession, hasMeterConnected, calculateAnalytics, profileData?.meter_category, query, energyProvider]);
 
   // Get a new energy reading from the meter or inverter
   const getNewReading = async () => {
@@ -546,84 +577,122 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
       console.log(`Getting new reading from ${energyProvider === 'KPLC' ? 'meter' : 'inverter'} ${meterNumber.current}`);
 
-      // Generate a realistic reading
-      const now = new Date();
-      let usage, totalCost, costPerKwh, batteryState, powerGenerated, loadConsumption, batteryCount;
-
+      // For KPLC meters, we'll call the smart meter webhook to get real data
       if (energyProvider === 'KPLC') {
-        const baseUsage = 2 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 1.5;
-        usage = Math.max(0.5, baseUsage + (Math.random() - 0.5) * 0.8);
-        costPerKwh = 25;
-        totalCost = usage * costPerKwh;
+        try {
+          // Get the current session
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            throw new Error(`Failed to get session: ${sessionError.message}`);
+          }
+          
+          if (!sessionData?.session?.access_token) {
+            throw new Error('No valid access token');
+          }
+
+          // Call the smart meter webhook to request a new reading
+          const response = await fetch('/functions/v1/smart-meter-webhook', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${sessionData.session.access_token}`
+            },
+            body: JSON.stringify({
+              meter_number: meterNumber.current,
+              user_id: userId,
+              action: 'request_reading'
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to request reading from smart meter: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          console.log('Smart meter reading request sent:', result);
+
+          toast({
+            title: 'Reading Requested',
+            description: 'Requested a new reading from your smart meter. Please wait for the data to arrive.',
+          });
+        } catch (error) {
+          console.error('Error requesting smart meter reading:', error);
+          toast({
+            title: 'Request Failed',
+            description: 'Could not request a reading from your smart meter. Please try again.',
+            variant: 'destructive'
+          });
+        }
       } else {
+        // For solar inverters, we'll generate a realistic reading for now
+        // In a real implementation, this would call the solar inverter API
+        const now = new Date();
+        
         // Solar-specific data
         const basePower = 3 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 2.5;
-        powerGenerated = Math.max(0.5, basePower + (Math.random() - 0.5) * 0.8);
-        loadConsumption = powerGenerated * 0.7; // 70% of generated power is consumed
-        batteryState = 75 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 20; // Simulate battery charge cycle
-        batteryCount = 2; // Default to 2 batteries
-        usage = loadConsumption;
-        costPerKwh = 0; // Solar doesn't have a direct cost per kWh
-        totalCost = 0; // Solar doesn't have a direct cost
-      }
+        const powerGenerated = Math.max(0.5, basePower + (Math.random() - 0.5) * 0.8);
+        const loadConsumption = powerGenerated * 0.7; // 70% of generated power is consumed
+        const batteryState = 75 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 20; // Simulate battery charge cycle
+        const batteryCount = 2; // Default to 2 batteries
+        const usage = loadConsumption;
+        const costPerKwh = 0; // Solar doesn't have a direct cost per kWh
+        const totalCost = 0; // Solar doesn't have a direct cost
 
-      // Try to record the reading in the database
-      try {
-        const readingData = {
-          user_id: userId,
-          meter_number: meterNumber.current,
-          kwh_consumed: usage,
-          cost_per_kwh: costPerKwh,
-          total_cost: totalCost,
-          reading_date: now.toISOString(),
-          battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
-          power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
-          load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
-          battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
-        };
+        // Try to record the reading in the database
+        try {
+          const readingData = {
+            user_id: userId,
+            meter_number: meterNumber.current,
+            kwh_consumed: usage,
+            cost_per_kwh: costPerKwh,
+            total_cost: totalCost,
+            reading_date: now.toISOString(),
+            battery_state: batteryState,
+            power_generated: powerGenerated,
+            load_consumption: loadConsumption,
+            battery_count: batteryCount
+          };
 
-        const { data, error } = await query('energy_readings')
-          .insert(readingData)
-          .select()
-          .maybeSingle();
+          const { data, error } = await query('energy_readings')
+            .insert(readingData)
+            .select()
+            .maybeSingle();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error recording reading:', error);
+          if (error && error.code !== 'PGRST116') {
+            console.error('Error recording reading:', error);
+          }
+
+          // Process the reading regardless of database success
+          const newReading: EnergyReading = {
+            id: data?.id || `temp-${Date.now()}`,
+            user_id: userId,
+            meter_number: meterNumber.current,
+            kwh_consumed: usage,
+            total_cost: totalCost,
+            reading_date: now.toISOString(),
+            cost_per_kwh: costPerKwh,
+            battery_state: batteryState,
+            power_generated: powerGenerated,
+            load_consumption: loadConsumption,
+            battery_count: batteryCount
+          };
+
+          processNewReading(newReading);
+
+          toast({
+            title: 'Reading Received',
+            description: `Received solar reading: ${powerGenerated?.toFixed(2) || '0.00'} kW generated, ${batteryState || 0}% battery`,
+          });
+        } catch (dbError) {
+          console.error('Database error recording reading:', dbError);
+          toast({
+            title: 'Reading Failed',
+            description: 'Could not record reading in database.',
+            variant: 'destructive'
+          });
         }
-
-        // Process the reading regardless of database success
-        const newReading: EnergyReading = {
-          id: data?.id || `temp-${Date.now()}`,
-          user_id: userId,
-          meter_number: meterNumber.current,
-          kwh_consumed: usage,
-          total_cost: totalCost,
-          reading_date: now.toISOString(),
-          cost_per_kwh: costPerKwh,
-          battery_state: energyProvider !== 'KPLC' ? batteryState : undefined,
-          power_generated: energyProvider !== 'KPLC' ? powerGenerated : undefined,
-          load_consumption: energyProvider !== 'KPLC' ? loadConsumption : undefined,
-          battery_count: energyProvider !== 'KPLC' ? batteryCount : undefined
-        };
-
-        processNewReading(newReading);
-
-        toast({
-          title: 'Reading Received',
-          description: energyProvider === 'KPLC'
-            ? `Received ${usage.toFixed(2)} kWh reading (KSh ${totalCost.toFixed(2)})`
-            : `Received solar reading: ${powerGenerated?.toFixed(2) || '0.00'} kW generated, ${batteryState || 0}% battery`,
-        });
-
-      } catch (dbError) {
-        console.error('Database error recording reading:', dbError);
-        toast({
-          title: 'Reading Failed',
-          description: 'Could not record reading in database.',
-          variant: 'destructive'
-        });
       }
-
     } catch (error) {
       console.error('Reading error:', error);
       toast({
@@ -914,7 +983,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     initializeData();
   }, [userId, hasValidSession(), fetchRealEnergyData, energyProvider, meterStatus]);
 
-  // Set up real-time data subscription (only when meter is connected) - FIXED VERSION
+  // Set up real-time data subscription (only when meter is connected) - IMPROVED VERSION
   useEffect(() => {
     // Only set up subscription if we have all required conditions
     if (!userId || !hasValidSession() || !hasMeterConnected || !meterNumber.current) {
@@ -930,18 +999,18 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     // Clear cache when energyProvider changes
     dataCache.current = null;
 
-    // Set up a periodic refresh (every 15 minutes) - only when meter is connected
+    // Set up a periodic refresh (every 30 minutes) - only when meter is connected
     const refreshInterval = setInterval(async () => {
       try {
         // Only refresh if we haven't had recent activity
         const now = Date.now();
-        if (now - lastFetchTime.current > 5 * 60 * 1000) { // Only if last fetch was more than 5 minutes ago
+        if (now - lastFetchTime.current > 15 * 60 * 1000) { // Only if last fetch was more than 15 minutes ago
           await refreshData();
         }
       } catch (error) {
         console.error('Error refreshing data:', error);
       }
-    }, 15 * 60 * 1000); // 15 minutes instead of 10
+    }, 30 * 60 * 1000); // 30 minutes instead of 15
 
     // Set up real-time data subscriptions with better error handling
     let readingsSubscription: ReturnType<typeof supabase.channel> | null = null;
@@ -1066,7 +1135,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
             // Set up a new debounce
             debounceTimeout = setTimeout(() => {
               processNewReading(reading);
-            }, 500); // Debounce for 500ms
+            }, 1000); // Increased debounce to 1 second
           } else {
             console.warn('Invalid energy reading received from subscription:', payload.new);
           }

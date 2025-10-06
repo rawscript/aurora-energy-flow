@@ -17,10 +17,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Constants for consistent timing - optimized to minimize refreshes
 // Since auto-refresh is disabled, these are for manual session validation only
-const SESSION_VALIDITY_CHECK_INTERVAL = 45 * 60 * 1000; // Check every 45 minutes (increased from 30)
+const SESSION_VALIDITY_CHECK_INTERVAL = 60 * 60 * 1000; // Check every 60 minutes (increased from 45)
 const SESSION_PERSISTENCE_KEY = 'supabase.session';
 // Add a minimum interval between session checks to prevent rate limiting
-const MIN_SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // Minimum 5 minutes between checks
+const MIN_SESSION_CHECK_INTERVAL = 10 * 60 * 1000; // Minimum 10 minutes between checks (increased from 5)
 
 // Helper function to safely parse stored session
 const getStoredSession = (): Session | null => {
@@ -178,7 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Rate limiting - prevent too frequent checks
     const now = Date.now();
-    if (now - lastSessionCheck.current < MIN_SESSION_CHECK_INTERVAL) { // 5 minutes minimum between checks
+    if (now - lastSessionCheck.current < MIN_SESSION_CHECK_INTERVAL) { // 10 minutes minimum between checks
       // console.log('Session validity check rate limited');
       return;
     }
@@ -196,8 +196,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // console.log('Session has expired, signing out');
         await signOut();
       }
-      // If session expires in less than 10 minutes, show warning but don't auto-refresh
-      else if (timeUntilExpiry <= 600) {
+      // If session expires in less than 30 minutes, show warning but don't auto-refresh
+      else if (timeUntilExpiry <= 1800) {
         // console.log('Session expires soon, showing warning');
         toast({
           title: "Session Expiring Soon",
