@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
-import { useToast } from '@/hooks/use-toast';
-import { useMeter } from '@/contexts/MeterContext'; // Import meter context
+import { supabase } from '../integrations/supabase/client';
+import { useAuthenticatedApi } from './useAuthenticatedApi';
+import { useToast } from './use-toast';
+import { useMeter } from '../contexts/MeterContext'; // Import meter context
 
 // Get the Supabase anon key from environment or use a fallback
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'fallback-key';
+const SUPABASE_ANON_KEY = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_ANON_KEY) || 'fallback-key';
 
 interface EnergyData {
   current_usage: number;
@@ -309,12 +309,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         ? `Received ${reading.kwh_consumed.toFixed(2)} kWh reading from meter ${reading.meter_number}`
         : `Received solar reading: ${reading.power_generated?.toFixed(2) || '0.00'} kW generated, ${reading.battery_state || 0}% battery`,
     });
-    
-    // Refresh the data to get accurate daily totals
-    setTimeout(() => {
-      fetchRealEnergyData(true); // Force refresh
-    }, 1000);
-  }, [calculateAnalytics, toast, energyProvider, fetchRealEnergyData]);
+  }, [calculateAnalytics, toast, energyProvider]);
 
   // Fetch real energy readings from the database (only when meter is connected)
   const fetchRealEnergyData = useCallback(async (forceRefresh = false, page = 1, pageSize = 50) => {

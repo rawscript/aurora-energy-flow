@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
-import { supabase } from '@/integrations/supabase/client';
+import * as React from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { useEnergyProvider } from './EnergyProviderContext';
+import { supabase } from '../integrations/supabase/client';
 
 // Meter connection status types
 type MeterConnectionStatus = 'checking' | 'connected' | 'disconnected' | 'error';

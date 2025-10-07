@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '../integrations/supabase/client';
+import { useToast } from '../components/ui/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -132,6 +132,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshSession = useCallback(async (): Promise<void> => {
     // console.log('Manual session refresh requested...');
     
+    // Check if supabase is configured
+    const supabaseUrl = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+    const supabaseKey = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('Supabase not configured, skipping session refresh');
+      setLoading(false);
+      return;
+    }
+    
     try {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
       
@@ -223,37 +233,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // console.log('Setting isSigningOut to true');
 
     try {
-      // console.log('Signing out user...');
-
-      // Clear interval immediately
-      resetSessionInterval(null);
-
-      // Clear state
-      // console.log('Clearing user and session state');
-      setUser(null);
-      setSession(null);
-
-      // Clear persisted session
-      storeSession(null);
-
-      // Call Supabase signOut
-      // console.log('Calling Supabase signOut');
-      const { error } = await supabase.auth.signOut();
+      // Check if supabase is configured
+      const supabaseUrl = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+      const supabaseKey = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
       
-      if (error) {
-        console.error('Error during signOut:', error);
-        toast({
-          title: "Sign Out Error",
-          description: "There was an issue signing you out, but you've been logged out locally.",
-          variant: "destructive"
-        });
+      if (supabaseUrl && supabaseKey) {
+        // Clear interval immediately
+        resetSessionInterval(null);
+
+        // Clear state
+        // console.log('Clearing user and session state');
+        setUser(null);
+        setSession(null);
+
+        // Clear persisted session
+        storeSession(null);
+
+        // Call Supabase signOut
+        // console.log('Calling Supabase signOut');
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error('Error during signOut:', error);
+          toast({
+            title: "Sign Out Error",
+            description: "There was an issue signing you out, but you've been logged out locally.",
+            variant: "destructive"
+          });
+        } else {
+          // console.log('Sign out successful');
+          toast({
+            title: "Signed Out",
+            description: "You have been signed out successfully.",
+            variant: "default"
+          });
+        }
       } else {
-        // console.log('Sign out successful');
-        toast({
-          title: "Signed Out",
-          description: "You have been signed out successfully.",
-          variant: "default"
-        });
+        // Supabase not configured, just clear local state
+        setUser(null);
+        setSession(null);
+        storeSession(null);
+        console.warn('Supabase not configured, signed out locally only');
       }
 
       // Redirect to auth page
@@ -287,6 +307,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         isInitialized.current = true;
         // console.log('Initializing auth...');
+
+        // Check if supabase is configured
+        const supabaseUrl = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+        const supabaseKey = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
+        
+        if (!supabaseUrl || !supabaseKey) {
+          console.warn('Supabase not configured, initializing in offline mode');
+          setUser(null);
+          setSession(null);
+          setLoading(false);
+          return;
+        }
 
         // First check for persisted session
         const persistedSession = getStoredSession();
@@ -357,6 +389,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Set up auth state change listener
   useEffect(() => {
+    // Check if supabase is configured
+    const supabaseUrl = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+    const supabaseKey = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn('Supabase not configured, skipping auth state change listener');
+      setLoading(false);
+      return;
+    }
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       // Reduce debug logging to prevent console spam
       // console.log('Auth state change:', event, {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import type { Database } from '@/integrations/supabase/types';
+import { useAuth } from './useAuth';
+import { supabase } from '../integrations/supabase/client';
+import { useToast } from './use-toast';
+import type { Database } from '../integrations/supabase/types';
 
 // Define the type for allowed RPC function names
 type RpcFunctionName = keyof Database['public']['Functions'];
@@ -143,7 +143,7 @@ export const useAuthenticatedApi = () => {
     return {
       'Authorization': `Bearer ${session.access_token}`,
       'Content-Type': 'application/json',
-      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+      'apikey': (typeof process !== 'undefined' && process.env.VITE_SUPABASE_ANON_KEY) || ''
     };
   }, [session?.access_token, hasValidSession]);
 
@@ -197,7 +197,7 @@ export const useAuthenticatedApi = () => {
       });
 
       if (error) {
-        console.error(`RPC call ${functionName} failed:`, error);
+        console.error(`RPC call ${String(functionName)} failed:`, error);
         
         // Check if this is an authentication error that might trigger token refresh
         if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
@@ -209,7 +209,7 @@ export const useAuthenticatedApi = () => {
         if (showErrorToast) {
           toast({
             title: "Operation Failed",
-            description: error.message || `Failed to execute ${functionName}`,
+            description: error.message || `Failed to execute ${String(functionName)}`,
             variant: "destructive"
           });
         }
@@ -223,7 +223,7 @@ export const useAuthenticatedApi = () => {
 
       return data;
     } catch (error) {
-      console.error(`Error calling ${functionName}:`, error);
+      console.error(`Error calling ${String(functionName)}:`, error);
       
       // Check if this is an authentication error that might trigger token refresh
       if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
@@ -236,7 +236,7 @@ export const useAuthenticatedApi = () => {
       if (showErrorToast && retryCount === 0) {
         toast({
           title: "Request Failed",
-          description: `Could not complete ${functionName}. Please try again.`,
+          description: `Could not complete ${String(functionName)}. Please try again.`,
           variant: "destructive"
         });
       }

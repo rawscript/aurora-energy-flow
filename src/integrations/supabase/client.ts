@@ -3,43 +3,63 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CustomSupabaseClient } from './types';
 
 // Use environment variables for security
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLIC_KEY;
+const SUPABASE_URL = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+const SUPABASE_PUBLISHABLE_KEY = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
 
-// Validate environment variables
+// Validate environment variables - but don't throw error immediately to allow app to load
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error('Supabase configuration is missing. Please check your environment variables.');
+  console.warn('Supabase configuration is missing. Please check your environment variables. App will run in offline mode.');
 }
 
 // Create the Supabase client with optimized configuration
 // Disable auto refresh to prevent self-triggered refreshes
-const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: false, // Disable auto refresh to prevent self-triggered refreshes
-      detectSessionInUrl: false, // Disable session detection in URL to prevent automatic refreshes
-      flowType: 'pkce'
-    },
-    global: {
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_PUBLISHABLE_KEY
-      }
-    },
-    db: {
-      schema: 'public'
-    },
-    realtime: {
-      params: {
-        eventsPerSecond: 10,
+const supabase = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY ? 
+  createClient<Database>(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: false, // Disable auto refresh to prevent self-triggered refreshes
+        detectSessionInUrl: false, // Disable session detection in URL to prevent automatic refreshes
+        flowType: 'pkce'
       },
+      global: {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_PUBLISHABLE_KEY
+        }
+      },
+      db: {
+        schema: 'public'
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    }
+  ) as CustomSupabaseClient
+  :
+  // Return a mock client if configuration is missing
+  {
+    from: () => ({
+      select: () => Promise.resolve({ data: null, error: null }),
+      insert: () => Promise.resolve({ data: null, error: null }),
+      update: () => Promise.resolve({ data: null, error: null }),
+      delete: () => Promise.resolve({ data: null, error: null }),
+      rpc: () => Promise.resolve({ data: null, error: null }),
+    }),
+    auth: {
+      signInWithPassword: () => Promise.resolve({ data: { user: null, session: null }, error: { message: 'Supabase not configured' } as any }),
+      signUp: () => Promise.resolve({ data: { user: null, session: null }, error: { message: 'Supabase not configured' } as any }),
+      signOut: () => Promise.resolve({ error: null }),
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
     },
-  }
-) as CustomSupabaseClient;
+    rpc: () => Promise.resolve({ data: null, error: null }),
+  } as any as CustomSupabaseClient;
 
 // Enhanced error handling class
 class SupabaseError extends Error {

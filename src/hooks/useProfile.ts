@@ -88,7 +88,7 @@ export const useProfile = () => {
       }, {
         showErrorToast: showToasts,
         cacheKey: `profile_${userId}`,
-        cacheDuration: 300000 // Cache for 5 minutes
+        cacheDuration: 3000000 // Cache for more than 5 minutes
       });
 
       if (profileData && profileData.length > 0) {
