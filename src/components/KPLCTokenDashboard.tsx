@@ -29,12 +29,15 @@ import {
   BatteryFull,
   BatteryLow,
   BatteryMedium,
-  BatteryWarning
+  BatteryWarning,
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import { useKPLCTokens } from '@/hooks/useKPLCTokens';
+import { useKPLCTokens } from '../hooks/useKPLCTokens';
+import { useKPLCPuppeteer } from '../hooks/useKPLCPuppeteer';
 import { formatDistanceToNow, format } from 'date-fns';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '../hooks/use-mobile';
 
 interface KPLCTokenDashboardProps {
   energyProvider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
@@ -53,6 +56,16 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     fetchTokenAnalytics,
     hasValidSession
   } = useKPLCTokens(energyProvider);
+  
+  const { 
+    billData, 
+    loading: puppeteerLoading, 
+    error: puppeteerError, 
+    lastFetched, 
+    fetchBillData, 
+    getLatestBillData, 
+    getUserCredentials 
+  } = useKPLCPuppeteer();
   
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -861,6 +874,97 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
           )}
         </CardContent>
       </Card>
+
+      {/* KPLC Bill Data Section - Only show for KPLC provider */}
+      {energyProvider === 'KPLC' && (
+        <Card className="bg-aurora-card border-aurora-blue/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg sm:text-xl text-aurora-blue-light flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              KPLC Bill Information
+              {(puppeteerLoading || loading) && (
+                <div className="ml-2 animate-spin rounded-full h-4 w-4 border-b-2 border-aurora-blue-light"></div>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {billData ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Current Bill</p>
+                    <p className="text-xl font-bold text-aurora-blue-light">
+                      KSh {billData.billAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Due Date</p>
+                    <p className="font-medium">
+                      {billData.dueDate ? format(new Date(billData.dueDate), 'MMM dd, yyyy') : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Consumption</p>
+                    <p className="font-medium">{billData.consumption} kWh</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Outstanding Balance</p>
+                    <p className={`font-medium ${billData.outstandingBalance > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                      KSh {billData.outstandingBalance.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-700">
+                  <Button 
+                    onClick={() => fetchBillData(billData.meterNumber, '')} // ID number would need to be provided
+                    size="sm" 
+                    variant="outline"
+                    className="border-aurora-blue/30 hover:bg-aurora-blue/10"
+                    disabled={puppeteerLoading || loading}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh Bill Data
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Last updated: {lastFetched ? formatDistanceToNow(new Date(lastFetched), { addSuffix: true }) : 'Never'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground mb-3">
+                  Connect to KPLC portal to view your bill information
+                </p>
+                <Button 
+                  onClick={async () => {
+                    const { meterNumber, idNumber } = await getUserCredentials();
+                    if (meterNumber) {
+                      fetchBillData(meterNumber, idNumber || '');
+                    }
+                  }}
+                  size="sm" 
+                  className="bg-aurora-blue hover:bg-aurora-blue/80"
+                  disabled={puppeteerLoading || loading}
+                >
+                  {puppeteerLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Fetch Bill Data
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Last Purchase Info */}
       {analytics.last_purchase_date && (
