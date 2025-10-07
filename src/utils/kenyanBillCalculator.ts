@@ -43,13 +43,53 @@ export interface KenyanBillBreakdown {
  * Calculate detailed Kenyan electricity bill breakdown
  * @param kwh - Total kWh consumed
  * @param rate - Energy charge rate per kWh (optional, defaults to KES 10.00)
+ * @param excludeLevies - Whether to exclude levies and taxes (for solar providers)
  * @returns Detailed breakdown of the bill components
  */
-export const calculateKenyanElectricityBill = (kwh: number, rate: number = 10.00): KenyanBillBreakdown => {
+export const calculateKenyanElectricityBill = (kwh: number, rate: number = 10.00, excludeLevies: boolean = false): KenyanBillBreakdown => {
   // Energy Charge
   const energyCharge = kwh * rate;
   const energyChargeRate = rate;
   const energyChargeKwh = kwh;
+  
+  if (excludeLevies) {
+    // For solar providers, exclude all levies and taxes
+    return {
+      // Energy Charge
+      energyCharge,
+      energyChargeRate,
+      energyChargeKwh,
+      
+      // Levies & Adjustments (set to 0 for solar)
+      fuelLevy: 0,
+      fuelLevyRate: 0,
+      forexLevy: 0,
+      forexLevyRate: 0,
+      inflationAdjustment: 0,
+      inflationAdjustmentRate: 0,
+      epraLevy: 0,
+      epraLevyRate: 0,
+      wraLevy: 0,
+      wraLevyRate: 0,
+      repLevy: 0,
+      repLevyRate: 0,
+      
+      // Subtotal before VAT
+      subtotalBeforeVat: energyCharge,
+      
+      // VAT Calculation (0 for solar)
+      vatBase: 0,
+      vatRate: 0,
+      vatAmount: 0,
+      
+      // Final Total
+      finalTotal: energyCharge,
+      
+      // Additional information
+      totalKwh: kwh,
+      costPerKwh: rate
+    };
+  }
   
   // Levies & Adjustments (based on the provided example)
   const fuelLevyRate = 4.00;

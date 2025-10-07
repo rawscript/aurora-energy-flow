@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DollarSign, Calculator } from 'lucide-react';
 import { calculateKenyanElectricityBill, formatKES, formatKwh } from '@/utils/kenyanBillCalculator';
+import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
 
 const BillCalculator = () => {
   const [usage, setUsage] = useState<string>('');
@@ -13,6 +14,8 @@ const BillCalculator = () => {
   const [estimatedBill, setEstimatedBill] = useState<number>(0);
   const [savings, setSavings] = useState<number>(0);
   const [billBreakdown, setBillBreakdown] = useState<ReturnType<typeof calculateKenyanElectricityBill> | null>(null);
+  
+  const { provider, providerConfig } = useEnergyProvider(); // Get current provider and config
 
   const calculateBill = useCallback(() => {
     const dailyUsage = parseFloat(usage) || 0;
@@ -28,16 +31,18 @@ const BillCalculator = () => {
     
     // Calculate detailed Kenyan bill breakdown
     if (monthlyUsage > 0) {
-      const breakdown = calculateKenyanElectricityBill(monthlyUsage, energyRate);
+      // Check if provider is solar to exclude levies
+      const isSolarProvider = provider === 'Solar';
+      const breakdown = calculateKenyanElectricityBill(monthlyUsage, energyRate, isSolarProvider);
       setBillBreakdown(breakdown);
     } else {
       setBillBreakdown(null);
     }
-  }, [usage, rate, days]);
+  }, [usage, rate, days, provider]);
 
   useEffect(() => {
     calculateBill();
-  }, [usage, rate, days, calculateBill]);
+  }, [usage, rate, days, provider, calculateBill]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -132,33 +137,36 @@ const BillCalculator = () => {
                     </div>
                   </div>
                   
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-aurora-purple-light">Levies & Adjustments</h3>
-                    <div className="flex justify-between">
-                      <span>Fuel Levy ({formatKES(billBreakdown.fuelLevyRate)}/kWh):</span>
-                      <span>{formatKES(billBreakdown.fuelLevy)}</span>
+                  {/* Only show levies for non-solar providers */}
+                  {provider !== 'Solar' && (
+                    <div className="space-y-3">
+                      <h3 className="font-semibold text-aurora-purple-light">Levies & Adjustments</h3>
+                      <div className="flex justify-between">
+                        <span>Fuel Levy ({formatKES(billBreakdown.fuelLevyRate)}/kWh):</span>
+                        <span>{formatKES(billBreakdown.fuelLevy)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Forex Levy ({formatKES(billBreakdown.forexLevyRate)}/kWh):</span>
+                        <span>{formatKES(billBreakdown.forexLevy)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Inflation Adjustment ({formatKES(billBreakdown.inflationAdjustmentRate)}/kWh):</span>
+                        <span>{formatKES(billBreakdown.inflationAdjustment)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>EPRA Levy ({formatKES(billBreakdown.epraLevyRate)}/kWh):</span>
+                        <span>{formatKES(billBreakdown.epraLevy)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>WRA Levy ({formatKES(billBreakdown.wraLevyRate)}/kWh):</span>
+                        <span>{formatKES(billBreakdown.wraLevy)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>REP Levy ({formatKES(billBreakdown.repLevyRate)}/kWh):</span>
+                        <span>{formatKES(billBreakdown.repLevy)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Forex Levy ({formatKES(billBreakdown.forexLevyRate)}/kWh):</span>
-                      <span>{formatKES(billBreakdown.forexLevy)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Inflation Adjustment ({formatKES(billBreakdown.inflationAdjustmentRate)}/kWh):</span>
-                      <span>{formatKES(billBreakdown.inflationAdjustment)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>EPRA Levy ({formatKES(billBreakdown.epraLevyRate)}/kWh):</span>
-                      <span>{formatKES(billBreakdown.epraLevy)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>WRA Levy ({formatKES(billBreakdown.wraLevyRate)}/kWh):</span>
-                      <span>{formatKES(billBreakdown.wraLevy)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>REP Levy ({formatKES(billBreakdown.repLevyRate)}/kWh):</span>
-                      <span>{formatKES(billBreakdown.repLevy)}</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
                 
                 <div className="border-t border-slate-700 pt-3">
@@ -168,23 +176,26 @@ const BillCalculator = () => {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-amber-400">VAT Calculation</h3>
-                  <div className="flex justify-between">
-                    <span>Applicable on: Energy Charge + Fuel Levy + Forex Levy + Inflation Adjustment</span>
+                {/* Only show VAT section for non-solar providers */}
+                {provider !== 'Solar' && (
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-amber-400">VAT Calculation</h3>
+                    <div className="flex justify-between">
+                      <span>Applicable on: Energy Charge + Fuel Levy + Forex Levy + Inflation Adjustment</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>VAT Base:</span>
+                      <span>{formatKES(billBreakdown.vatBase)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>VAT Rate: {(billBreakdown.vatRate * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>VAT Amount:</span>
+                      <span>{formatKES(billBreakdown.vatAmount)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span>VAT Base:</span>
-                    <span>{formatKES(billBreakdown.vatBase)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>VAT Rate: {(billBreakdown.vatRate * 100).toFixed(0)}%</span>
-                  </div>
-                  <div className="flex justify-between font-medium">
-                    <span>VAT Amount:</span>
-                    <span>{formatKES(billBreakdown.vatAmount)}</span>
-                  </div>
-                </div>
+                )}
                 
                 <div className="border-t border-slate-700 pt-3">
                   <div className="flex justify-between text-lg font-bold">
