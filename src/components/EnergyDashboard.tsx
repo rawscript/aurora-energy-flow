@@ -1,7 +1,7 @@
 import React, { memo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Battery, House, Sun, Monitor, Zap, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
+import { Battery, House, Sun, Monitor, Zap, TrendingUp, TrendingDown, Minus, AlertCircle, Loader2 } from 'lucide-react';
 import SolarPanel from '@/components/ui/SolarPanel';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
@@ -11,6 +11,7 @@ import { useMeter } from '@/contexts/MeterContext'; // Import meter context
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RealTimeInsights from './RealTimeInsights';
+import SolarDashboard from './SolarDashboard'; // Import the new SolarDashboard component
 
 // Memoized components for better mobile performance
 const StatCard = memo(({ icon: Icon, title, value, color, trend, isEmpty = false }: {
@@ -61,6 +62,11 @@ const EnergyDashboard = () => {
       refreshData();
     }
   }, [hasMeterConnected, refreshData]);
+
+  // If solar provider is selected, show the SolarDashboard instead
+  if (energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar') {
+    return <SolarDashboard energyProvider={energyProvider} />;
+  }
 
   // Safe energy data with fallbacks
   const safeEnergyData = {
@@ -427,9 +433,13 @@ const EnergyDashboard = () => {
                   onClick={getNewReading}
                   size="sm"
                   className="bg-aurora-green hover:bg-aurora-green/80"
-                  disabled={!hasMeterConnected}
+                  disabled={!hasMeterConnected || loading}
                 >
-                  <Zap className="h-4 w-4 mr-2" />
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
                   {hasMeterConnected ? energyProvider === 'Solar' ? 'Get Solar Reading' : 'Get Reading' : 'Setup Required'}
                 </Button>
               </div>

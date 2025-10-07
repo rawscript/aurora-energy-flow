@@ -19,8 +19,9 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const TestEnv = lazy(() => import("./test-env")); // Add this line
-const TestRealTime = lazy(() => import("./pages/TestRealTime")); // Add this line
+const TestEnv = lazy(() => import("./test-env"));
+const TestRealTime = lazy(() => import("./pages/TestRealTime"));
+const TestSolarProvider = lazy(() => import("./pages/TestSolarProvider"));
 
 // Optimized query client for better performance and caching
 const queryClient = new QueryClient({
@@ -74,7 +75,15 @@ const AppContent = () => (
                   <Route path="/" element={<Landing />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/test-env" element={<TestEnv />} />
-                  <Route path="/test-realtime" element={<TestRealTime />} /> {/* Add this line */}
+                  <Route path="/test-realtime" element={<TestRealTime />} />
+                  <Route
+                    path="/test-solar"
+                    element={
+                      <ProtectedRoute>
+                        <TestSolarProvider />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route
                     path="/dashboard"
                     element={
