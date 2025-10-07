@@ -1150,10 +1150,28 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         .subscribe((status: string) => {
           console.log(`Energy readings subscription status: ${status}`);
           subscriptionSetupInProgress = false;
+          
+          // Handle subscription errors
+          if (status === 'CHANNEL_ERROR') {
+            console.error('Energy readings subscription failed');
+            toast({
+              title: 'Connection Error',
+              description: 'Failed to establish real-time connection to energy data',
+              variant: 'destructive'
+            });
+          } else if (status === 'CLOSED') {
+            console.log('Energy readings subscription closed');
+          }
         });
     } catch (error) {
       console.error('Error setting up real-time energy subscriptions:', error);
       subscriptionSetupInProgress = false;
+      
+      toast({
+        title: 'Connection Error',
+        description: 'Failed to establish real-time connection to energy data',
+        variant: 'destructive'
+      });
     }
 
     // Clean up subscriptions and intervals
@@ -1176,7 +1194,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         }
       }
     };
-  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider]);
+  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider, toast]);
 
   // Cleanup on unmount
   useEffect(() => {

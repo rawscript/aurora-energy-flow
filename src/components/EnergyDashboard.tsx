@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Battery, House, Sun, Monitor, Zap, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
@@ -50,10 +50,17 @@ interface EnergyDashboardProps {
 const EnergyDashboard = () => {
   const { provider: energyProvider } = useEnergyProvider();
   const { status: meterStatus, deviceType, meterNumber } = useMeter(); // Get meter status from context
-  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
+  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
   const { profile } = useProfile();
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);
+
+  // Add effect to refresh data when meter connection changes
+  useEffect(() => {
+    if (hasMeterConnected) {
+      refreshData();
+    }
+  }, [hasMeterConnected, refreshData]);
 
   // Safe energy data with fallbacks
   const safeEnergyData = {

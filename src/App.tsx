@@ -20,6 +20,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const TestEnv = lazy(() => import("./test-env")); // Add this line
+const TestRealTime = lazy(() => import("./pages/TestRealTime")); // Add this line
 
 // Optimized query client for better performance and caching
 const queryClient = new QueryClient({
@@ -65,29 +66,30 @@ const AppContent = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/test-env" element={<TestEnv />} /> {/* Add this line */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <EnergyProviderProvider>
-                      <MeterProvider>
+        <EnergyProviderProvider>
+          <MeterProvider>
+            <BrowserRouter>
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                  <Route path="/" element={<Landing />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/test-env" element={<TestEnv />} />
+                  <Route path="/test-realtime" element={<TestRealTime />} /> {/* Add this line */}
+                  <Route
+                    path="/dashboard"
+                    element={
+                      <ProtectedRoute>
                         <Index />
-                      </MeterProvider>
-                    </EnergyProviderProvider>
-                  </ProtectedRoute>
-                }
-              />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </BrowserRouter>
+          </MeterProvider>
+        </EnergyProviderProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
