@@ -8,6 +8,8 @@ import { Info } from "lucide-react";
 
 // Lazy load components for better performance
 const EnergyDashboard = lazy(() => import("@/components/EnergyDashboard"));
+const SolarRealTimeDashboard = lazy(() => import("@/components/SolarRealTimeDashboard"));
+const PayAsYouGoDashboard = lazy(() => import("@/components/PayAsYouGoDashboard"));
 const EnergyInsights = lazy(() => import("@/components/EnergyInsights"));
 const BillCalculator = lazy(() => import("@/components/BillCalculator"));
 const ChatInterface = lazy(() => import("@/components/ChatInterface"));
@@ -39,6 +41,7 @@ const componentCache = new Map();
 
 interface TabConfig {
   dashboard: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement); visible: boolean };
+  paygo?: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
   notifications: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
   insights: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
   calculator: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
@@ -61,7 +64,10 @@ const Index = () => {
     const config: TabConfig = {
       dashboard: { 
         label: isMobile ? "Home" : "Dashboard", 
-        component: isMobile ? MobileDashboard : EnergyDashboard,
+        component: isMobile ? MobileDashboard : 
+                 (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' 
+                   ? SolarRealTimeDashboard 
+                   : EnergyDashboard),
         visible: true
       },
       notifications: { 
@@ -98,15 +104,27 @@ const Index = () => {
       }
     };
 
-    // Add tokens/credits tab based on provider capabilities
-    if (providerConfig.settings.supportsTokens || providerConfig.settings.supportsPayAsYouGo) {
-      config.tokens = {
-        label: isMobile
-          ? (providerConfig.terminology.credits === 'credits' ? "Credits" : "Tokens")
-          : providerConfig.terminology.dashboard,
-        component: KPLCTokenDashboard,
+    // Add Pay as You Go tab for solar providers
+    if (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar') {
+      config.paygo = {
+        label: "Pay as You Go",
+        component: PayAsYouGoDashboard,
         visible: true
       };
+    }
+
+    // Add tokens/credits tab based on provider capabilities
+    if (providerConfig.settings.supportsTokens || providerConfig.settings.supportsPayAsYouGo) {
+      // Don't show tokens tab for solar providers since we have Pay as You Go tab
+      if (!(provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar')) {
+        config.tokens = {
+          label: isMobile
+            ? (providerConfig.terminology.credits === 'credits' ? "Credits" : "Tokens")
+            : providerConfig.terminology.dashboard,
+          component: KPLCTokenDashboard,
+          visible: true
+        };
+      }
     }
 
     return config;
@@ -197,7 +215,11 @@ const Index = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
             <div className="lg:col-span-3">
-              <EnergyDashboard />
+              {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+                <SolarRealTimeDashboard />
+              ) : (
+                <EnergyDashboard />
+              )}
             </div>
             <div className="lg:col-span-1">
               <SmartMeterStatus onNavigateToMeter={handleNavigateToMeter} />
@@ -213,6 +235,9 @@ const Index = () => {
         break;
       case 'tokens':
         content = <KPLCTokenDashboard energyProvider={provider as any} />;
+        break;
+      case 'paygo':
+        content = <PayAsYouGoDashboard energyProvider={provider} />;
         break;
       default:
         const Component = config.component;
@@ -235,10 +260,13 @@ const Index = () => {
     if (tabConfig.tokens?.visible) {
       criticalTabs.push('tokens');
     }
+    if (tabConfig.paygo?.visible) {
+      criticalTabs.push('paygo');
+    }
     setTimeout(() => {
       setLoadedTabs(prev => new Set([...prev, ...criticalTabs]));
     }, 500);
-  }, [tabConfig.tokens?.visible]);
+  }, [tabConfig.tokens?.visible, tabConfig.paygo?.visible]);
 
   // Listen for global navigation events
   useEffect(() => {

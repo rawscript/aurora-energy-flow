@@ -11,7 +11,7 @@ import { useMeter } from '@/contexts/MeterContext'; // Import meter context
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RealTimeInsights from './RealTimeInsights';
-import SolarDashboard from './SolarDashboard'; // Import the new SolarDashboard component
+// Remove the SolarDashboard import since it's no longer used here
 
 // Memoized components for better mobile performance
 const StatCard = memo(({ icon: Icon, title, value, color, trend, isEmpty = false }: {
@@ -62,11 +62,6 @@ const EnergyDashboard = () => {
       refreshData();
     }
   }, [hasMeterConnected, refreshData]);
-
-  // If solar provider is selected, show the SolarDashboard instead
-  if (energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar') {
-    return <SolarDashboard energyProvider={energyProvider} />;
-  }
 
   // Safe energy data with fallbacks
   const safeEnergyData = {
@@ -433,13 +428,9 @@ const EnergyDashboard = () => {
                   onClick={getNewReading}
                   size="sm"
                   className="bg-aurora-green hover:bg-aurora-green/80"
-                  disabled={!hasMeterConnected || loading}
+                  disabled={!hasMeterConnected}
                 >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Zap className="h-4 w-4 mr-2" />
-                  )}
+                  <Zap className="h-4 w-4 mr-2" />
                   {hasMeterConnected ? energyProvider === 'Solar' ? 'Get Solar Reading' : 'Get Reading' : 'Setup Required'}
                 </Button>
               </div>

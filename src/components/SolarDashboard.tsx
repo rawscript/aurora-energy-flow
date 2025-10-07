@@ -28,7 +28,7 @@ import { useSolarProvider } from '@/hooks/useSolarProvider';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useProfile } from '@/hooks/useProfile';
-import SolarPanel from './ui/SolarPanel';
+// Remove SolarPanel import since it's no longer used here
 
 interface SolarDashboardProps {
   energyProvider?: string;
