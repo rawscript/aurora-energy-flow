@@ -172,17 +172,31 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
         <CardHeader className="pb-3">
           <CardTitle className="text-lg sm:text-xl text-aurora-green-light flex items-center gap-2">
             <Sun className="h-5 w-5 sm:h-6 sm:w-6" />
-            System Ownership Progress
+            {energyProvider === 'M-KOPA Solar' ? 'System Ownership Progress' : 'System Status'}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center">
             <div className="relative inline-block">
-              <Progress value={paymentStatus.ownership_percentage} className="w-32 h-32 rounded-full" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-aurora-green-light">{paymentStatus.ownership_percentage}%</span>
-                <span className="text-xs text-muted-foreground">Owned</span>
-              </div>
+              {energyProvider === 'M-KOPA Solar' ? (
+                // Show ownership percentage for M-KOPA Solar
+                <>
+                  <Progress value={paymentStatus.ownership_percentage} className="w-32 h-32 rounded-full" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold text-aurora-green-light">{paymentStatus.ownership_percentage}%</span>
+                    <span className="text-xs text-muted-foreground">Owned</span>
+                  </div>
+                </>
+              ) : (
+                // Show system status for other providers
+                <>
+                  <Progress value={100} className="w-32 h-32 rounded-full" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-2xl font-bold text-aurora-green-light">Active</span>
+                    <span className="text-xs text-muted-foreground">System</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           
@@ -192,8 +206,17 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
               <p className="text-xl font-bold text-aurora-green-light">KSh {paymentStatus.total_paid.toLocaleString()}</p>
             </div>
             <div className="text-center p-3 bg-slate-800/50 rounded-lg">
-              <p className="text-sm text-muted-foreground">Remaining</p>
-              <p className="text-xl font-bold text-amber-400">KSh {paymentStatus.remaining_balance.toLocaleString()}</p>
+              {energyProvider === 'M-KOPA Solar' ? (
+                <>
+                  <p className="text-sm text-muted-foreground">Remaining</p>
+                  <p className="text-xl font-bold text-amber-400">KSh {paymentStatus.remaining_balance.toLocaleString()}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Credits</p>
+                  <p className="text-xl font-bold text-amber-400">{paymentStatus.remaining_balance > 0 ? 'Active' : 'Low'}</p>
+                </>
+              )}
             </div>
             <div className="text-center p-3 bg-slate-800/50 rounded-lg">
               <p className="text-sm text-muted-foreground">System Size</p>
@@ -462,7 +485,7 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl font-bold flex items-center">
               <CreditCard className="h-5 w-5 sm:h-6 sm:w-6 mr-2 text-aurora-green-light" />
-              Payment History
+              {energyProvider === 'M-KOPA Solar' ? 'Payment History' : 'Transaction History'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -510,7 +533,7 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
       <Card className="bg-aurora-card border-aurora-purple/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-            Recent Transactions
+            {energyProvider === 'M-KOPA Solar' ? 'Recent Transactions' : 'Recent Activity'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -533,11 +556,19 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
                   </div>
                   <div>
                     <p className="font-medium text-sm">
-                      {transaction.transaction_type === 'payment'
-                        ? 'System Payment'
-                        : transaction.transaction_type === 'maintenance'
-                          ? 'Maintenance Service'
-                          : 'System Adjustment'}
+                      {energyProvider === 'M-KOPA Solar' ? (
+                        transaction.transaction_type === 'payment'
+                          ? 'System Payment'
+                          : transaction.transaction_type === 'maintenance'
+                            ? 'Maintenance Service'
+                            : 'System Adjustment'
+                      ) : (
+                        transaction.transaction_type === 'payment'
+                          ? 'Account Payment'
+                          : transaction.transaction_type === 'maintenance'
+                            ? 'Service Fee'
+                            : 'Account Adjustment'
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(transaction.transaction_date), { addSuffix: true })}
@@ -592,7 +623,7 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
       <Card className="bg-aurora-card border-aurora-blue/20">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-            System Information
+            {energyProvider === 'M-KOPA Solar' ? 'System Information' : 'Account Information'}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -620,14 +651,29 @@ const SolarDashboard: React.FC<SolarDashboardProps> = ({ energyProvider = 'Solar
               </div>
             </div>
             <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total System Cost:</span>
-                <span>KSh {paymentStatus.total_cost.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Maintenance Schedule:</span>
-                <span className="text-right text-sm">{paymentStatus.maintenance_schedule}</span>
-              </div>
+              {energyProvider === 'M-KOPA Solar' ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total System Cost:</span>
+                    <span>KSh {paymentStatus.total_cost.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Maintenance Schedule:</span>
+                    <span className="text-right text-sm">{paymentStatus.maintenance_schedule}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Account Status:</span>
+                    <span className="text-green-500">Active</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Service Plan:</span>
+                    <span className="text-right text-sm">Standard</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

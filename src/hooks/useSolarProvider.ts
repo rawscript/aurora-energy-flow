@@ -134,10 +134,9 @@ export const useSolarProvider = (providerName: string = 'Solar') => {
       // Simulate network delay for realistic UX
       await simulateApiDelay(800);
 
-      // For M-KOPA Solar, we would integrate with their API
+      // Handle different solar providers
       if (providerName === 'M-KOPA Solar') {
-        // In a real implementation, this would call the M-KOPA API
-        // For demo purposes, we'll create simulated data that looks realistic
+        // M-KOPA Solar with ownership percentage tracking
         const simulatedStatus: SolarPaymentStatus = {
           total_paid: 15000,
           total_cost: 25000,
@@ -156,8 +155,28 @@ export const useSolarProvider = (providerName: string = 'Solar') => {
         };
 
         setPaymentStatus(simulatedStatus);
+      } else if (providerName === 'SunCulture' || providerName === 'SunKing') {
+        // SunCulture and SunKing without ownership percentage tracking
+        const genericStatus: SolarPaymentStatus = {
+          total_paid: 8000,
+          total_cost: 15000,
+          remaining_balance: 7000,
+          ownership_percentage: 0, // No ownership tracking
+          next_payment_amount: 300,
+          next_payment_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+          payment_frequency: 'monthly',
+          last_payment_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+          last_payment_amount: 300,
+          payment_status: 'current',
+          system_size_kw: 2.0,
+          installation_date: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(), // 6 months ago
+          warranty_end_date: new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 3 years from now
+          maintenance_schedule: 'Quarterly system check and annual deep cleaning'
+        };
+
+        setPaymentStatus(genericStatus);
       } else {
-        // For other solar providers, we'll create generic data
+        // Generic solar provider
         const genericStatus: SolarPaymentStatus = {
           total_paid: 8000,
           total_cost: 15000,
