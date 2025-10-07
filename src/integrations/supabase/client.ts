@@ -1,16 +1,16 @@
 // Enhanced Supabase client with improved error handling and transaction support
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CustomSupabaseClient } from './types';
+import { CONFIG } from '@/config/env';
 
 // Use environment variables for security
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLIC_KEY || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
+const SUPABASE_URL = CONFIG.SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = CONFIG.SUPABASE_PUBLIC_KEY;
 
 console.log('Supabase config check:', { 
-  importMetaEnv: import.meta.env.VITE_SUPABASE_URL,
-  processEnv: (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL),
-  SUPABASE_URL, 
-  SUPABASE_PUBLISHABLE_KEY 
+  SUPABASE_URL: SUPABASE_URL ? 'SET' : 'MISSING',
+  SUPABASE_PUBLISHABLE_KEY: SUPABASE_PUBLISHABLE_KEY ? 'SET' : 'MISSING',
+  isConfigured: CONFIG.isSupabaseConfigured()
 });
 
 // Validate environment variables
@@ -20,7 +20,7 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 
 // Create the Supabase client with optimized configuration
 // Disable auto refresh to prevent self-triggered refreshes
-const supabase = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY ? 
+const supabase = CONFIG.isSupabaseConfigured() ? 
   createClient<Database>(
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY,

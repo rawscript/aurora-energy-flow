@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import { Loader2, Zap, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { CONFIG } from '@/config/env';
 
 const AuthForm = () => {
   const [loading, setLoading] = useState(false);
@@ -27,9 +28,7 @@ const AuthForm = () => {
 
   // Check if Supabase is properly configured
   const isSupabaseConfigured = () => {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
-    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLIC_KEY || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
-    return SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY;
+    return CONFIG.isSupabaseConfigured();
   };
 
   // Get the redirect path from location state or default to dashboard

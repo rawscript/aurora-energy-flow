@@ -3,6 +3,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../integrations/supabase/client';
 import { useToast } from '../components/ui/use-toast';
 import type { ReactNode } from 'react';
+import { CONFIG } from '@/config/env';
 
 interface AuthContextType {
   user: User | null;
@@ -63,19 +64,6 @@ const storeSession = (session: Session | null) => {
   } catch (error) {
     console.warn('Could not access localStorage:', error);
   }
-};
-
-// Helper function to check if Supabase is configured
-const isSupabaseConfigured = () => {
-  // Check both import.meta.env (Vite) and process.env (Node.js/other)
-  const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || 
-                     (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) || 
-                     '';
-  const supabaseKey = import.meta.env?.VITE_SUPABASE_PUBLIC_KEY || 
-                     (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_PUBLIC_KEY) || 
-                     '';
-  
-  return !!(supabaseUrl && supabaseKey);
 };
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -148,7 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     console.log('Manual session refresh requested...');
     
     // Check if Supabase is configured
-    if (!isSupabaseConfigured()) {
+    if (!CONFIG.isSupabaseConfigured()) {
       console.warn('Supabase not configured, skipping session refresh');
       setLoading(false);
       return;
@@ -246,7 +234,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       // Check if Supabase is configured
-      if (isSupabaseConfigured()) {
+      if (CONFIG.isSupabaseConfigured()) {
         // Clear interval immediately
         resetSessionInterval(null);
 
@@ -318,7 +306,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('Initializing auth...');
 
         // Check if Supabase is configured
-        if (!isSupabaseConfigured()) {
+        if (!CONFIG.isSupabaseConfigured()) {
           console.warn('Supabase not configured, initializing in offline mode');
           setUser(null);
           setSession(null);
@@ -398,7 +386,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Set up auth state change listener
   useEffect(() => {
     // Check if Supabase is configured
-    if (!isSupabaseConfigured()) {
+    if (!CONFIG.isSupabaseConfigured()) {
       console.warn('Supabase not configured, skipping auth state change listener');
       setLoading(false);
       return;

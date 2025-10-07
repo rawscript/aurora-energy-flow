@@ -9,6 +9,10 @@ import { MeterProvider } from "@/contexts/MeterContext";
 import { lazy, Suspense, useState, useEffect } from "react";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { deploymentCheck } from "@/utils/deployment-check";
+
+// Run deployment check
+deploymentCheck();
 
 // Lazy load components for better mobile performance
 const Landing = lazy(() => import("./pages/Landing"));
