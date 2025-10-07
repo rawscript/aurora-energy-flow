@@ -15,6 +15,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const TestEnv = lazy(() => import("./test-env")); // Add this line
 
 // Optimized query client for better performance and caching
 const queryClient = new QueryClient({
@@ -65,6 +66,7 @@ const AppContent = () => (
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/test-env" element={<TestEnv />} /> {/* Add this line */}
               <Route
                 path="/dashboard"
                 element={

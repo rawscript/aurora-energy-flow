@@ -1,8 +1,7 @@
 import { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../integrations/supabase/client';
-import { useToast } from '../components/ui/use-toast';
-import type { ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -65,20 +64,7 @@ const storeSession = (session: Session | null) => {
   }
 };
 
-// Helper function to check if Supabase is configured
-const isSupabaseConfigured = () => {
-  // Check both import.meta.env (Vite) and process.env (Node.js/other)
-  const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || 
-                     (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) || 
-                     '';
-  const supabaseKey = import.meta.env?.VITE_SUPABASE_PUBLIC_KEY || 
-                     (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_PUBLIC_KEY) || 
-                     '';
-  
-  return !!(supabaseUrl && supabaseKey);
-};
-
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,29 +85,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Check if user is authenticated
   const isAuthenticated = useCallback(() => {
     const result = !!user && !!session;
-    console.log('useAuth isAuthenticated check:', {
-      user: !!user,
-      session: !!session,
-      result
-    });
+    // console.log('useAuth isAuthenticated check:', {
+    //   user: !!user,
+    //   session: !!session,
+    //   result
+    // });
     return result;
   }, [user, session]);
 
   // Add effect to log when session state changes
   useEffect(() => {
-    console.log('Session state changed:', {
-      user: !!user,
-      session: !!session,
-      userId: user?.id,
-      expiresAt: session?.expires_at,
-      currentTime: Math.floor(Date.now() / 1000),
-      timeUntilExpiry: session?.expires_at ? (session.expires_at - Math.floor(Date.now() / 1000)) : null
-    });
+    // console.log('Session state changed:', {
+    //   user: !!user,
+    //   session: !!session,
+    //   userId: user?.id,
+    //   expiresAt: session?.expires_at,
+    //   currentTime: Math.floor(Date.now() / 1000),
+    //   timeUntilExpiry: session?.expires_at ? (session.expires_at - Math.floor(Date.now() / 1000)) : null
+    // });
   }, [user, session]);
 
   // Set callback for successful auth
   const setOnAuthSuccess = useCallback((callback: () => void) => {
-    console.log('Setting auth success callback');
     onAuthSuccessCallback.current = callback;
   }, []);
 
@@ -139,20 +124,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         checkSessionValidity();
       }, SESSION_VALIDITY_CHECK_INTERVAL);
       
-      console.log(`Session validity check interval set for every ${SESSION_VALIDITY_CHECK_INTERVAL / 60000} minutes`);
+      // console.log(`Session validity check interval set for every ${SESSION_VALIDITY_CHECK_INTERVAL / 60000} minutes`);
     }
   }, []);
 
   // Manual session refresh function (only used when explicitly called)
   const refreshSession = useCallback(async (): Promise<void> => {
-    console.log('Manual session refresh requested...');
-    
-    // Check if Supabase is configured
-    if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, skipping session refresh');
-      setLoading(false);
-      return;
-    }
+    // console.log('Manual session refresh requested...');
     
     try {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
@@ -163,13 +141,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       if (!currentSession) {
-        console.log('No current session, user needs to sign in again');
+        // console.log('No current session, user needs to sign in again');
         await signOut();
         return;
       }
 
       // Update state with new session
-      console.log('Updating session state with refreshed session');
+      // console.log('Updating session state with refreshed session');
       setSession(currentSession);
       setUser(currentSession.user);
       
@@ -179,7 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Reset interval with new session timing
       resetSessionInterval(currentSession);
 
-      console.log('Session refreshed successfully');
+      // console.log('Session refreshed successfully');
     } catch (error) {
       console.error('Error during manual session refresh:', error);
       // Don't automatically sign out on refresh errors
@@ -194,14 +172,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Check if session is still valid with rate limiting
   const checkSessionValidity = useCallback(async () => {
     if (!session || isSigningOut.current) {
-      console.log('Skipping session validity check - no session or signing out');
+      // console.log('Skipping session validity check - no session or signing out');
       return;
     }
 
     // Rate limiting - prevent too frequent checks
     const now = Date.now();
     if (now - lastSessionCheck.current < MIN_SESSION_CHECK_INTERVAL) { // 10 minutes minimum between checks
-      console.log('Session validity check rate limited');
+      // console.log('Session validity check rate limited');
       return;
     }
     lastSessionCheck.current = now;
@@ -211,16 +189,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const currentTime = Math.floor(Date.now() / 1000);
       const timeUntilExpiry = expiresAt - currentTime;
 
-      console.log(`Session expires in ${Math.floor(timeUntilExpiry / 60)} minutes (${timeUntilExpiry} seconds)`);
+      // console.log(`Session expires in ${Math.floor(timeUntilExpiry / 60)} minutes (${timeUntilExpiry} seconds)`);
 
       // If session has expired, sign out
       if (timeUntilExpiry <= 0) {
-        console.log('Session has expired, signing out');
+        // console.log('Session has expired, signing out');
         await signOut();
       }
       // If session expires in less than 30 minutes, show warning but don't auto-refresh
       else if (timeUntilExpiry <= 1800) {
-        console.log('Session expires soon, showing warning');
+        // console.log('Session expires soon, showing warning');
         toast({
           title: "Session Expiring Soon",
           description: "Your session will expire soon. Save your work and consider signing in again.",
@@ -234,60 +212,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Sign out function
   const signOut = useCallback(async () => {
-    console.log('Sign out requested, isSigningOut:', isSigningOut.current);
+    // console.log('Sign out requested, isSigningOut:', isSigningOut.current);
     
     if (isSigningOut.current) {
-      console.log('Sign out already in progress, ignoring request');
+      // console.log('Sign out already in progress, ignoring request');
       return;
     }
 
     isSigningOut.current = true;
-    console.log('Setting isSigningOut to true');
+    // console.log('Setting isSigningOut to true');
 
     try {
-      // Check if Supabase is configured
-      if (isSupabaseConfigured()) {
-        // Clear interval immediately
-        resetSessionInterval(null);
+      // console.log('Signing out user...');
 
-        // Clear state
-        console.log('Clearing user and session state');
-        setUser(null);
-        setSession(null);
+      // Clear interval immediately
+      resetSessionInterval(null);
 
-        // Clear persisted session
-        storeSession(null);
+      // Clear state
+      // console.log('Clearing user and session state');
+      setUser(null);
+      setSession(null);
 
-        // Call Supabase signOut
-        console.log('Calling Supabase signOut');
-        const { error } = await supabase.auth.signOut();
-        
-        if (error) {
-          console.error('Error during signOut:', error);
-          toast({
-            title: "Sign Out Error",
-            description: "There was an issue signing you out, but you've been logged out locally.",
-            variant: "destructive"
-          });
-        } else {
-          console.log('Sign out successful');
-          toast({
-            title: "Signed Out",
-            description: "You have been signed out successfully.",
-            variant: "default"
-          });
-        }
+      // Clear persisted session
+      storeSession(null);
+
+      // Call Supabase signOut
+      // console.log('Calling Supabase signOut');
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Error during signOut:', error);
+        toast({
+          title: "Sign Out Error",
+          description: "There was an issue signing you out, but you've been logged out locally.",
+          variant: "destructive"
+        });
       } else {
-        // Supabase not configured, just clear local state
-        setUser(null);
-        setSession(null);
-        storeSession(null);
-        console.warn('Supabase not configured, signed out locally only');
+        // console.log('Sign out successful');
+        toast({
+          title: "Signed Out",
+          description: "You have been signed out successfully.",
+          variant: "default"
+        });
       }
 
       // Redirect to auth page
       if (typeof window !== 'undefined') {
-        console.log('Redirecting to auth page');
+        // console.log('Redirecting to auth page');
         window.location.href = '/auth';
       }
 
@@ -300,9 +271,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
     } finally {
       // Small delay to ensure state updates are processed
-      console.log('Setting timeout to reset isSigningOut');
+      // console.log('Setting timeout to reset isSigningOut');
       setTimeout(() => {
-        console.log('Resetting isSigningOut to false');
+        // console.log('Resetting isSigningOut to false');
         isSigningOut.current = false;
       }, 1000);
     }
@@ -315,23 +286,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const initializeAuth = async () => {
       try {
         isInitialized.current = true;
-        console.log('Initializing auth...');
-
-        // Check if Supabase is configured
-        if (!isSupabaseConfigured()) {
-          console.warn('Supabase not configured, initializing in offline mode');
-          setUser(null);
-          setSession(null);
-          setLoading(false);
-          return;
-        }
+        // console.log('Initializing auth...');
 
         // First check for persisted session
         const persistedSession = getStoredSession();
         
         if (persistedSession && isSessionStillValid(persistedSession)) {
           // Use persisted session without verification if it's still valid
-          console.log('Found valid persisted session, using without verification');
+          // console.log('Found valid persisted session, using without verification');
           setSession(persistedSession);
           setUser(persistedSession.user);
           
@@ -340,7 +302,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           // Call success callback
           if (onAuthSuccessCallback.current) {
-            console.log('Calling auth success callback for persisted session');
             onAuthSuccessCallback.current();
           }
           
@@ -349,7 +310,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         // Only make ONE getSession() call if no valid persisted session
-        console.log('No valid persisted session, fetching from Supabase');
+        // console.log('No valid persisted session, fetching from Supabase');
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -359,7 +320,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Clear any invalid persisted session
           storeSession(null);
         } else if (currentSession) {
-          console.log('Got valid session from Supabase');
+          // console.log('Got valid session from Supabase');
           setSession(currentSession);
           setUser(currentSession.user);
 
@@ -371,11 +332,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // Call success callback
           if (onAuthSuccessCallback.current) {
-            console.log('Calling auth success callback for fresh session');
             onAuthSuccessCallback.current();
           }
         } else {
-          console.log('No session available');
+          // console.log('No session available');
           setSession(null);
           setUser(null);
           // Clear any invalid persisted session
@@ -397,25 +357,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Set up auth state change listener
   useEffect(() => {
-    // Check if Supabase is configured
-    if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, skipping auth state change listener');
-      setLoading(false);
-      return;
-    }
-    
-    console.log('Setting up auth state change listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log('=== AUTH STATE CHANGE EVENT ===', event, {
-        userId: newSession?.user?.id,
-        expiresAt: newSession?.expires_at,
-        currentTime: Math.floor(Date.now() / 1000),
-        timeUntilExpiry: newSession?.expires_at ? (newSession.expires_at - Math.floor(Date.now() / 1000)) : null
-      });
+      // Reduce debug logging to prevent console spam
+      // console.log('Auth state change:', event, {
+      //   userId: newSession?.user?.id,
+      //   expiresAt: newSession?.expires_at,
+      //   currentTime: Math.floor(Date.now() / 1000),
+      //   timeUntilExpiry: newSession?.expires_at ? (newSession.expires_at - Math.floor(Date.now() / 1000)) : null
+      // });
 
       // Prevent processing during sign out
       if (isSigningOut.current) {
-        console.log('Ignoring auth state change during sign out');
+        // console.log('Ignoring auth state change during sign out');
         return;
       }
 
@@ -423,14 +376,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       switch (event) {
         case 'SIGNED_IN':
           if (newSession) {
-            console.log('SIGNED_IN event received:', {
-              userId: newSession.user.id,
-              expiresAt: newSession.expires_at,
-              currentTime: Math.floor(Date.now() / 1000),
-              timeUntilExpiry: (newSession.expires_at || 0) - Math.floor(Date.now() / 1000)
-            });
+            // Reduce debug logging to prevent console spam
+            // console.log('SIGNED_IN event received:', {
+            //   userId: newSession.user.id,
+            //   expiresAt: newSession.expires_at,
+            //   currentTime: Math.floor(Date.now() / 1000),
+            //   timeUntilExpiry: (newSession.expires_at || 0) - Math.floor(Date.now() / 1000)
+            // });
             
-            console.log('Setting session and user state');
+            // console.log('Setting session and user state');
             setSession(newSession);
             setUser(newSession.user);
             
@@ -440,23 +394,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // Reset interval for new session
             resetSessionInterval(newSession);
 
-            // Execute auth success callback
+            // Add debounce to prevent duplicate success callbacks
             if (onAuthSuccessCallback.current) {
-              console.log('Executing auth success callback after SIGNED_IN event');
-              try {
-                onAuthSuccessCallback.current();
-                console.log('Auth success callback executed successfully');
-              } catch (error) {
-                console.error('Error executing auth success callback:', error);
+              // Clear any existing timeout
+              if (authSuccessTimeout.current) {
+                clearTimeout(authSuccessTimeout.current);
               }
-            } else {
-              console.log('No auth success callback registered');
+              
+              // Set new timeout to debounce the callback
+              authSuccessTimeout.current = setTimeout(() => {
+                // console.log('Calling auth success callback');
+                onAuthSuccessCallback.current();
+              }, 1000); // 1 second debounce
             }
           }
           break;
 
         case 'SIGNED_OUT':
-          console.log('SIGNED_OUT event received');
+          // console.log('SIGNED_OUT event received');
           setSession(null);
           setUser(null);
           resetSessionInterval(null);
@@ -475,7 +430,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (now - lastTokenRefresh.current < 15000) { // Increase to 15 seconds
               tokenRefreshCount.current++;
               if (tokenRefreshCount.current > 1) { // Reduce threshold to 1
-                console.log('Too many token refreshes in quick succession, ignoring');
+                // console.log('Too many token refreshes in quick succession, ignoring');
                 return;
               }
             } else {
@@ -485,13 +440,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             lastTokenRefresh.current = now;
             
-            console.log('TOKEN_REFRESHED event received:', {
-              userId: newSession.user.id,
-              expiresAt: newSession.expires_at,
-              currentTime: Math.floor(Date.now() / 1000),
-              timeUntilExpiry: (newSession.expires_at || 0) - Math.floor(Date.now() / 1000),
-              refreshCount: tokenRefreshCount.current
-            });
+            // Reduce debug logging to prevent console spam
+            // console.log('TOKEN_REFRESHED event received:', {
+            //   userId: newSession.user.id,
+            //   expiresAt: newSession.expires_at,
+            //   currentTime: Math.floor(Date.now() / 1000),
+            //   timeUntilExpiry: (newSession.expires_at || 0) - Math.floor(Date.now() / 1000),
+            //   refreshCount: tokenRefreshCount.current
+            // });
             
             setSession(newSession);
             setUser(newSession.user);
@@ -504,25 +460,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             
             // Call success callback to notify listeners of the refreshed session
             if (onAuthSuccessCallback.current) {
-              console.log('Executing auth success callback after TOKEN_REFRESHED event');
-              try {
-                onAuthSuccessCallback.current();
-                console.log('Auth success callback executed successfully');
-              } catch (error) {
-                console.error('Error executing auth success callback:', error);
-              }
+              onAuthSuccessCallback.current();
             }
           }
           break;
 
         default:
-          console.log('Other auth event:', event);
+          // console.log('Other auth event:', event);
           break;
       }
     });
 
     return () => {
-      console.log('Unsubscribing from auth state change listener');
       subscription.unsubscribe();
       // Clear interval on unmount
       if (sessionCheckInterval.current) {

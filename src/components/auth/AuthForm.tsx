@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Zap } from 'lucide-react';
+import { Loader2, Zap, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -26,15 +25,37 @@ const AuthForm = () => {
   const { user, loading: authLoading, setOnAuthSuccess } = useAuth();
   const isMobile = useIsMobile();
 
+  // Check if Supabase is properly configured
+  const isSupabaseConfigured = () => {
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLIC_KEY || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
+    return SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY;
+  };
+
   // Get the redirect path from location state or default to dashboard
   const from = location.state?.from || '/dashboard';
 
-  // No need to redirect here - useAuth hook will handle the auth flow
-  // and redirect when appropriate
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      console.log('User already authenticated, redirecting to:', from);
+      navigate(from, { replace: true });
+    }
+  }, [user, authLoading, navigate, from]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
+
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      toast({
+        title: "Configuration Error",
+        description: "Supabase is not properly configured. Please check your environment variables.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setLoading(true);
 
@@ -109,6 +130,7 @@ const AuthForm = () => {
 
           // Redirect to the original path or dashboard if user is already signed in
           if (data.session) {
+            console.log('User signed up and session created, redirecting to:', from);
             navigate(from, { replace: true });
           }
         }
@@ -129,6 +151,16 @@ const AuthForm = () => {
     e.preventDefault();
     if (loading) return;
     
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      toast({
+        title: "Configuration Error",
+        description: "Supabase is not properly configured. Please check your environment variables.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -145,15 +177,12 @@ const AuthForm = () => {
           variant: "destructive"
         });
       } else if (data.session) {
-        console.log('Sign in successful');
-        // Remove the toast here to prevent duplicate messages
-        // The auth success callback will handle the toast
-        // toast({
-        //   title: "Welcome back!",
-        //   description: "You have successfully signed in."
-        // });
-        // Redirect to the original path or dashboard after successful sign-in
-        navigate(from, { replace: true });
+        console.log('Sign in successful with session:', data.session);
+        // The auth state will be updated by the useAuth hook's onAuthStateChange listener
+        // We don't need to manually redirect here as the useEffect above will handle it
+        // once the auth state is updated
+      } else {
+        console.log('Sign in successful but no session returned');
       }
     } catch (error) {
       console.error('Unexpected sign in error:', error);
@@ -174,9 +203,11 @@ const AuthForm = () => {
     }));
   };
 
-  // Set up auth success callback
+  // Set up auth success callback for automatic redirect
   useEffect(() => {
-    setOnAuthSuccess && setOnAuthSuccess(() => {
+    console.log('Setting up auth success callback, redirect target:', from);
+    const handleAuthSuccess = () => {
+      console.log('Auth success callback triggered, redirecting to:', from);
       // Add a check to prevent duplicate toasts
       const lastToastTime = localStorage.getItem('lastAuthToastTime');
       const now = Date.now();
@@ -191,9 +222,33 @@ const AuthForm = () => {
       }
       
       // Redirect to the original path or dashboard after successful authentication
+      console.log('Executing navigation to:', from);
       navigate(from, { replace: true });
-    });
-  }, [setOnAuthSuccess, navigate, from]);
+    };
+    
+    if (setOnAuthSuccess) {
+      console.log('Registering auth success callback');
+      setOnAuthSuccess(handleAuthSuccess);
+    }
+    
+    // Also check if user is already authenticated when component mounts
+    if (user && !authLoading) {
+      console.log('User already authenticated on mount, redirecting to:', from);
+      navigate(from, { replace: true });
+    }
+  }, [setOnAuthSuccess, navigate, from, user, authLoading]);
+
+  // Additional useEffect to handle user state changes directly
+  useEffect(() => {
+    if (user && !authLoading) {
+      console.log('User state changed, redirecting to:', from);
+      // Small delay to ensure state is fully updated
+      const timer = setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [user, authLoading, navigate, from]);
 
   // Show loading while checking auth state
   if (authLoading) {
@@ -203,6 +258,46 @@ const AuthForm = () => {
           <Loader2 className="h-8 w-8 animate-spin text-aurora-green mx-auto mb-4" />
           <p className="text-white">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show configuration error if Supabase is not configured
+  if (!isSupabaseConfigured()) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-slate-800/50 backdrop-blur-sm border-red-500/20">
+          <CardHeader className="text-center pb-4">
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+              </div>
+              <h1 className="text-2xl font-bold text-red-400">
+                Configuration Error
+              </h1>
+            </div>
+            <CardDescription className="text-muted-foreground">
+              Supabase is not properly configured
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-6">
+            <div className="space-y-4">
+              <p className="text-sm text-gray-300">
+                The application cannot authenticate users because Supabase configuration is missing or incomplete.
+              </p>
+              <div className="bg-slate-900/50 p-4 rounded-lg">
+                <h3 className="text-sm font-medium text-aurora-green-light mb-2">Required Environment Variables:</h3>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>• VITE_SUPABASE_URL</li>
+                  <li>• VITE_SUPABASE_PUBLIC_KEY</li>
+                </ul>
+              </div>
+              <p className="text-xs text-gray-500">
+                Please check your .env file and ensure these variables are properly set.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

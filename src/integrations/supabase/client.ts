@@ -3,10 +3,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CustomSupabaseClient } from './types';
 
 // Use environment variables for security
-const SUPABASE_URL = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
-const SUPABASE_PUBLISHABLE_KEY = (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL) || '';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLIC_KEY || (typeof process !== 'undefined' && process.env.VITE_SUPABASE_PUBLIC_KEY) || '';
 
-// Validate environment variables - but don't throw error immediately to allow app to load
+console.log('Supabase config check:', { 
+  importMetaEnv: import.meta.env.VITE_SUPABASE_URL,
+  processEnv: (typeof process !== 'undefined' && process.env.VITE_SUPABASE_URL),
+  SUPABASE_URL, 
+  SUPABASE_PUBLISHABLE_KEY 
+});
+
+// Validate environment variables
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   console.warn('Supabase configuration is missing. Please check your environment variables. App will run in offline mode.');
 }
