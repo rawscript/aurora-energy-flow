@@ -64,7 +64,26 @@ const KPLCBillDashboard: React.FC = () => {
 
     setIsFetching(true);
     try {
-      await fetchBillData(meterNumber, idNumber);
+      const result = await fetchBillData(meterNumber, idNumber);
+      
+      // Check if there was an error in the result
+      if (result.error) {
+        let errorMessage = result.error;
+        // Provide more user-friendly error messages
+        if (errorMessage.includes('Invalid')) {
+          errorMessage = "Invalid meter number or ID number. Please check your credentials and try again.";
+        } else if (errorMessage.includes('timeout')) {
+          errorMessage = "Request timed out. The KPLC portal may be slow or unavailable. Please try again later.";
+        } else if (errorMessage.includes('navigation')) {
+          errorMessage = "Unable to navigate to the KPLC portal. Please check your internet connection and try again.";
+        }
+        
+        toast({
+          title: "Fetch Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsFetching(false);
     }

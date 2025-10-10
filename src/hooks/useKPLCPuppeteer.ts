@@ -65,7 +65,19 @@ export const useKPLCPuppeteer = () => {
 
         return { data: data.data };
       } else {
-        const errorMessage = data?.error || 'No data returned from KPLC portal.';
+        let errorMessage = data?.error || 'No data returned from KPLC portal.';
+        
+        // Provide more user-friendly error messages
+        if (errorMessage.includes('Invalid')) {
+          errorMessage = "Invalid meter number or ID number. Please check your credentials and try again.";
+        } else if (errorMessage.includes('timeout')) {
+          errorMessage = "Request timed out. The KPLC portal may be slow or unavailable. Please try again later.";
+        } else if (errorMessage.includes('navigation')) {
+          errorMessage = "Unable to navigate to the KPLC portal. Please check your internet connection and try again.";
+        } else if (errorMessage.includes('extract')) {
+          errorMessage = "Unable to extract data from the KPLC portal. The website structure may have changed.";
+        }
+        
         setError(errorMessage);
         toast({
           title: "Fetch Failed",
