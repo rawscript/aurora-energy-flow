@@ -81,7 +81,8 @@ const Index = () => {
         visible: true
       },
       calculator: { 
-        label: isMobile ? "Calc" : "Calculator", 
+        label: isMobile ? (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? "Info" : "Calc") : 
+               (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? "Informatics" : "Calculator"), 
         component: BillCalculator,
         visible: true
       },
