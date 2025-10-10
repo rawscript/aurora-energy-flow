@@ -293,94 +293,54 @@ export const useKPLCTokens = (energyProvider: string = '') => {
         return null;
       }
 
-      console.log('Checking KPLC balance...');
+      console.log('Checking KPLC balance via Puppeteer service...');
 
-      // Use the improved balance check function
-      const { data, error } = await supabase.rpc('check_kplc_balance_improved', {
-        p_user_id: user!.id,
-        p_meter_number: meterNumber
+      // Instead of using the RPC function directly, call our Puppeteer service
+      const { data, error } = await supabase.functions.invoke('puppeteer_kplc_service', {
+        body: {
+          action: 'fetch_bill_data',
+          user_id: user!.id,
+          meter_number: meterNumber
+        }
       });
 
       if (error) {
         console.error('Error checking KPLC balance:', error);
-        // Retry once if it's a network error
-        if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
-          retryCount.current++;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return checkKPLCBalance();
-        }
+        setError(error.message || 'Failed to check KPLC balance');
         return null;
       }
 
-      // Handle different data formats that might be returned
-      let balanceDataRaw;
-      if (Array.isArray(data) && data.length > 0) {
-        balanceDataRaw = data[0];
-      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-        balanceDataRaw = data;
-      } else {
-        balanceDataRaw = null;
-      }
-
-      if (!balanceDataRaw) {
-        console.error('No balance data returned');
-        return null;
-      }
-
-      // Validate the data with type guard
-      if (isKPLCBalance(balanceDataRaw)) {
-        const balanceData: KPLCBalance = {
-          success: balanceDataRaw.success,
-          balance: balanceDataRaw.balance,
-          meter_number: balanceDataRaw.meter_number,
-          last_updated: balanceDataRaw.last_updated,
-          source: balanceDataRaw.source
-        };
-
-        // Add our_balance if it exists
-        if (balanceDataRaw.our_balance !== undefined) {
-          (balanceData as any).our_balance = balanceDataRaw.our_balance;
-        }
-
-        setKplcBalance(balanceData);
-        console.log(`KPLC balance loaded from ${balanceData.source}: KSh ${balanceData.balance}`);
-
-        return balanceData;
-      } else {
-        // Fallback for invalid data
+      if (data && data.success) {
+        // Extract balance from the response with correct structure
         const balanceData: KPLCBalance = {
           success: true,
-          balance: 0,
-          meter_number: meterNumber,
-          last_updated: new Date().toISOString(),
-          source: 'mock'
+          balance: data.data.outstandingBalance || 0,
+          meter_number: data.data.meterNumber || meterNumber,
+          last_updated: data.data.fetchedAt || new Date().toISOString(),
+          source: 'kplc_api' // Using kplc_api to indicate it came from KPLC via Puppeteer
         };
 
+        // Update state
         setKplcBalance(balanceData);
-        console.log(`Mock KPLC balance loaded: KSh ${balanceData.balance}`);
-
         return balanceData;
+      } else {
+        console.error('Failed to fetch balance data:', data?.error);
+        setError(data?.error || 'Failed to fetch balance data');
+        return null;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Exception checking KPLC balance:', error);
-      // Retry once if it's a network error
-      if (error.message.includes('network') && retryCount.current < MAX_RETRIES) {
-        retryCount.current++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return checkKPLCBalance();
-      }
+      setError(error.message || 'Connection error checking KPLC balance');
       return null;
-    } finally {
-      retryCount.current = 0;
     }
   }, [hasValidSession(), user, getMeterNumber]);
 
-  // Purchase tokens via KPLC API with improved transaction support
+  // Purchase tokens with improved error handling and Puppeteer integration
   const purchaseTokens = useCallback(async (
     amount: number,
     paymentMethod: string = 'M-PESA',
-    phoneNumber?: string,
-    provider: 'KPLC' | 'Solar' | 'SunCulture' | 'M-KOPA Solar' | 'IPP' | 'Other' | '' = ''
+    vendor: string = 'M-PESA',
+    phoneNumber?: string
   ) => {
     if (!hasValidSession() || purchasing) return null;
 
@@ -391,89 +351,83 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       const meterNumber = await getMeterNumber();
       if (!meterNumber) {
         toast({
-          title: 'Meter Setup Required',
-          description: 'Please set up your meter number in Settings before purchasing tokens.',
+          title: 'Purchase Failed',
+          description: 'No meter number found. Please set up your meter first.',
           variant: 'destructive'
         });
         return null;
       }
 
-      // Default to KPLC if provider is empty
-      const effectiveProvider = provider || 'KPLC';
+      console.log(`Purchasing KPLC tokens: KSh ${amount} for meter ${meterNumber}`);
 
-      console.log(`Purchasing KSh ${amount} tokens for meter ${meterNumber} via ${effectiveProvider}`);
-
-      // Use the improved purchase function
-      const { data, error } = await supabase.energy.purchaseTokens({
-        user_id: user!.id,
-        meter_number: meterNumber,
-        amount: amount,
-        payment_method: paymentMethod,
-        vendor: effectiveProvider,
-        phone_number: phoneNumber
+      // Instead of using the RPC function directly, call our Puppeteer service
+      const { data, error } = await supabase.functions.invoke('puppeteer_kplc_service', {
+        body: {
+          action: 'purchase_tokens',
+          user_id: user!.id,
+          meter_number: meterNumber,
+          amount: amount,
+          phone_number: phoneNumber,
+          payment_method: paymentMethod,
+          vendor: vendor
+        }
       });
 
       if (error) {
         console.error('Error purchasing tokens:', error);
-        throw new Error(error.message || 'Token purchase failed');
-      }
-
-      // Handle different data formats that might be returned
-      let purchaseData;
-      if (Array.isArray(data) && data.length > 0) {
-        purchaseData = data[0];
-      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
-        purchaseData = data;
-      } else {
-        purchaseData = null;
-      }
-
-      if (!purchaseData) {
-        throw new Error('No data returned from purchase function');
-      }
-
-      const isSuccess = purchaseData.success !== undefined ? Boolean(purchaseData.success) : true;
-      if (!isSuccess) {
-        const errorMessage = purchaseData.error || 'Token purchase failed';
-        throw new Error(errorMessage);
-      }
-
-      console.log('Token purchase successful:', purchaseData);
-
-      // Show appropriate success message based on provider
-      const successMessage = effectiveProvider === 'KPLC' || provider === ''
-        ? `Successfully purchased KSh ${amount} worth of tokens.`
-        : `Successfully purchased KSh ${amount} worth of ${effectiveProvider} credits.`;
-
-      toast({
-        title: 'Purchase Successful! 🎉',
-        description: successMessage,
-      });
-
-      // Show transaction reference or token code in a separate toast
-      const tokenValue = purchaseData.token_code || purchaseData.transaction_reference || 'N/A';
-      const tokenFieldName = effectiveProvider === 'KPLC' || provider === ''
-        ? 'Token Code'
-        : 'Transaction Reference';
-
-      setTimeout(() => {
+        const errorMessage = error.message || 'Failed to purchase tokens. Please try again.';
+        
         toast({
-          title: `${tokenFieldName} Ready`,
-          description: effectiveProvider === 'KPLC' || provider === ''
-            ? `Enter this code in your meter: ${tokenValue}`
-            : `Your ${effectiveProvider} transaction reference is: ${tokenValue}`,
-          duration: 15000, // Show for 15 seconds
+          title: 'Purchase Failed',
+          description: errorMessage,
+          variant: 'destructive'
         });
-      }, 1000);
 
-      // Refresh data after successful purchase
-      setTimeout(() => {
-        fetchTokenAnalytics(true); // Force refresh
-        fetchTransactions();
-        if (effectiveProvider === 'KPLC' || provider === '') checkKPLCBalance();
-      }, 2000);
+        setError(errorMessage);
+        return null;
+      }
 
-      return purchaseData;
+      if (data && data.success) {
+        const purchaseData = data.data;
+        const tokenValue = purchaseData.tokenCode;
+        const tokenFieldName = energyProvider === 'KPLC' || energyProvider === '' ? 'Token Code' : 'Reference';
+
+        toast({
+          title: 'Purchase Successful!',
+          description: `Successfully purchased KSh ${amount} worth of tokens.`,
+        });
+
+        // Show token code after a short delay
+        setTimeout(() => {
+          toast({
+            title: `${tokenFieldName} Ready`,
+            description: energyProvider === 'KPLC' || energyProvider === ''
+              ? `Enter this code in your meter: ${tokenValue}`
+              : `Your ${energyProvider} transaction reference is: ${tokenValue}`,
+            duration: 15000, // Show for 15 seconds
+          });
+        }, 1000);
+
+        // Refresh data after successful purchase
+        setTimeout(() => {
+          fetchTokenAnalytics(true); // Force refresh
+          fetchTransactions();
+          if (energyProvider === 'KPLC' || energyProvider === '') checkKPLCBalance();
+        }, 2000);
+
+        return purchaseData;
+      } else {
+        const errorMessage = data?.error || 'Failed to purchase tokens. Please try again.';
+        
+        toast({
+          title: 'Purchase Failed',
+          description: errorMessage,
+          variant: 'destructive'
+        });
+
+        setError(errorMessage);
+        return null;
+      }
     } catch (error) {
       console.error('Error purchasing tokens:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to purchase tokens. Please try again.';
@@ -490,7 +444,7 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       setPurchasing(false);
       retryCount.current = 0;
     }
-  }, [hasValidSession(), user, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions, checkKPLCBalance]);
+  }, [hasValidSession(), user, purchasing, getMeterNumber, toast, fetchTokenAnalytics, fetchTransactions, checkKPLCBalance, energyProvider]);
 
   // Record token consumption (for meter readings) with improved error handling
   const recordConsumption = useCallback(async (amount: number) => {

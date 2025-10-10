@@ -14,7 +14,7 @@ export const useKPLCPuppeteer = () => {
   const { user, hasValidSession } = useAuthenticatedApi();
   const { toast } = useToast();
 
-  // Fetch bill data from KPLC portal
+  // Fetch bill data from KPLC portal using actual Puppeteer service
   const fetchBillData = useCallback(async (meterNumber: string, idNumber: string) => {
     if (!hasValidSession() || !user) {
       toast({
@@ -29,20 +29,18 @@ export const useKPLCPuppeteer = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch data using puppeteer service
-      const result = await kplcService.fetchBillData(meterNumber, idNumber);
+      // Instead of using the local Puppeteer service, call our Supabase function
+      // that integrates with the actual Puppeteer service
+      const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
+        body: {
+          action: 'fetch_bill_data',
+          user_id: user.id,
+          meter_number: meterNumber
+        }
+      });
 
-      if (result.error) {
-        const errorMessages: Record<KPLCError, string> = {
-          INVALID_CREDENTIALS: 'Invalid meter number or ID number. Please check your credentials.',
-          ACCOUNT_NOT_FOUND: 'Account not found. Please verify your meter number and ID number.',
-          SERVICE_UNAVAILABLE: 'KPLC service is currently unavailable. Please try again later.',
-          TIMEOUT: 'Request timed out. KPLC portal may be slow or unavailable.',
-          NETWORK_ERROR: 'Network error connecting to KPLC portal. Please check your connection.',
-          UNKNOWN_ERROR: 'An unknown error occurred while fetching data.'
-        };
-
-        const message = errorMessages[result.error] || result.message || 'Failed to fetch bill data';
+      if (rpcError) {
+        const message = rpcError.message || 'Failed to fetch bill data from KPLC portal.';
         setError(message);
         toast({
           title: "Fetch Failed",
@@ -50,26 +48,34 @@ export const useKPLCPuppeteer = () => {
           variant: "destructive",
         });
 
-        return { error: result.error, message };
+        return { error: 'UNKNOWN_ERROR' as KPLCError, message };
       }
 
-      if (result.data) {
+      if (data && data.success) {
         // Save to database
-        await kplcService.saveBillData(user.id, result.data);
+        await kplcService.saveBillData(user.id, data.data);
         
         // Update state
-        setBillData(result.data);
-        setLastFetched(result.data.fetchedAt);
+        setBillData(data.data);
+        setLastFetched(data.data.fetchedAt);
         
         toast({
           title: "Success",
           description: "Successfully fetched KPLC bill data.",
         });
 
-        return { data: result.data };
-      }
+        return { data: data.data };
+      } else {
+        const errorMessage = data?.error || 'No data returned from KPLC portal.';
+        setError(errorMessage);
+        toast({
+          title: "Fetch Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
 
-      return { error: 'NO_DATA' as KPLCError, message: 'No data returned from KPLC portal.' };
+        return { error: 'UNKNOWN_ERROR' as KPLCError, message: errorMessage };
+      }
     } catch (err) {
       console.error('Error fetching KPLC bill data:', err);
       const message = err instanceof Error ? err.message : 'An unexpected error occurred.';
