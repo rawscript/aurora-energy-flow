@@ -1,4 +1,3 @@
-import puppeteer, { Browser, Page } from 'puppeteer';
 import { supabase } from '@/integrations/supabase/client';
 
 // KPLC bill data interface
@@ -30,150 +29,33 @@ export type KPLCError =
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';
 
+// Simplified service that calls the backend Puppeteer function instead of running Puppeteer directly
 export class KPLCPuppeteerService {
-  private browser: Browser | null = null;
-  private isInitialized = false;
-
-  // Initialize Puppeteer browser
-  async initialize() {
-    if (this.isInitialized) return;
-    
-    try {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu'
-        ]
-      });
-      this.isInitialized = true;
-    } catch (error) {
-      console.error('Failed to initialize Puppeteer:', error);
-      throw new Error('Failed to initialize browser automation');
-    }
-  }
-
-  // Close browser
-  async close() {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-      this.isInitialized = false;
-    }
-  }
-
-  // Fetch bill data from KPLC portal
+  // Fetch bill data from KPLC portal via backend function
   async fetchBillData(meterNumber: string, idNumber: string): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> {
-    if (!this.isInitialized || !this.browser) {
-      await this.initialize();
-    }
-
-    let page: Page | null = null;
-    
     try {
-      page = await this.browser.newPage();
-      
-      // Set viewport and user agent
-      await page.setViewport({ width: 1920, height: 1080 });
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
-      
-      // Set timeout
-      page.setDefaultTimeout(30000);
-      
-      // Navigate to KPLC self-service portal
-      await page.goto('https://selfservice.kplc.co.ke/', { waitUntil: 'networkidle2' });
-      
-      // Wait for login form
-      await page.waitForSelector('#meterno', { timeout: 10000 });
-      
-      // Fill in meter number
-      await page.type('#meterno', meterNumber);
-      
-      // Fill in ID number
-      await page.type('#idno', idNumber);
-      
-      // Submit form
-      await Promise.all([
-        page.click('#btnlogin'),
-        page.waitForNavigation({ waitUntil: 'networkidle2' })
-      ]);
-      
-      // Check if login was successful
-      const errorElement = await page.$('.alert-danger');
-      if (errorElement) {
-        const errorMessage = await page.evaluate(el => el.textContent, errorElement);
-        if (errorMessage?.includes('Invalid')) {
-          return { error: 'INVALID_CREDENTIALS', message: 'Invalid meter number or ID number' };
+      // Call the backend Puppeteer service instead of running Puppeteer directly
+      const { data, error } = await supabase.functions.invoke('puppeteer_kplc_service', {
+        body: {
+          action: 'fetch_bill_data',
+          meter_number: meterNumber,
+          id_number: idNumber
         }
-        return { error: 'UNKNOWN_ERROR', message: 'Login failed' };
-      }
-      
-      // Wait for dashboard to load
-      await page.waitForSelector('.dashboard-content', { timeout: 15000 });
-      
-      // Extract bill data
-      const billData = await page.evaluate(() => {
-        const getText = (selector: string) => {
-          const element = document.querySelector(selector);
-          return element ? element.textContent?.trim() || '' : '';
-        };
-        
-        const getNumber = (selector: string) => {
-          const text = getText(selector);
-          const number = text.replace(/[^\d.-]/g, '');
-          return number ? parseFloat(number) : 0;
-        };
-        
-        return {
-          accountName: getText('#accountName'),
-          accountNumber: getText('#accountNumber'),
-          meterNumber: getText('#meterNumber'),
-          currentReading: getNumber('#currentReading'),
-          previousReading: getNumber('#previousReading'),
-          consumption: getNumber('#consumption'),
-          billAmount: getNumber('#billAmount'),
-          dueDate: getText('#dueDate'),
-          billingPeriod: getText('#billingPeriod'),
-          lastPaymentDate: getText('#lastPaymentDate'),
-          lastPaymentAmount: getNumber('#lastPaymentAmount'),
-          outstandingBalance: getNumber('#outstandingBalance'),
-          address: getText('#address'),
-          tariff: getText('#tariff'),
-          status: getText('#status').toLowerCase().includes('active') ? 'active' : 'inactive',
-          fetchedAt: new Date().toISOString()
-        } as KPLCBillData;
       });
-      
-      // Validate data
-      if (!billData.accountNumber || !billData.meterNumber) {
-        return { error: 'ACCOUNT_NOT_FOUND', message: 'Could not extract account information' };
+
+      if (error) {
+        console.error('Error calling Puppeteer service:', error);
+        return { error: 'UNKNOWN_ERROR', message: error.message || 'Failed to fetch bill data' };
       }
-      
-      return { data: billData };
-      
+
+      if (data && data.success) {
+        return { data: data.data };
+      } else {
+        return { error: 'UNKNOWN_ERROR', message: data?.error || 'Failed to fetch bill data' };
+      }
     } catch (error: any) {
-      console.error('Puppeteer error:', error);
-      
-      // Handle specific errors
-      if (error.name === 'TimeoutError') {
-        return { error: 'TIMEOUT', message: 'Request timed out. KPLC portal may be slow or unavailable.' };
-      }
-      
-      if (error.message?.includes('net::ERR_')) {
-        return { error: 'NETWORK_ERROR', message: 'Network error connecting to KPLC portal.' };
-      }
-      
+      console.error('Exception calling Puppeteer service:', error);
       return { error: 'UNKNOWN_ERROR', message: `Failed to fetch data: ${error.message || 'Unknown error'}` };
-    } finally {
-      // Close page
-      if (page) {
-        await page.close();
-      }
     }
   }
 
@@ -251,7 +133,7 @@ export const fetchAndSaveKPLCData = async (
   idNumber: string
 ): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> => {
   try {
-    // Try to fetch from Puppeteer
+    // Try to fetch from backend Puppeteer service
     const result = await kplcService.fetchBillData(meterNumber, idNumber);
     
     if (result.data) {

@@ -295,18 +295,17 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log('Checking KPLC balance via Puppeteer service...');
 
-      // Instead of using the RPC function directly, call our Puppeteer service
-      const { data, error } = await supabase.functions.invoke('puppeteer_kplc_service', {
+      // Call our Supabase function that integrates with the actual Puppeteer service
+      const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'fetch_bill_data',
-          user_id: user!.id,
           meter_number: meterNumber
         }
       });
 
-      if (error) {
-        console.error('Error checking KPLC balance:', error);
-        setError(error.message || 'Failed to check KPLC balance');
+      if (rpcError) {
+        console.error('Error checking KPLC balance:', rpcError);
+        setError(rpcError.message || 'Failed to check KPLC balance');
         return null;
       }
 
@@ -360,11 +359,10 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log(`Purchasing KPLC tokens: KSh ${amount} for meter ${meterNumber}`);
 
-      // Instead of using the RPC function directly, call our Puppeteer service
-      const { data, error } = await supabase.functions.invoke('puppeteer_kplc_service', {
+      // Call our Supabase function that integrates with the actual Puppeteer service
+      const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'purchase_tokens',
-          user_id: user!.id,
           meter_number: meterNumber,
           amount: amount,
           phone_number: phoneNumber,
@@ -373,9 +371,9 @@ export const useKPLCTokens = (energyProvider: string = '') => {
         }
       });
 
-      if (error) {
-        console.error('Error purchasing tokens:', error);
-        const errorMessage = error.message || 'Failed to purchase tokens. Please try again.';
+      if (rpcError) {
+        console.error('Error purchasing tokens:', rpcError);
+        const errorMessage = rpcError.message || 'Failed to purchase tokens. Please try again.';
         
         toast({
           title: 'Purchase Failed',

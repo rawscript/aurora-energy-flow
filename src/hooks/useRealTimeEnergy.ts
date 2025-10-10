@@ -576,127 +576,41 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
       console.log(`Getting new reading from ${energyProvider === 'KPLC' ? 'meter' : 'inverter'} ${meterNumber.current}`);
 
-      // For KPLC meters, we'll generate a realistic reading for now
-      // In a real implementation, the smart meter would send data directly to the webhook
+      // For KPLC meters, we should fetch real data from the smart meter
+      // In a real implementation, this would be handled by the smart meter webhook
       if (energyProvider === 'KPLC') {
-        // Generate a realistic reading for KPLC meters
-        const now = new Date();
-        const baseUsage = 2 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 1.5;
-        const usage = Math.max(0.5, baseUsage + (Math.random() - 0.5) * 0.8);
-        const costPerKwh = 25;
-        const totalCost = usage * costPerKwh;
-
-        // Try to record the reading in the database
-        try {
-          const readingData = {
-            user_id: userId,
-            meter_number: meterNumber.current,
-            kwh_consumed: usage,
-            cost_per_kwh: costPerKwh,
-            total_cost: totalCost,
-            reading_date: now.toISOString()
-          };
-
-          const { data, error } = await query('energy_readings')
-            .insert(readingData)
-            .select()
-            .maybeSingle();
-
-          if (error && error.code !== 'PGRST116') {
-            console.error('Error recording reading:', error);
-          }
-
-          // Process the reading regardless of database success
-          const newReading: EnergyReading = {
-            id: data?.id || `temp-${Date.now()}`,
-            user_id: userId,
-            meter_number: meterNumber.current,
-            kwh_consumed: usage,
-            total_cost: totalCost,
-            reading_date: now.toISOString(),
-            cost_per_kwh: costPerKwh
-          };
-
-          processNewReading(newReading);
-
+        // Check if we can fetch real data from the database (smart meter should have sent it)
+        await fetchRealEnergyData(true); // Force refresh to get latest data
+        
+        // If we still don't have data, show a message to the user
+        if (!energyData || (energyData.current_usage === 0 && energyData.daily_total === 0)) {
           toast({
-            title: 'Reading Received',
-            description: `Received ${usage.toFixed(2)} kWh reading (KSh ${totalCost.toFixed(2)})`,
-          });
-        } catch (dbError) {
-          console.error('Database error recording reading:', dbError);
-          toast({
-            title: 'Reading Failed',
-            description: 'Could not record reading in database.',
+            title: 'No Recent Data',
+            description: 'Your smart meter hasn\'t sent any recent readings. Please ensure your meter is properly connected and transmitting data.',
             variant: 'destructive'
+          });
+        } else {
+          toast({
+            title: 'Latest Reading',
+            description: `Current usage: ${energyData.current_usage.toFixed(2)} kW, Today: ${energyData.daily_total.toFixed(2)} kWh (KSh ${energyData.daily_cost.toFixed(2)})`,
           });
         }
       } else {
-        // For solar inverters, we'll generate a realistic reading for now
-        // In a real implementation, this would call the solar inverter API
-        const now = new Date();
-      
-        // Solar-specific data
-        const basePower = 3 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 2.5;
-        const powerGenerated = Math.max(0.5, basePower + (Math.random() - 0.5) * 0.8);
-        const loadConsumption = powerGenerated * 0.7; // 70% of generated power is consumed
-        const batteryState = 75 + Math.sin((now.getHours() / 24) * Math.PI * 2) * 20; // Simulate battery charge cycle
-        const batteryCount = 2; // Default to 2 batteries
-        const usage = loadConsumption;
-        const costPerKwh = 0; // Solar doesn't have a direct cost per kWh
-        const totalCost = 0; // Solar doesn't have a direct cost
-
-        // Try to record the reading in the database
-        try {
-          const readingData = {
-            user_id: userId,
-            meter_number: meterNumber.current,
-            kwh_consumed: usage,
-            cost_per_kwh: costPerKwh,
-            total_cost: totalCost,
-            reading_date: now.toISOString(),
-            battery_state: batteryState,
-            power_generated: powerGenerated,
-            load_consumption: loadConsumption,
-            battery_count: batteryCount
-          };
-
-          const { data, error } = await query('energy_readings')
-            .insert(readingData)
-            .select()
-            .maybeSingle();
-
-          if (error && error.code !== 'PGRST116') {
-            console.error('Error recording reading:', error);
-          }
-
-          // Process the reading regardless of database success
-          const newReading: EnergyReading = {
-            id: data?.id || `temp-${Date.now()}`,
-            user_id: userId,
-            meter_number: meterNumber.current,
-            kwh_consumed: usage,
-            total_cost: totalCost,
-            reading_date: now.toISOString(),
-            cost_per_kwh: costPerKwh,
-            battery_state: batteryState,
-            power_generated: powerGenerated,
-            load_consumption: loadConsumption,
-            battery_count: batteryCount
-          };
-
-          processNewReading(newReading);
-
+        // For solar inverters, we should fetch real data from the inverter
+        // Check if we can fetch real data from the database (inverter should have sent it)
+        await fetchRealEnergyData(true); // Force refresh to get latest data
+        
+        // If we still don't have data, show a message to the user
+        if (!energyData || (energyData.power_generated === 0 && energyData.load_consumption === 0)) {
           toast({
-            title: 'Reading Received',
-            description: `Received solar reading: ${powerGenerated?.toFixed(2) || '0.00'} kW generated, ${batteryState || 0}% battery`,
-          });
-        } catch (dbError) {
-          console.error('Database error recording reading:', dbError);
-          toast({
-            title: 'Reading Failed',
-            description: 'Could not record reading in database.',
+            title: 'No Recent Data',
+            description: 'Your solar inverter hasn\'t sent any recent readings. Please ensure your inverter is properly connected and transmitting data.',
             variant: 'destructive'
+          });
+        } else {
+          toast({
+            title: 'Latest Reading',
+            description: `Solar generated: ${energyData.power_generated?.toFixed(2) || '0.00'} kW, Battery: ${energyData.battery_state || 0}%`,
           });
         }
       }

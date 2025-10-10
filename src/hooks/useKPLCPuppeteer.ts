@@ -29,13 +29,12 @@ export const useKPLCPuppeteer = () => {
       setLoading(true);
       setError(null);
 
-      // Instead of using the local Puppeteer service, call our Supabase function
-      // that integrates with the actual Puppeteer service
+      // Call our Supabase function that integrates with the actual Puppeteer service
       const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'fetch_bill_data',
-          user_id: user.id,
-          meter_number: meterNumber
+          meter_number: meterNumber,
+          id_number: idNumber
         }
       });
 

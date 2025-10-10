@@ -418,9 +418,9 @@ const EnergyDashboard = () => {
                   <span className="text-sm text-aurora-green-light">
                     {hasMeterConnected ? energyProvider === 'Solar' ? 'Live Solar Data' : 'Live Smart Meter Data' : 'Demo Smart Meter Data'}
                   </span>
-                  {safeEnergyData.daily_total === 0 && (
+                  {safeEnergyData.daily_total === 0 && hasMeterConnected && (
                     <span className="text-xs text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
-                      No usage data yet
+                      No recent data
                     </span>
                   )}
                 </div>
@@ -428,9 +428,13 @@ const EnergyDashboard = () => {
                   onClick={getNewReading}
                   size="sm"
                   className="bg-aurora-green hover:bg-aurora-green/80"
-                  disabled={!hasMeterConnected}
+                  disabled={!hasMeterConnected || loading}
                 >
-                  <Zap className="h-4 w-4 mr-2" />
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
                   {hasMeterConnected ? energyProvider === 'Solar' ? 'Get Solar Reading' : 'Get Reading' : 'Setup Required'}
                 </Button>
               </div>
