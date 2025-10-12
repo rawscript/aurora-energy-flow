@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { africasTalkingSMSService, shouldUseSMSFallback } from './africasTalkingSMS';
 
 // KPLC bill data interface
 export interface KPLCBillData {
@@ -18,6 +19,7 @@ export interface KPLCBillData {
   tariff: string;
   status: 'active' | 'inactive' | 'disconnected';
   fetchedAt: string;
+  source?: 'puppeteer' | 'sms';
 }
 
 // Error types
@@ -29,17 +31,60 @@ export type KPLCError =
   | 'NETWORK_ERROR'
   | 'UNKNOWN_ERROR';
 
-// Simplified service that calls the backend Puppeteer function instead of running Puppeteer directly
+// Enhanced service that supports both Puppeteer and SMS fallback
 export class KPLCPuppeteerService {
-  // Fetch bill data from KPLC portal via backend function
-  async fetchBillData(meterNumber: string, idNumber: string): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> {
+  // Fetch bill data from KPLC portal - SMS FIRST approach
+  async fetchBillData(meterNumber: string, userId?: string, energyProvider?: string): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> {
     try {
-      // Call the backend Puppeteer service instead of running Puppeteer directly
+      // For KPLC, ALWAYS try SMS first if configured
+      if (shouldUseSMSFallback(energyProvider || 'KPLC')) {
+        console.log('🚀 Using SMS-first approach for KPLC...');
+        const smsResult = await this.fetchBillDataViaSMS(meterNumber, userId);
+        
+        // If SMS works, return it
+        if (smsResult.data) {
+          console.log('✅ SMS method successful');
+          return smsResult;
+        }
+        
+        // If SMS fails, try Puppeteer as backup
+        console.log('⚠️ SMS failed, trying Puppeteer backup...');
+        const puppeteerResult = await this.fetchBillDataViaPuppeteer(meterNumber, userId);
+        
+        if (puppeteerResult.data) {
+          console.log('✅ Puppeteer backup successful');
+          return puppeteerResult;
+        }
+        
+        // Both failed, return SMS error (more informative)
+        return smsResult;
+      }
+
+      // For non-KPLC providers, use Puppeteer only
+      console.log('🔧 Using Puppeteer for non-KPLC provider...');
+      return await this.fetchBillDataViaPuppeteer(meterNumber, userId);
+      
+    } catch (error: any) {
+      console.error('Exception in fetchBillData:', error);
+      
+      // Try SMS as last resort if available
+      if (shouldUseSMSFallback(energyProvider || 'KPLC')) {
+        console.log('🆘 Exception occurred, trying SMS as last resort...');
+        return await this.fetchBillDataViaSMS(meterNumber, userId);
+      }
+      
+      return { error: 'UNKNOWN_ERROR', message: `Failed to fetch data: ${error.message || 'Unknown error'}` };
+    }
+  }
+
+  // Fetch bill data via Puppeteer (original method)
+  private async fetchBillDataViaPuppeteer(meterNumber: string, userId?: string): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> {
+    try {
       const { data, error } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'fetch_bill_data',
           meter_number: meterNumber,
-          id_number: idNumber
+          user_id: userId
         }
       });
 
@@ -49,13 +94,73 @@ export class KPLCPuppeteerService {
       }
 
       if (data && data.success) {
-        return { data: data.data };
+        const billData = { ...data.data, source: 'puppeteer' as const };
+        return { data: billData };
       } else {
         return { error: 'UNKNOWN_ERROR', message: data?.error || 'Failed to fetch bill data' };
       }
     } catch (error: any) {
       console.error('Exception calling Puppeteer service:', error);
-      return { error: 'UNKNOWN_ERROR', message: `Failed to fetch data: ${error.message || 'Unknown error'}` };
+      throw error;
+    }
+  }
+
+  // Fetch bill data via SMS
+  private async fetchBillDataViaSMS(meterNumber: string, userId?: string): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> {
+    try {
+      // Get user's phone number
+      const phoneNumber = await this.getUserPhoneNumber(userId);
+      if (!phoneNumber) {
+        return { error: 'INVALID_CREDENTIALS', message: 'Phone number required for SMS service' };
+      }
+
+      // Use SMS service
+      const { data, error } = await supabase.functions.invoke('kplc_sms_service', {
+        body: {
+          action: 'fetch_bill_data',
+          meter_number: meterNumber,
+          user_id: userId,
+          phone_number: phoneNumber
+        }
+      });
+
+      if (error) {
+        console.error('Error calling SMS service:', error);
+        return { error: 'UNKNOWN_ERROR', message: error.message || 'Failed to fetch bill data via SMS' };
+      }
+
+      if (data && data.success) {
+        const billData = { ...data.data, source: 'sms' as const };
+        return { data: billData };
+      } else {
+        return { error: 'UNKNOWN_ERROR', message: data?.error || 'Failed to fetch bill data via SMS' };
+      }
+    } catch (error: any) {
+      console.error('Exception calling SMS service:', error);
+      return { error: 'UNKNOWN_ERROR', message: `Failed to fetch data via SMS: ${error.message || 'Unknown error'}` };
+    }
+  }
+
+  // Get user's phone number for SMS service
+  private async getUserPhoneNumber(userId?: string): Promise<string | null> {
+    if (!userId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('phone_number')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user phone number:', error);
+        return null;
+      }
+
+      return data?.phone_number || null;
+    } catch (error) {
+      console.error('Exception fetching user phone number:', error);
+      return null;
     }
   }
 
@@ -129,12 +234,11 @@ export const kplcService = new KPLCPuppeteerService();
 // Utility function to fetch and save KPLC data
 export const fetchAndSaveKPLCData = async (
   userId: string,
-  meterNumber: string,
-  idNumber: string
+  meterNumber: string
 ): Promise<{ data?: KPLCBillData; error?: KPLCError; message?: string }> => {
   try {
     // Try to fetch from backend Puppeteer service
-    const result = await kplcService.fetchBillData(meterNumber, idNumber);
+    const result = await kplcService.fetchBillData(meterNumber, userId);
     
     if (result.data) {
       // Save to Supabase

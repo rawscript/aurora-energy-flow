@@ -1,5 +1,4 @@
 import { TrendingUp, TrendingDown, Lightbulb, AlertTriangle, Info, Factory, Building, Home, Zap, Clock, DollarSign, Battery, Sun, Activity, Target, Cpu } from 'lucide-react';
-import * as ss from 'simple-statistics';
 
 // ML-based insight types
 export interface MLInsight {
@@ -23,9 +22,6 @@ export interface MLInsight {
     trend?: number;
     variance?: number;
     correlation?: number;
-    mse?: number;
-    mae?: number;
-    r2?: number;
   };
 }
 
@@ -44,7 +40,7 @@ export interface EnergyReading {
   frequency?: number;
 }
 
-// Enhanced ML Models for different analysis types
+// ML Models for different analysis types
 export class EnergyMLAnalyzer {
   private category: string;
   private industryType?: string;
@@ -53,9 +49,7 @@ export class EnergyMLAnalyzer {
   constructor(category: string, industryType?: string, readings: EnergyReading[] = []) {
     this.category = category;
     this.industryType = industryType;
-    this.readings = readings.sort((a, b) => 
-      new Date(a.reading_date).getTime() - new Date(b.reading_date).getTime()
-    );
+    this.readings = readings;
   }
 
   // Main ML analysis function
@@ -77,10 +71,10 @@ export class EnergyMLAnalyzer {
     // Sort by confidence and priority
     return insights
       .sort((a, b) => (b.confidence * b.priority) - (a.confidence * a.priority))
-      .slice(0, 8); // Increased from 5 to 8 insights
+      .slice(0, 5);
   }
 
-  // Enhanced Pattern Recognition ML Model with LSTM
+  // Pattern Recognition ML Model
   private async analyzeUsagePatterns(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
     
@@ -89,9 +83,6 @@ export class EnergyMLAnalyzer {
     const weeklyPatterns = this.extractWeeklyPatterns();
     const seasonalPatterns = this.extractSeasonalPatterns();
 
-    // LSTM-based pattern recognition for complex temporal patterns
-    const lstmPatterns = await this.lstmPatternRecognition();
-    
     // Detect peak usage patterns
     const peakHours = this.detectPeakHours(hourlyPatterns);
     if (peakHours.confidence > 0.7) {
@@ -110,7 +101,7 @@ export class EnergyMLAnalyzer {
         recommendation: peakHours.isOptimal ? 
           'Your peak usage pattern is well-optimized for cost efficiency.' :
           `Consider shifting ${peakHours.shiftableLoad}% of your load to off-peak hours (${peakHours.offPeakHours.join(', ')}) to reduce costs by an estimated ${peakHours.potentialSavings}%.`,
-        mlModel: 'LSTM Time Series Pattern Recognition',
+        mlModel: 'Time Series Pattern Recognition',
         dataPoints: this.readings.length,
         timeframe: this.getTimeframe(),
         metrics: {
@@ -127,47 +118,17 @@ export class EnergyMLAnalyzer {
       insights.push(weeklyInsight);
     }
 
-    // Add LSTM pattern insights
-    if (lstmPatterns.confidence > 0.65) {
-      insights.push({
-        id: 'ml-lstm-patterns',
-        type: 'pattern',
-        title: `Advanced Usage Pattern Analysis`,
-        description: `Deep learning analysis detected ${lstmPatterns.patterns.length} distinct usage patterns with ${lstmPatterns.confidence.toFixed(1)}% confidence. These patterns can help optimize your energy consumption.`,
-        icon: Cpu,
-        severity: 'info',
-        confidence: lstmPatterns.confidence,
-        category: this.category,
-        industryType: this.industryType,
-        priority: 7,
-        actionable: true,
-        recommendation: `Based on detected patterns, consider adjusting your usage schedule to align with optimal consumption periods.`,
-        mlModel: 'LSTM Neural Network Pattern Recognition',
-        dataPoints: this.readings.length,
-        timeframe: this.getTimeframe(),
-        metrics: {
-          accuracy: lstmPatterns.confidence / 100
-        }
-      });
-    }
-
     return insights;
   }
 
-  // Enhanced Anomaly Detection ML Model with Isolation Forest
+  // Anomaly Detection ML Model
   private async detectAnomalies(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
     
     // Statistical anomaly detection using Z-score and IQR
-    const statisticalAnomalies = this.detectStatisticalAnomalies();
+    const anomalies = this.detectStatisticalAnomalies();
     
-    // Isolation Forest-based anomaly detection for multivariate analysis
-    const isolationForestAnomalies = await this.isolationForestAnomalyDetection();
-    
-    // Combine anomalies from both methods
-    const allAnomalies = [...statisticalAnomalies, ...isolationForestAnomalies];
-
-    for (const anomaly of allAnomalies) {
+    for (const anomaly of anomalies) {
       if (anomaly.confidence > 0.75) {
         insights.push({
           id: `ml-anomaly-${anomaly.type}`,
@@ -182,7 +143,7 @@ export class EnergyMLAnalyzer {
           priority: anomaly.severity === 'high' ? 9 : 7,
           actionable: true,
           recommendation: anomaly.recommendation,
-          mlModel: anomaly.mlModel || 'Statistical Anomaly Detection (Z-score + IQR)',
+          mlModel: 'Statistical Anomaly Detection (Z-score + IQR)',
           dataPoints: this.readings.length,
           timeframe: anomaly.timeframe,
           metrics: {
@@ -196,18 +157,15 @@ export class EnergyMLAnalyzer {
     return insights;
   }
 
-  // Enhanced Predictive ML Model with LSTM
+  // Predictive ML Model
   private async predictFutureTrends(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
     
     // Linear regression for trend prediction
-    const linearTrendAnalysis = this.performTrendAnalysis();
+    const trendAnalysis = this.performTrendAnalysis();
     
-    // LSTM neural network for advanced time series forecasting
-    const lstmPrediction = await this.lstmForecasting();
-    
-    if (linearTrendAnalysis.confidence > 0.65) {
-      const prediction = this.predictNextPeriod(linearTrendAnalysis);
+    if (trendAnalysis.confidence > 0.65) {
+      const prediction = this.predictNextPeriod(trendAnalysis);
       
       insights.push({
         id: 'ml-trend-prediction',
@@ -216,7 +174,7 @@ export class EnergyMLAnalyzer {
         description: `ML trend analysis predicts your ${this.getCategoryName().toLowerCase()} energy usage will ${prediction.direction === 'increasing' ? 'increase' : 'decrease'} by ${prediction.percentChange.toFixed(1)}% over the next ${prediction.period}. Projected monthly cost: KSh ${prediction.projectedCost.toFixed(2)}.`,
         icon: prediction.direction === 'increasing' ? TrendingUp : TrendingDown,
         severity: prediction.direction === 'increasing' ? 'warning' : 'success',
-        confidence: linearTrendAnalysis.confidence * 100,
+        confidence: trendAnalysis.confidence * 100,
         category: this.category,
         industryType: this.industryType,
         priority: 6,
@@ -226,36 +184,9 @@ export class EnergyMLAnalyzer {
         dataPoints: this.readings.length,
         timeframe: this.getTimeframe(),
         metrics: {
-          accuracy: linearTrendAnalysis.confidence,
+          accuracy: trendAnalysis.confidence,
           trend: prediction.percentChange,
-          correlation: linearTrendAnalysis.correlation
-        }
-      });
-    }
-
-    // Add LSTM prediction insights
-    if (lstmPrediction.confidence > 0.7) {
-      insights.push({
-        id: 'ml-lstm-prediction',
-        type: 'prediction',
-        title: `Advanced Forecast: ${lstmPrediction.direction === 'increasing' ? 'Rising' : 'Declining'} Usage`,
-        description: `Deep learning forecast predicts ${lstmPrediction.direction === 'increasing' ? 'increasing' : 'decreasing'} energy usage with ${lstmPrediction.confidence.toFixed(1)}% confidence. Projected next reading: ${lstmPrediction.nextValue.toFixed(2)} kWh.`,
-        icon: lstmPrediction.direction === 'increasing' ? TrendingUp : TrendingDown,
-        severity: lstmPrediction.direction === 'increasing' ? 'warning' : 'success',
-        confidence: lstmPrediction.confidence,
-        category: this.category,
-        industryType: this.industryType,
-        priority: 7,
-        actionable: lstmPrediction.direction === 'increasing',
-        recommendation: `Based on advanced forecasting, consider implementing energy-saving measures to optimize consumption.`,
-        mlModel: 'LSTM Neural Network Forecasting',
-        dataPoints: this.readings.length,
-        timeframe: this.getTimeframe(),
-        metrics: {
-          accuracy: lstmPrediction.confidence / 100,
-          mse: lstmPrediction.mse,
-          mae: lstmPrediction.mae,
-          r2: lstmPrediction.r2
+          correlation: trendAnalysis.correlation
         }
       });
     }
@@ -263,15 +194,12 @@ export class EnergyMLAnalyzer {
     return insights;
   }
 
-  // Enhanced Efficiency Optimization ML Model with Q-Learning
+  // Efficiency Optimization ML Model
   private async optimizeEfficiency(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
     
     // Multi-variate analysis for efficiency optimization
     const efficiencyAnalysis = this.analyzeEfficiencyFactors();
-    
-    // Q-Learning based optimization recommendations
-    const qlOptimization = await this.qLearningOptimization();
     
     if (efficiencyAnalysis.confidence > 0.7) {
       insights.push({
@@ -297,42 +225,15 @@ export class EnergyMLAnalyzer {
       });
     }
 
-    // Add Q-Learning optimization insights
-    if (qlOptimization.confidence > 0.75 && qlOptimization.savings > 0) {
-      insights.push({
-        id: 'ml-ql-optimization',
-        type: 'optimization',
-        title: `AI-Optimized Energy Strategy: ${qlOptimization.savings.toFixed(1)}% Savings Potential`,
-        description: `Reinforcement learning analysis suggests optimal energy usage strategies that could save ${qlOptimization.savings.toFixed(1)}% on your energy costs. Recommended action: ${qlOptimization.recommendation}`,
-        icon: Lightbulb,
-        severity: 'success',
-        confidence: qlOptimization.confidence,
-        category: this.category,
-        industryType: this.industryType,
-        priority: 8,
-        actionable: true,
-        recommendation: qlOptimization.detailedRecommendation,
-        mlModel: 'Q-Learning Optimization Engine',
-        dataPoints: this.readings.length,
-        timeframe: this.getTimeframe(),
-        metrics: {
-          accuracy: qlOptimization.confidence / 100
-        }
-      });
-    }
-
     return insights;
   }
 
-  // Enhanced Behavioral Pattern ML Model with K-Means Clustering
+  // Behavioral Pattern ML Model
   private async analyzeBehavioralPatterns(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
     
     // Clustering analysis for behavioral patterns
     const behaviorAnalysis = this.clusterBehavioralPatterns();
-    
-    // K-Means clustering for user segmentation
-    const kmeansAnalysis = await this.kMeansUserSegmentation();
     
     if (behaviorAnalysis.confidence > 0.6) {
       insights.push({
@@ -357,42 +258,15 @@ export class EnergyMLAnalyzer {
       });
     }
 
-    // Add K-Means segmentation insights
-    if (kmeansAnalysis.confidence > 0.7) {
-      insights.push({
-        id: 'ml-kmeans-segmentation',
-        type: 'behavioral',
-        title: `User Profile: ${kmeansAnalysis.segment} Energy User`,
-        description: `Clustering analysis places you in the "${kmeansAnalysis.segment}" user segment. Your energy consumption pattern is similar to ${kmeansAnalysis.similarUsersPercentage}% of users in this category.`,
-        icon: Target,
-        severity: 'info',
-        confidence: kmeansAnalysis.confidence,
-        category: this.category,
-        industryType: this.industryType,
-        priority: 6,
-        actionable: kmeansAnalysis.segment !== 'Optimal',
-        recommendation: kmeansAnalysis.recommendation,
-        mlModel: 'K-Means User Segmentation',
-        dataPoints: this.readings.length,
-        timeframe: this.getTimeframe(),
-        metrics: {
-          accuracy: kmeansAnalysis.confidence / 100
-        }
-      });
-    }
-
     return insights;
   }
 
-  // Enhanced Cost Optimization ML Model with Linear Regression
+  // Cost Optimization ML Model
   private async detectCostOptimizations(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
     
     // Cost optimization through pattern analysis
     const costAnalysis = this.analyzeCostOptimization();
-    
-    // Linear regression for cost prediction
-    const linearRegressionAnalysis = await this.linearRegressionCostPrediction();
     
     if (costAnalysis.confidence > 0.65 && costAnalysis.potentialSavings > 5) {
       insights.push({
@@ -418,316 +292,7 @@ export class EnergyMLAnalyzer {
       });
     }
 
-    // Add Linear Regression cost prediction insights
-    if (linearRegressionAnalysis.confidence > 0.7) {
-      insights.push({
-        id: 'ml-linear-regression-cost',
-        type: 'cost',
-        title: `Predicted Cost Trend: ${linearRegressionAnalysis.trend > 0 ? 'Increasing' : 'Decreasing'}`,
-        description: `Linear regression model predicts your energy costs will ${linearRegressionAnalysis.trend > 0 ? 'increase' : 'decrease'} by KSh ${Math.abs(linearRegressionAnalysis.trend).toFixed(2)} per reading. R² score: ${linearRegressionAnalysis.r2.toFixed(3)}.`,
-        icon: linearRegressionAnalysis.trend > 0 ? TrendingUp : TrendingDown,
-        severity: linearRegressionAnalysis.trend > 0 ? 'warning' : 'success',
-        confidence: linearRegressionAnalysis.confidence,
-        category: this.category,
-        industryType: this.industryType,
-        priority: 7,
-        actionable: linearRegressionAnalysis.trend > 0,
-        recommendation: linearRegressionAnalysis.recommendation,
-        mlModel: 'Linear Regression Cost Prediction',
-        dataPoints: this.readings.length,
-        timeframe: this.getTimeframe(),
-        metrics: {
-          accuracy: linearRegressionAnalysis.confidence / 100,
-          r2: linearRegressionAnalysis.r2,
-          mse: linearRegressionAnalysis.mse
-        }
-      });
-    }
-
     return insights;
-  }
-
-  // Advanced ML Algorithms Implementation
-
-  // LSTM-based pattern recognition
-  private async lstmPatternRecognition(): Promise<{ patterns: any[], confidence: number }> {
-    try {
-      // Prepare time series data
-      const timeSeries = this.readings.map(r => r.kwh_consumed);
-      
-      // For demonstration, we'll use a simplified approach
-      // In a real implementation, we would train an LSTM model
-      const patterns = this.extractAdvancedPatterns(timeSeries);
-      
-      // Calculate confidence based on pattern consistency
-      const confidence = Math.min(95, 60 + (patterns.length * 5));
-      
-      return { patterns, confidence };
-    } catch (error) {
-      console.warn('LSTM pattern recognition failed:', error);
-      return { patterns: [], confidence: 0 };
-    }
-  }
-
-  // Isolation Forest anomaly detection
-  private async isolationForestAnomalyDetection(): Promise<any[]> {
-    try {
-      const anomalies = [];
-      
-      // Extract features for multivariate analysis
-      const features = this.readings.map(r => [
-        r.kwh_consumed,
-        r.total_cost,
-        r.peak_demand || 0,
-        r.power_factor || 0.8
-      ]);
-      
-      // Simple isolation approach using statistical methods
-      // In a real implementation, we would use a proper Isolation Forest
-      const means = features[0].map((_, i) => 
-        ss.mean(features.map(row => row[i]))
-      );
-      
-      const stdDevs = features[0].map((_, i) => 
-        ss.standardDeviation(features.map(row => row[i]))
-      );
-      
-      // Detect anomalies based on multivariate distance
-      this.readings.forEach((reading, index) => {
-        const featureVector = [
-          reading.kwh_consumed,
-          reading.total_cost,
-          reading.peak_demand || 0,
-          reading.power_factor || 0.8
-        ];
-        
-        // Calculate Mahalanobis distance (simplified)
-        const distances = featureVector.map((val, i) => 
-          Math.abs(val - means[i]) / (stdDevs[i] || 1)
-        );
-        
-        const maxDistance = Math.max(...distances);
-        
-        if (maxDistance > 2.5) {
-          anomalies.push({
-            type: 'multivariate',
-            severity: maxDistance > 3 ? 'high' : 'medium',
-            confidence: Math.min(0.95, maxDistance / 4),
-            deviation: maxDistance,
-            description: `Unusual combination of energy metrics on ${new Date(reading.reading_date).toLocaleDateString()}`,
-            recommendation: 'Review all energy metrics for this period to identify contributing factors',
-            timeframe: new Date(reading.reading_date).toLocaleDateString(),
-            mlModel: 'Isolation Forest Anomaly Detection'
-          });
-        }
-      });
-      
-      return anomalies;
-    } catch (error) {
-      console.warn('Isolation Forest anomaly detection failed:', error);
-      return [];
-    }
-  }
-
-  // LSTM forecasting
-  private async lstmForecasting(): Promise<any> {
-    try {
-      // Prepare time series data
-      const timeSeries = this.readings.map(r => r.kwh_consumed);
-      const n = timeSeries.length;
-      
-      if (n < 10) {
-        return { confidence: 0, direction: 'stable', nextValue: 0, mse: 0, mae: 0, r2: 0 };
-      }
-      
-      // Simple forecasting using moving averages for demonstration
-      // In a real implementation, we would use an actual LSTM model
-      const windowSize = Math.min(7, Math.floor(n / 2));
-      const recentValues = timeSeries.slice(-windowSize);
-      const forecast = ss.mean(recentValues);
-      
-      // Calculate trend direction
-      const lastValue = timeSeries[timeSeries.length - 1];
-      const direction = forecast > lastValue ? 'increasing' : forecast < lastValue ? 'decreasing' : 'stable';
-      
-      // Calculate metrics
-      const predictions = timeSeries.slice(windowSize).map((_, i) => {
-        const window = timeSeries.slice(i, i + windowSize);
-        return ss.mean(window);
-      });
-      
-      const actuals = timeSeries.slice(windowSize);
-      const mse = ss.mean(actuals.map((a, i) => Math.pow(a - predictions[i], 2)));
-      const mae = ss.mean(actuals.map((a, i) => Math.abs(a - predictions[i])));
-      const ssRes = ss.sum(actuals.map((a, i) => Math.pow(a - predictions[i], 2)));
-      const ssTot = ss.sum(actuals.map(a => Math.pow(a - ss.mean(actuals), 2)));
-      const r2 = 1 - (ssRes / (ssTot || 1));
-      
-      // Confidence based on model performance
-      const confidence = Math.min(90, Math.max(30, 100 - (mae * 2)));
-      
-      return {
-        confidence,
-        direction,
-        nextValue: forecast,
-        mse,
-        mae,
-        r2
-      };
-    } catch (error) {
-      console.warn('LSTM forecasting failed:', error);
-      return { confidence: 0, direction: 'stable', nextValue: 0, mse: 0, mae: 0, r2: 0 };
-    }
-  }
-
-  // Q-Learning optimization
-  private async qLearningOptimization(): Promise<any> {
-    try {
-      // Extract state features
-      const states = this.readings.map(r => ({
-        hour: new Date(r.reading_date).getHours(),
-        day: new Date(r.reading_date).getDay(),
-        consumption: r.kwh_consumed,
-        cost: r.total_cost
-      }));
-      
-      // Simple Q-Learning simulation
-      // In a real implementation, we would train a proper Q-Learning agent
-      const actionValues = new Map();
-      
-      // Evaluate potential actions (time shifting)
-      const offPeakHours = [22, 23, 0, 1, 2, 3, 4, 5];
-      const peakHours = [18, 19, 20, 21];
-      
-      let totalSavings = 0;
-      let totalCount = 0;
-      
-      states.forEach(state => {
-        if (peakHours.includes(state.hour)) {
-          const offPeakRate = 0.7; // 30% savings during off-peak
-          const potentialSavings = state.cost * (1 - offPeakRate);
-          totalSavings += potentialSavings;
-          totalCount++;
-        }
-      });
-      
-      const avgSavings = totalCount > 0 ? (totalSavings / totalCount) * 100 : 0;
-      const confidence = Math.min(90, Math.max(40, avgSavings));
-      
-      return {
-        confidence,
-        savings: avgSavings,
-        recommendation: 'Shift energy usage from peak to off-peak hours',
-        detailedRecommendation: `Based on your usage patterns, shifting ${Math.round(totalCount * 0.3)} kWh of peak usage to off-peak hours could save approximately ${avgSavings.toFixed(1)}% on your energy costs.`
-      };
-    } catch (error) {
-      console.warn('Q-Learning optimization failed:', error);
-      return { confidence: 0, savings: 0, recommendation: '', detailedRecommendation: '' };
-    }
-  }
-
-  // K-Means user segmentation
-  private async kMeansUserSegmentation(): Promise<any> {
-    try {
-      // Extract user features for clustering
-      const features = this.readings.map(r => [
-        r.kwh_consumed,
-        r.total_cost,
-        new Date(r.reading_date).getDay(),
-        new Date(r.reading_date).getHours()
-      ]);
-      
-      // Simple clustering approach using statistical methods
-      // In a real implementation, we would use actual K-Means clustering
-      const avgConsumption = ss.mean(this.readings.map(r => r.kwh_consumed));
-      const avgCost = ss.mean(this.readings.map(r => r.total_cost));
-      
-      // Determine user segment based on consumption patterns
-      let segment = 'Moderate';
-      let recommendation = 'Continue monitoring your energy usage patterns';
-      
-      if (avgConsumption > ss.quantile(this.readings.map(r => r.kwh_consumed), 0.75)) {
-        segment = 'High Consumption';
-        recommendation = 'Consider energy efficiency measures to reduce consumption';
-      } else if (avgConsumption < ss.quantile(this.readings.map(r => r.kwh_consumed), 0.25)) {
-        segment = 'Low Consumption';
-        recommendation = 'Your energy usage is efficient, maintain current practices';
-      } else {
-        segment = 'Moderate';
-        recommendation = 'Monitor usage patterns for optimization opportunities';
-      }
-      
-      // Calculate similarity to segment (simplified)
-      const similarUsersPercentage = Math.min(90, Math.max(30, 100 - (Math.abs(avgConsumption - ss.median(this.readings.map(r => r.kwh_consumed))) / avgConsumption) * 100));
-      const confidence = Math.min(85, Math.max(50, similarUsersPercentage));
-      
-      return {
-        confidence,
-        segment,
-        similarUsersPercentage,
-        recommendation
-      };
-    } catch (error) {
-      console.warn('K-Means user segmentation failed:', error);
-      return { confidence: 0, segment: 'Unknown', similarUsersPercentage: 0, recommendation: '' };
-    }
-  }
-
-  // Linear regression cost prediction
-  private async linearRegressionCostPrediction(): Promise<any> {
-    try {
-      const n = this.readings.length;
-      if (n < 5) {
-        return { confidence: 0, trend: 0, r2: 0, mse: 0, recommendation: '' };
-      }
-      
-      // Prepare data for linear regression
-      const xValues = Array.from({ length: n }, (_, i) => i);
-      const yValues = this.readings.map(r => r.total_cost);
-      
-      // Calculate linear regression coefficients
-      const xMean = ss.mean(xValues);
-      const yMean = ss.mean(yValues);
-      
-      const numerator = xValues.reduce((sum, x, i) => sum + (x - xMean) * (yValues[i] - yMean), 0);
-      const denominator = xValues.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
-      
-      const slope = denominator !== 0 ? numerator / denominator : 0;
-      const intercept = yMean - slope * xMean;
-      
-      // Calculate R-squared
-      const yPredicted = xValues.map(x => slope * x + intercept);
-      const ssRes = yValues.reduce((sum, y, i) => sum + Math.pow(y - yPredicted[i], 2), 0);
-      const ssTot = yValues.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
-      const r2 = 1 - (ssRes / (ssTot || 1));
-      
-      // Calculate MSE
-      const mse = ssRes / n;
-      
-      // Confidence based on model fit
-      const confidence = Math.min(90, Math.max(20, r2 * 100));
-      
-      // Recommendation based on trend
-      let recommendation = '';
-      if (slope > 0) {
-        recommendation = 'Monitor increasing costs and consider energy efficiency measures';
-      } else if (slope < 0) {
-        recommendation = 'Your energy costs are decreasing, maintain current practices';
-      } else {
-        recommendation = 'Your energy costs are stable, continue monitoring';
-      }
-      
-      return {
-        confidence,
-        trend: slope,
-        r2,
-        mse,
-        recommendation
-      };
-    } catch (error) {
-      console.warn('Linear regression cost prediction failed:', error);
-      return { confidence: 0, trend: 0, r2: 0, mse: 0, recommendation: '' };
-    }
   }
 
   // Helper Methods for ML Analysis
@@ -785,74 +350,6 @@ export class EnergyMLAnalyzer {
       average: data.count > 0 ? data.total / data.count : 0,
       count: data.count
     }));
-  }
-
-  private extractAdvancedPatterns(timeSeries: number[]) {
-    // Extract advanced patterns using statistical methods
-    const patterns = [];
-    
-    // Detect trends
-    const trend = this.calculateTrendSimple(timeSeries);
-    if (Math.abs(trend) > 0.1) {
-      patterns.push({
-        type: 'trend',
-        direction: trend > 0 ? 'increasing' : 'decreasing',
-        strength: Math.abs(trend)
-      });
-    }
-    
-    // Detect seasonality (weekly pattern)
-    const weeklyPattern = this.detectWeeklyPattern(timeSeries);
-    if (weeklyPattern.confidence > 0.7) {
-      patterns.push({
-        type: 'seasonal',
-        period: 'weekly',
-        confidence: weeklyPattern.confidence
-      });
-    }
-    
-    // Detect volatility
-    const volatility = ss.standardDeviation(timeSeries) / ss.mean(timeSeries);
-    if (volatility > 0.3) {
-      patterns.push({
-        type: 'volatile',
-        volatility: volatility
-      });
-    }
-    
-    return patterns;
-  }
-
-  private calculateTrendSimple(data: number[]): number {
-    if (data.length < 2) return 0;
-    
-    const n = data.length;
-    const xValues = Array.from({ length: n }, (_, i) => i);
-    const yValues = data;
-    
-    const xMean = ss.mean(xValues);
-    const yMean = ss.mean(yValues);
-    
-    const numerator = xValues.reduce((sum, x, i) => sum + (x - xMean) * (yValues[i] - yMean), 0);
-    const denominator = xValues.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
-    
-    return denominator !== 0 ? numerator / denominator : 0;
-  }
-
-  private detectWeeklyPattern(data: number[]): { confidence: number } {
-    if (data.length < 14) return { confidence: 0 };
-    
-    // Simple autocorrelation at lag 7 (weekly)
-    let autocorr = 0;
-    let count = 0;
-    
-    for (let i = 7; i < data.length; i++) {
-      autocorr += data[i] * data[i - 7];
-      count++;
-    }
-    
-    const confidence = count > 0 ? Math.min(1, Math.abs(autocorr) / count) : 0;
-    return { confidence };
   }
 
   private detectPeakHours(hourlyPatterns: any[]) {
@@ -976,14 +473,14 @@ export class EnergyMLAnalyzer {
   }
 
   private detectZScoreAnomalies(values: number[], type: string) {
-    const mean = ss.mean(values);
-    const stdDev = ss.standardDeviation(values);
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const stdDev = Math.sqrt(values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length);
     
     const anomalies = [];
     const threshold = 2.5; // Z-score threshold
     
     values.forEach((value, index) => {
-      const zScore = Math.abs((value - mean) / (stdDev || 1));
+      const zScore = Math.abs((value - mean) / stdDev);
       if (zScore > threshold) {
         const reading = this.readings[index];
         const severity = zScore > 3 ? 'high' : 'medium';
@@ -1006,8 +503,8 @@ export class EnergyMLAnalyzer {
 
   private detectIQRAnomalies(values: number[], type: string) {
     const sorted = [...values].sort((a, b) => a - b);
-    const q1 = ss.quantile(sorted, 0.25);
-    const q3 = ss.quantile(sorted, 0.75);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
     const iqr = q3 - q1;
     const lowerBound = q1 - 1.5 * iqr;
     const upperBound = q3 + 1.5 * iqr;
@@ -1024,9 +521,9 @@ export class EnergyMLAnalyzer {
           type: `${type}_iqr`,
           severity,
           confidence,
-          deviation: value > upperBound ? (value - upperBound) / (iqr || 1) : (lowerBound - value) / (iqr || 1),
+          deviation: value > upperBound ? (value - upperBound) / iqr : (lowerBound - value) / iqr,
           description: `${type} outlier of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${new Date(reading.reading_date).toLocaleDateString()}`,
-          recommendation: this.getAnomalyRecommendation(type, severity, value, ss.mean(values)),
+          recommendation: this.getAnomalyRecommendation(type, severity, value, (q1 + q3) / 2),
           timeframe: new Date(reading.reading_date).toLocaleDateString()
         });
       }
@@ -1041,20 +538,20 @@ export class EnergyMLAnalyzer {
     const yValues = this.readings.map(r => r.kwh_consumed);
     
     // Linear regression
-    const xMean = ss.mean(xValues);
-    const yMean = ss.mean(yValues);
+    const xMean = xValues.reduce((sum, x) => sum + x, 0) / n;
+    const yMean = yValues.reduce((sum, y) => sum + y, 0) / n;
     
     const numerator = xValues.reduce((sum, x, i) => sum + (x - xMean) * (yValues[i] - yMean), 0);
     const denominator = xValues.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
     
-    const slope = denominator !== 0 ? numerator / denominator : 0;
+    const slope = numerator / denominator;
     const intercept = yMean - slope * xMean;
     
     // Calculate R-squared (correlation coefficient)
     const yPredicted = xValues.map(x => slope * x + intercept);
     const ssRes = yValues.reduce((sum, y, i) => sum + Math.pow(y - yPredicted[i], 2), 0);
     const ssTot = yValues.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
-    const rSquared = 1 - (ssRes / (ssTot || 1));
+    const rSquared = 1 - (ssRes / ssTot);
     
     const confidence = Math.max(0.3, Math.min(0.95, Math.abs(rSquared)));
     
@@ -1069,12 +566,13 @@ export class EnergyMLAnalyzer {
   private predictNextPeriod(trendAnalysis: any) {
     const lastIndex = this.readings.length - 1;
     const nextValue = trendAnalysis.slope * (lastIndex + 30) + trendAnalysis.intercept; // 30 days ahead
-    const currentAvg = ss.mean(this.readings.slice(-7).map(r => r.kwh_consumed));
+    const currentAvg = this.readings.slice(-7).reduce((sum, r) => sum + r.kwh_consumed, 0) / 7;
     
-    const percentChange = currentAvg !== 0 ? ((nextValue - currentAvg) / currentAvg) * 100 : 0;
+    const percentChange = ((nextValue - currentAvg) / currentAvg) * 100;
     const direction = percentChange > 0 ? 'increasing' : 'decreasing';
     
-    const avgCostPerKwh = ss.mean(this.readings.map(r => r.total_cost / (r.kwh_consumed || 1)));
+    const avgCostPerKwh = this.readings.reduce((sum, r) => sum + r.total_cost, 0) / 
+                         this.readings.reduce((sum, r) => sum + r.kwh_consumed, 0);
     const projectedCost = nextValue * avgCostPerKwh * 30; // Monthly projection
     
     return {
@@ -1093,9 +591,9 @@ export class EnergyMLAnalyzer {
     }
 
     // Calculate efficiency metrics
-    const avgUsage = ss.mean(readings.map(r => r.kwh_consumed));
-    const avgCost = ss.mean(readings.map(r => r.total_cost));
-    const costPerKwh = avgCost / (avgUsage || 1);
+    const avgUsage = readings.reduce((sum, r) => sum + r.kwh_consumed, 0) / readings.length;
+    const avgCost = readings.reduce((sum, r) => sum + r.total_cost, 0) / readings.length;
+    const costPerKwh = avgCost / avgUsage;
     
     // Efficiency factors analysis
     const timeEfficiency = this.analyzeTimeEfficiency(readings);
@@ -1162,7 +660,7 @@ export class EnergyMLAnalyzer {
     };
     
     const confidence = Math.min(0.9, readings.length / 30);
-    const currentMonthlyCost = ss.mean(readings.map(r => r.total_cost)) * (30 / readings.length);
+    const currentMonthlyCost = readings.reduce((sum, r) => sum + r.total_cost, 0) * (30 / readings.length);
     
     return {
       confidence,
@@ -1243,16 +741,15 @@ export class EnergyMLAnalyzer {
     const values = hourlyData.map(h => h.average);
     const n = values.length;
     const xSum = (n * (n - 1)) / 2;
-    const ySum = ss.sum(values);
+    const ySum = values.reduce((sum, val) => sum + val, 0);
     const xySum = values.reduce((sum, val, i) => sum + val * i, 0);
     const xSquareSum = (n * (n - 1) * (2 * n - 1)) / 6;
     
-    const denominator = n * xSquareSum - xSum * xSum;
-    return denominator !== 0 ? (n * xySum - xSum * ySum) / denominator : 0;
+    return (n * xySum - xSum * ySum) / (n * xSquareSum - xSum * xSum);
   }
 
   private calculateWeeklyEfficiency(weekdayAvg: number, weekendAvg: number) {
-    const ratio = weekdayAvg !== 0 ? weekendAvg / weekdayAvg : 0;
+    const ratio = weekendAvg / weekdayAvg;
     let score = 70; // Base score
     let pattern = 'balanced';
     let comparison = 'typical';
@@ -1340,7 +837,7 @@ export class EnergyMLAnalyzer {
       }
     });
 
-    return Math.min(100, (optimalUsage / (totalUsage || 1)) * 100 + 20); // Base score + efficiency bonus
+    return Math.min(100, (optimalUsage / totalUsage) * 100 + 20); // Base score + efficiency bonus
   }
 
   private analyzeCostEfficiency(costPerKwh: number): number {
@@ -1358,9 +855,9 @@ export class EnergyMLAnalyzer {
 
   private analyzeConsistency(readings: EnergyReading[]): number {
     const usageValues = readings.map(r => r.kwh_consumed);
-    const mean = ss.mean(usageValues);
-    const variance = ss.variance(usageValues);
-    const coefficientOfVariation = mean !== 0 ? Math.sqrt(variance) / mean : 0;
+    const mean = usageValues.reduce((sum, val) => sum + val, 0) / usageValues.length;
+    const variance = usageValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / usageValues.length;
+    const coefficientOfVariation = Math.sqrt(variance) / mean;
     
     // Lower variation = higher consistency score
     return Math.max(0, 100 - (coefficientOfVariation * 100));
@@ -1383,7 +880,7 @@ export class EnergyMLAnalyzer {
     const readings = this.readings.slice(-30);
     
     return {
-      avgDailyUsage: ss.mean(readings.map(r => r.kwh_consumed)),
+      avgDailyUsage: readings.reduce((sum, r) => sum + r.kwh_consumed, 0) / readings.length,
       peakHourRatio: this.calculatePeakHourRatio(readings),
       weekendRatio: this.calculateWeekendRatio(readings),
       variability: this.calculateVariability(readings),
@@ -1448,7 +945,7 @@ export class EnergyMLAnalyzer {
       }
     });
 
-    const peakRatio = totalUsage > 0 ? peakUsage / totalUsage : 0;
+    const peakRatio = peakUsage / totalUsage;
     const savings = Math.min(25, peakRatio * 30); // Max 25% savings
 
     return {
@@ -1522,20 +1019,20 @@ export class EnergyMLAnalyzer {
 
   private calculateVariability(readings: EnergyReading[]): number {
     const values = readings.map(r => r.kwh_consumed);
-    const mean = ss.mean(values);
-    const variance = ss.variance(values);
-    return mean !== 0 ? Math.sqrt(variance) / mean : 0; // Coefficient of variation
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    return Math.sqrt(variance) / mean; // Coefficient of variation
   }
 
   private calculateCostSensitivity(readings: EnergyReading[]): number {
     // Analyze how usage responds to cost changes
-    const costPerKwh = readings.map(r => r.total_cost / (r.kwh_consumed || 1));
+    const costPerKwh = readings.map(r => r.total_cost / r.kwh_consumed);
     const usage = readings.map(r => r.kwh_consumed);
     
     // Simple correlation between cost and usage (inverse relationship expected)
     const n = readings.length;
-    const costMean = ss.mean(costPerKwh);
-    const usageMean = ss.mean(usage);
+    const costMean = costPerKwh.reduce((sum, c) => sum + c, 0) / n;
+    const usageMean = usage.reduce((sum, u) => sum + u, 0) / n;
     
     const numerator = costPerKwh.reduce((sum, c, i) => sum + (c - costMean) * (usage[i] - usageMean), 0);
     const denominator = Math.sqrt(

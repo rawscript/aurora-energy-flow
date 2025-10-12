@@ -23,6 +23,7 @@ const TestEnv = lazy(() => import("./test-env"));
 const TestRealTime = lazy(() => import("./pages/TestRealTime"));
 const TestSolarProvider = lazy(() => import("./pages/TestSolarProvider"));
 const TestKPLCPuppeteer = lazy(() => import("./pages/TestKPLCPuppeteer"));
+const MLTestComponent = lazy(() => import("./components/MLTestComponent"));
 
 // Optimized query client for better performance and caching
 const queryClient = new QueryClient({
@@ -90,6 +91,14 @@ const AppContent = () => (
                     element={
                       <ProtectedRoute>
                         <TestKPLCPuppeteer />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/test-ml"
+                    element={
+                      <ProtectedRoute>
+                        <MLTestComponent />
                       </ProtectedRoute>
                     }
                   />

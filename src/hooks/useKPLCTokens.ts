@@ -299,7 +299,8 @@ export const useKPLCTokens = (energyProvider: string = '') => {
       const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'fetch_bill_data',
-          meter_number: meterNumber
+          meter_number: meterNumber,
+          user_id: user!.id
         }
       });
 
@@ -359,15 +360,36 @@ export const useKPLCTokens = (energyProvider: string = '') => {
 
       console.log(`Purchasing KPLC tokens: KSh ${amount} for meter ${meterNumber}`);
 
+      // Get user's ID number for authentication
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id_number, phone_number')
+        .eq('id', user!.id)
+        .single();
+      
+      if (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        toast({
+          title: 'Purchase Failed',
+          description: 'Failed to fetch user profile. Please try again.',
+          variant: 'destructive'
+        });
+        return null;
+      }
+      
+      const idNumber = profileData.id_number || profileData.phone_number;
+      
       // Call our Supabase function that integrates with the actual Puppeteer service
       const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'purchase_tokens',
           meter_number: meterNumber,
+          id_number: idNumber,
           amount: amount,
           phone_number: phoneNumber,
           payment_method: paymentMethod,
-          vendor: vendor
+          vendor: vendor,
+          user_id: user!.id
         }
       });
 

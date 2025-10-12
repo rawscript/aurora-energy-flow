@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Info, Battery, Sun, House, TrendingUp, TrendingDown, AlertTriangle, Zap } from 'lucide-react';
+import { Info, Battery, Sun, House, TrendingUp, TrendingDown, AlertTriangle, Zap, Cpu } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
 import { useMeter } from '@/contexts/MeterContext'; // Import meter context
+import { generateMLInsights, type MLInsight, type EnergyReading } from '@/utils/mlInsights';
 
 interface EnergyInsightsProps {
   onNavigateToMeter?: () => void;
@@ -36,8 +37,55 @@ const generateInsights = () => {
 const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) => {
   const { provider: energyProvider, providerConfig } = useEnergyProvider();
   const { status: meterStatus, deviceType } = useMeter(); // Get meter status from context
-  const { energyData, analytics, loading } = useRealTimeEnergy(energyProvider);
+  const { energyData, analytics, loading, recentReadings } = useRealTimeEnergy(energyProvider);
   const isMobile = useIsMobile();
+  
+  // State for ML insights
+  const [mlInsights, setMlInsights] = useState<MLInsight[]>([]);
+  const [mlLoading, setMlLoading] = useState(false);
+  
+  // Get meter category from energy data or fallback
+  const meterCategory = energyData.meter_category || 'household';
+  const industryType = energyData.industry_type;
+
+  // Generate ML insights when we have enough data
+  useEffect(() => {
+    const generateMLInsightsData = async () => {
+      if (meterStatus === 'connected' && recentReadings && recentReadings.length >= 7) {
+        try {
+          setMlLoading(true);
+          // Convert energy readings to the format expected by ML insights
+          const energyReadings: EnergyReading[] = recentReadings.map(reading => ({
+            id: reading.id,
+            user_id: reading.user_id,
+            meter_number: reading.meter_number,
+            reading_date: reading.reading_date,
+            kwh_consumed: reading.kwh_consumed,
+            total_cost: reading.total_cost,
+            peak_demand: reading.peak_usage,
+            power_factor: 0.8, // Default value, would come from actual data
+            voltage: 240, // Default value, would come from actual data
+            current: reading.kwh_consumed / 240, // Rough calculation, would come from actual data
+            frequency: 50 // Default value, would come from actual data
+          }));
+          
+          const generatedInsights = await generateMLInsights(
+            meterCategory,
+            industryType,
+            energyReadings
+          );
+          
+          setMlInsights(generatedInsights);
+        } catch (error) {
+          console.error('Error generating ML insights:', error);
+        } finally {
+          setMlLoading(false);
+        }
+      }
+    };
+    
+    generateMLInsightsData();
+  }, [meterStatus, recentReadings, meterCategory, industryType]);
 
   // Handle meter setup navigation
   const handleSetupMeter = () => {
@@ -62,7 +110,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
     );
   }
 
-  // Determine if meter is connected based on meter context
+  // Determine if meter is connected based on context
   const hasMeterConnected = meterStatus === 'connected';
   const meterConnectionChecked = meterStatus !== 'checking';
 
@@ -248,6 +296,75 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
           </div>
         );
       })}
+
+      {/* ML Insights Section */}
+      {mlInsights.length > 0 && (
+        <Card className="bg-aurora-card border-aurora-purple/20">
+          <CardHeader>
+            <CardTitle className="text-xl text-aurora-purple-light flex items-center space-x-2">
+              <Cpu className="h-6 w-6" />
+              <span>AI-Powered ML Insights</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {mlInsights.map((insight) => {
+              const IconComponent = insight.icon;
+              return (
+                <div 
+                  key={`ml-${insight.id}`} 
+                  className={`p-4 rounded-lg border transition-all hover:border-opacity-50 ${
+                    insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
+                    insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                    insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                    'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    <div className="mt-0.5">
+                      <IconComponent className={`h-6 w-6 ${
+                        insight.severity === 'alert' ? 'text-red-400' :
+                        insight.severity === 'warning' ? 'text-amber-400' :
+                        insight.severity === 'success' ? 'text-green-400' :
+                        'text-blue-400'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className={`font-medium ${
+                            insight.severity === 'alert' ? 'text-red-400' :
+                            insight.severity === 'warning' ? 'text-amber-400' :
+                            insight.severity === 'success' ? 'text-green-400' :
+                            'text-blue-400'
+                          }`}>
+                            {insight.title}
+                          </h4>
+                          <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
+                          
+                          {/* Confidence and Model Info */}
+                          <div className="flex items-center mt-2 text-xs text-gray-400">
+                            <span className="mr-3">Confidence: {insight.confidence.toFixed(1)}%</span>
+                            <span>Model: {insight.mlModel}</span>
+                          </div>
+                          
+                          {/* Recommendation */}
+                          {insight.recommendation && (
+                            <div className="mt-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
+                              <p className="text-xs text-gray-300">
+                                <strong className="text-aurora-green-light">Recommendation:</strong> {insight.recommendation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Efficiency Score */}
       <Card className="bg-aurora-card border-aurora-green/20">

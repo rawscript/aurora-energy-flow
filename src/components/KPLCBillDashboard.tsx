@@ -26,37 +26,26 @@ const KPLCBillDashboard: React.FC = () => {
     error, 
     lastFetched, 
     fetchBillData, 
-    getLatestBillData, 
-    getUserCredentials 
+    getLatestBillData
   } = useKPLCPuppeteer();
   
+  const { profile, loading: profileLoading } = useProfile();
   const { toast } = useToast();
-  const [meterNumber, setMeterNumber] = useState('');
-  const [idNumber, setIdNumber] = useState('');
   const [isFetching, setIsFetching] = useState(false);
 
-  // Load user credentials on mount
+  // Load latest bill data when profile is available
   useEffect(() => {
-    const loadCredentials = async () => {
-      const { meterNumber: savedMeter, idNumber: savedId } = await getUserCredentials();
-      if (savedMeter) setMeterNumber(savedMeter);
-      if (savedId) setIdNumber(savedId);
-      
-      // If we have credentials, try to load latest data
-      if (savedMeter) {
-        await getLatestBillData(savedMeter);
-      }
-    };
-
-    loadCredentials();
-  }, [getUserCredentials, getLatestBillData]);
+    if (profile?.meter_number) {
+      getLatestBillData(profile.meter_number);
+    }
+  }, [profile, getLatestBillData]);
 
   // Handle fetch bill data
   const handleFetchBillData = async () => {
-    if (!meterNumber || !idNumber) {
+    if (!profile?.meter_number) {
       toast({
-        title: "Missing Information",
-        description: "Please enter both meter number and ID number.",
+        title: "Meter Not Set Up",
+        description: "Please set up your meter in the Meter Setup section first.",
         variant: "destructive",
       });
       return;
@@ -64,14 +53,14 @@ const KPLCBillDashboard: React.FC = () => {
 
     setIsFetching(true);
     try {
-      const result = await fetchBillData(meterNumber, idNumber);
+      const result = await fetchBillData(profile.meter_number);
       
       // Check if there was an error in the result
       if (result.error) {
         let errorMessage = result.error;
         // Provide more user-friendly error messages
         if (errorMessage.includes('Invalid')) {
-          errorMessage = "Invalid meter number or ID number. Please check your credentials and try again.";
+          errorMessage = "Invalid meter number. Please check your meter number and try again.";
         } else if (errorMessage.includes('timeout')) {
           errorMessage = "Request timed out. The KPLC portal may be slow or unavailable. Please try again later.";
         } else if (errorMessage.includes('navigation')) {
@@ -91,10 +80,10 @@ const KPLCBillDashboard: React.FC = () => {
 
   // Handle refresh
   const handleRefresh = async () => {
-    if (!meterNumber || !idNumber) {
+    if (!profile?.meter_number) {
       toast({
-        title: "Missing Information",
-        description: "Please enter both meter number and ID number.",
+        title: "Meter Not Set Up",
+        description: "Please set up your meter in the Meter Setup section first.",
         variant: "destructive",
       });
       return;
@@ -102,7 +91,7 @@ const KPLCBillDashboard: React.FC = () => {
 
     setIsFetching(true);
     try {
-      await fetchBillData(meterNumber, idNumber);
+      await fetchBillData(profile.meter_number);
     } finally {
       setIsFetching(false);
     }

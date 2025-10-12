@@ -36,8 +36,12 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useKPLCTokens } from '../hooks/useKPLCTokens';
 import { useKPLCPuppeteer } from '../hooks/useKPLCPuppeteer';
+import { useKPLCTokensWithSMS } from '../hooks/useKPLCTokensWithSMS';
+import { SMSFallbackStatus } from './SMSFallbackStatus';
+import { shouldUseSMSFallback } from '../utils/africasTalkingSMS';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useIsMobile } from '../hooks/use-mobile';
+import { useProfile } from '../hooks/use-profile';
 
 interface KPLCTokenDashboardProps {
   energyProvider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
@@ -66,6 +70,14 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     getLatestBillData, 
     getUserCredentials 
   } = useKPLCPuppeteer();
+
+  // SMS fallback hook
+  const {
+    purchaseTokens: purchaseTokensWithSMS,
+    checkBalance: checkBalanceWithSMS,
+    loading: smsLoading,
+    error: smsError
+  } = useKPLCTokensWithSMS();
   
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -372,6 +384,17 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      {/* SMS Fallback Status */}
+      <SMSFallbackStatus 
+        energyProvider={energyProvider}
+        onConfigureClick={() => {
+          toast({
+            title: 'SMS Configuration',
+            description: 'Add VITE_AFRICAS_TALKING_API_KEY and VITE_AFRICAS_TALKING_USERNAME to your environment variables.',
+          });
+        }}
+      />
+
       {/* Data Source and Refresh Header */}
       <Card className="bg-aurora-card border-aurora-green/20">
         <CardContent className="p-4">
@@ -917,7 +940,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                 
                 <div className="pt-4 border-t border-slate-700">
                   <Button 
-                    onClick={() => fetchBillData(billData.meterNumber, '')} // ID number would need to be provided
+                    onClick={() => fetchBillData(profile?.meter_number || '')}
                     size="sm" 
                     variant="outline"
                     className="border-aurora-blue/30 hover:bg-aurora-blue/10"
@@ -938,10 +961,15 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                   Connect to KPLC portal to view your bill information
                 </p>
                 <Button 
-                  onClick={async () => {
-                    const { meterNumber, idNumber } = await getUserCredentials();
-                    if (meterNumber) {
-                      fetchBillData(meterNumber, idNumber || '');
+                  onClick={() => {
+                    if (profile?.meter_number) {
+                      fetchBillData(profile.meter_number);
+                    } else {
+                      toast({
+                        title: "Meter Not Set Up",
+                        description: "Please set up your meter in the Meter Setup section first.",
+                        variant: "destructive",
+                      });
                     }
                   }}
                   size="sm" 

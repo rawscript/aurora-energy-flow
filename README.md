@@ -3,6 +3,8 @@ Aurora Energy – AI-Powered Energy Optimization for Kenya
 
 Aurora Energy is an AI-based energy management platform that optimizes electricity consumption in Kenya through secure smart meter API integration and advanced data analytics. The system's technical contributions include automated energy bill forecasting using dynamic tariff algorithms, USSD/SMS interfaces for universal accessibility across mobile platforms, and behavioral modification through AI-generated efficiency recommendations. By processing real-time consumption patterns, the platform identifies peak-hour overuse and equipment anomalies while providing actionable conservation strategies. Initial implementations demonstrate 20-30% reduction in household energy expenditures, with particular effectiveness in budget-constrained environments. The architecture's compatibility with existing utility infrastructure enables rapid deployment across Kenya's 7.5 million grid-connected users without requiring additional hardware. Furthermore, the solution supports national energy policy objectives by contributing to grid load balancing and emission reduction targets. Future development will focus on machine learning optimization for predictive consumption modeling and potential integration with distributed renewable energy systems.
 
+See NLP and LLM Integration for how conversational AI ties into the ML algorithms and energy analytics.
+
 ## Smart Meter Simulator
 
 This repository includes a smart meter simulator that can be deployed to test the Aurora Energy system. The simulator is located in the [simulator](simulator) directory and includes:

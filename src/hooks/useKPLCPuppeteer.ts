@@ -15,7 +15,7 @@ export const useKPLCPuppeteer = () => {
   const { toast } = useToast();
 
   // Fetch bill data from KPLC portal using actual Puppeteer service
-  const fetchBillData = useCallback(async (meterNumber: string, idNumber: string) => {
+  const fetchBillData = useCallback(async (meterNumber: string) => {
     if (!hasValidSession() || !user) {
       toast({
         title: "Authentication Required",
@@ -30,11 +30,12 @@ export const useKPLCPuppeteer = () => {
       setError(null);
 
       // Call our Supabase function that integrates with the actual Puppeteer service
+      // Note: We only pass meterNumber and user_id, no ID number needed for bill data
       const { data, error: rpcError } = await supabase.functions.invoke('puppeteer_kplc_service', {
         body: {
           action: 'fetch_bill_data',
           meter_number: meterNumber,
-          id_number: idNumber
+          user_id: user.id
         }
       });
 
@@ -69,7 +70,7 @@ export const useKPLCPuppeteer = () => {
         
         // Provide more user-friendly error messages
         if (errorMessage.includes('Invalid')) {
-          errorMessage = "Invalid meter number or ID number. Please check your credentials and try again.";
+          errorMessage = "Invalid meter number. Please check your meter number and try again.";
         } else if (errorMessage.includes('timeout')) {
           errorMessage = "Request timed out. The KPLC portal may be slow or unavailable. Please try again later.";
         } else if (errorMessage.includes('navigation')) {
