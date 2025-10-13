@@ -1,5 +1,7 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 // CORS headers
 const corsHeaders = {
@@ -21,44 +23,73 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Parse the incoming SMS data from Africa's Talking
+    // Parse the incoming data from Africa's Talking
     const body = await req.text();
     const params = new URLSearchParams(body);
     
+    // Check if this is a delivery report
+    const status = params.get('status');
+    const messageId = params.get('id');
+    const phoneNumber = params.get('phoneNumber');
+    const networkCode = params.get('networkCode');
+    const retryCount = params.get('retryCount');
+    
+    // Check if this is an incoming SMS
     const from = params.get('from');
     const to = params.get('to');
     const text = params.get('text');
     const date = params.get('date');
-    const id = params.get('id');
     const linkId = params.get('linkId');
 
-    console.log('Received SMS webhook:', {
+    console.log('Received webhook:', {
+      type: status ? 'delivery_report' : 'incoming_sms',
       from,
       to,
       text,
       date,
-      id,
+      messageId,
+      status,
+      phoneNumber,
+      networkCode,
+      retryCount,
       linkId
     });
 
-    // Validate required fields
-    if (!from || !text) {
+    // Handle delivery reports for Aurora SMS alerts
+    if (status && messageId) {
+      await handleDeliveryReport(supabase, messageId, status, phoneNumber, {
+        networkCode,
+        retryCount,
+        timestamp: new Date().toISOString()
+      });
+      
       return new Response(JSON.stringify({
-        error: "Missing required fields: from and text",
-        code: "MISSING_FIELDS"
+        success: true,
+        message: "Delivery report processed successfully",
+        timestamp: new Date().toISOString()
+      }), {
+        headers: corsHeaders,
+      });
+    }
+
+    // Handle incoming SMS
+    if (from && text) {
+      // Check if this is from KPLC (95551)
+      if (from === '95551' || from === '+25495551') {
+        // This is a response from KPLC, store it for processing
+        await storeKPLCResponse(supabase, to, text, from, date, messageId);
+      } else {
+        // This might be a user sending a command, handle accordingly
+        await handleUserSMS(supabase, from, text, to, date, messageId);
+      }
+    } else {
+      return new Response(JSON.stringify({
+        error: "Invalid webhook data - missing required fields",
+        code: "INVALID_WEBHOOK_DATA"
       }), {
         headers: corsHeaders,
         status: 400,
       });
-    }
-
-    // Check if this is from KPLC (95551)
-    if (from === '95551' || from === '+25495551') {
-      // This is a response from KPLC, store it for processing
-      await storeKPLCResponse(supabase, to, text, from, date, id);
-    } else {
-      // This might be a user sending a command, handle accordingly
-      await handleUserSMS(supabase, from, text, to, date, id);
     }
 
     return new Response(JSON.stringify({
@@ -287,5 +318,55 @@ async function processBalanceMessage(supabase: any, phoneNumber: string, message
     }
   } catch (error) {
     console.error('Error processing balance message:', error);
+  }
+}
+
+async function handleDeliveryReport(
+  supabase: any, 
+  messageId: string, 
+  status: string, 
+  phoneNumber: string | null, 
+  metadata: any = {}
+) {
+  try {
+    // Map Africa's Talking status to our status
+    let mappedStatus = 'failed';
+    switch (status?.toLowerCase()) {
+      case 'success':
+      case 'delivered':
+        mappedStatus = 'delivered';
+        break;
+      case 'sent':
+        mappedStatus = 'sent';
+        break;
+      case 'failed':
+      case 'rejected':
+      case 'expired':
+        mappedStatus = 'failed';
+        break;
+      default:
+        mappedStatus = 'failed';
+    }
+
+    // Update SMS alert status using the database function
+    const { error } = await supabase.rpc('update_sms_alert_status', {
+      p_message_id: messageId,
+      p_status: mappedStatus,
+      p_delivery_metadata: {
+        ...metadata,
+        original_status: status,
+        phone_number: phoneNumber,
+        processed_at: new Date().toISOString()
+      }
+    });
+
+    if (error) {
+      console.error('Error updating SMS alert status:', error);
+    } else {
+      console.log(`Updated SMS alert ${messageId} status to ${mappedStatus}`);
+    }
+
+  } catch (error) {
+    console.error('Error in handleDeliveryReport:', error);
   }
 }

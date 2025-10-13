@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Zap, DollarSign, BatteryCharging, Building, Factory, CheckCircle, Wifi, Copy, Check } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useEnergyProvider, PROVIDER_CONFIGS } from '@/contexts/EnergyProviderContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Badge } from '@/components/ui/badge';

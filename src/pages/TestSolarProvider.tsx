@@ -3,7 +3,7 @@ import { useSolarProvider } from '@/hooks/useSolarProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TestSolarProvider = () => {
   const { 

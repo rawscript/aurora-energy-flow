@@ -1,15 +1,36 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-interface ProfileData {
-  id: string;
-  notification_preferences?: Record<string, any>;
-  meter_category?: string;
-  notifications_enabled?: boolean;
-}
+// Constants for consistent timing and rate limiting - OPTIMIZED
+const API_CALL_DEBOUNCE = 5000; // 5 seconds between API calls (increased from 2)
+const RETRY_DELAYS = [2000, 5000, 10000]; // Longer exponential backoff delays
+const UPDATE_THROTTLE = 3000; // 3 seconds throttle for real-time updates (increased from 1.5)
+const MAX_NOTIFICATIONS = 50; // Reduced to prevent memory issues
+const MIN_REFRESH_INTERVAL = 30000; // Minimum 30 seconds between refreshes
+const MAX_CONCURRENT_REQUESTS = 2; // Limit concurrent requests
 
+
+
+// Create a throttled version for critical operations
+const throttle = <T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): T => {
+  let inThrottle = false;
+  
+  return ((...args: Parameters<T>) => {
+    if (!inThrottle) {
+      func(...args);
+      inThrottle = true;
+      setTimeout(() => inThrottle = false, limit);
+    }
+  }) as T;
+};
+
+// Notification interfaces
 interface Notification {
   id: string;
   title: string;
@@ -40,8 +61,6 @@ interface NotificationStatus {
   unread_count: number;
   last_notification_date?: string;
   notification_types: string[];
-  notifications_table_exists: boolean;
-  ai_alerts_table_exists: boolean;
   status: 'empty' | 'all_read' | 'has_unread';
 }
 
@@ -53,25 +72,6 @@ interface NotificationPreferences {
   setup_status: Record<string, boolean>;
 }
 
-// Constants for consistent timing and rate limiting
-const API_CALL_DEBOUNCE = 2000; // 2 seconds between API calls
-const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff delays
-const UPDATE_THROTTLE = 1500; // Throttle real-time updates
-const MAX_NOTIFICATIONS = 100; // Prevent memory issues
-
-// Utility function to debounce API calls
-const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): T => {
-  let timeout: NodeJS.Timeout | null = null;
-  
-  return ((...args: Parameters<T>) => {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  }) as T;
-};
-
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -81,28 +81,56 @@ export const useNotifications = () => {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const { user, userId, hasValidSession, callRpc } = useAuthenticatedApi();
+  const { user } = useAuth();
+  const { userId, hasValidSession, callRpc } = useAuthenticatedApi();
   const { toast } = useToast();
 
-  // Refs for managing API calls and state
+  // Refs for managing API calls and state - ENHANCED RATE LIMITING
   const subscriptionRef = useRef<any>(null);
   const lastApiCall = useRef<number>(0);
   const lastUpdateTime = useRef<number>(0);
+  const lastRefreshTime = useRef<number>(0);
   const isOperationInProgress = useRef(false);
   const initializationAttempted = useRef(false);
   const subscriptionSetupInProgress = useRef(false);
+  const activeRequestCount = useRef<number>(0);
+  const requestQueue = useRef<Array<() => Promise<any>>>([]);
 
-  // Optimized fetch notifications using centralized auth
+  // Enhanced request queue management
+  const processRequestQueue = useCallback(async () => {
+    if (activeRequestCount.current >= MAX_CONCURRENT_REQUESTS || requestQueue.current.length === 0) {
+      return;
+    }
+
+    const request = requestQueue.current.shift();
+    if (request) {
+      activeRequestCount.current++;
+      try {
+        await request();
+      } finally {
+        activeRequestCount.current--;
+        // Process next request after a delay
+        setTimeout(processRequestQueue, 1000);
+      }
+    }
+  }, []);
+
+  // Optimized fetch notifications using centralized auth with enhanced rate limiting
   const fetchNotificationData = useCallback(async (force = false) => {
     if (!userId || !hasValidSession()) {
       console.log('No user or session, skipping notification fetch');
       return null;
     }
 
-    // Rate limiting
+    // Enhanced rate limiting
     const now = Date.now();
     if (!force && (now - lastApiCall.current) < API_CALL_DEBOUNCE) {
-      console.log('API call rate limited');
+      console.log('API call rate limited - too soon since last call');
+      return null;
+    }
+
+    if (!force && (now - lastRefreshTime.current) < MIN_REFRESH_INTERVAL) {
+      console.log('Refresh rate limited - minimum interval not met');
       return null;
     }
 
@@ -111,13 +139,25 @@ export const useNotifications = () => {
       return null;
     }
 
+    if (activeRequestCount.current >= MAX_CONCURRENT_REQUESTS) {
+      console.log('Too many concurrent requests, queuing...');
+      return new Promise((resolve) => {
+        requestQueue.current.push(async () => {
+          const result = await fetchNotificationData(force);
+          resolve(result);
+        });
+        processRequestQueue();
+      });
+    }
+
     isOperationInProgress.current = true;
     lastApiCall.current = now;
+    lastRefreshTime.current = now;
 
     try {
       console.log('Fetching notification data for user:', userId);
 
-      // Check if user needs initialization first using centralized auth
+      // Check if user needs initialization first using authenticated API
       let needsInit = false;
       try {
         needsInit = await callRpc('check_user_notification_initialization', {}, { 
@@ -135,7 +175,7 @@ export const useNotifications = () => {
         // Continue anyway, might still be able to fetch notifications
       }
 
-      // Fetch notifications using centralized auth
+      // Fetch notifications using authenticated API
       let notifications = [];
       try {
         notifications = await callRpc('get_user_notifications_safe', {
@@ -151,7 +191,7 @@ export const useNotifications = () => {
         // Don't fail the whole operation if notifications fail
       }
 
-      // Fetch preferences separately using centralized auth
+      // Fetch preferences separately using authenticated API
       let preferences = null;
       try {
         preferences = await callRpc('get_notification_preferences', {}, { 
@@ -223,8 +263,6 @@ export const useNotifications = () => {
         unread_count: newUnreadCount,
         last_notification_date: transformedNotifications[0]?.createdAt,
         notification_types: [...new Set(transformedNotifications.map(n => n.type))],
-        notifications_table_exists: true,
-        ai_alerts_table_exists: false,
         status: transformedNotifications.length === 0 ? 'empty' : 
                 (newUnreadCount > 0 ? 'has_unread' : 'all_read')
       };
@@ -310,9 +348,16 @@ export const useNotifications = () => {
     setLoading(false);
   }, [userId, hasValidSession(), initialized, fetchNotificationData, processNotificationData]);
 
-  // Refresh notifications (public method)
+  // Refresh notifications (public method) with enhanced rate limiting
   const refreshNotifications = useCallback(async () => {
     if (!userId || !hasValidSession()) return;
+
+    // Check if refresh is rate limited
+    const now = Date.now();
+    if ((now - lastRefreshTime.current) < MIN_REFRESH_INTERVAL) {
+      console.log('Refresh blocked - rate limited');
+      return;
+    }
 
     try {
       setLoading(true);
@@ -329,7 +374,7 @@ export const useNotifications = () => {
     }
   }, [userId, hasValidSession(), fetchNotificationData, processNotificationData]);
 
-  // Optimized notification actions using centralized auth
+  // Optimized notification actions using authenticated API
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!userId || !hasValidSession()) return false;
 
@@ -479,7 +524,7 @@ export const useNotifications = () => {
     }
   }, [userId, hasValidSession(), initialized, initializeNotifications]);
 
-  // Set up real-time subscription with throttling - FIXED VERSION
+  // Set up real-time subscription with enhanced throttling and rate limiting
   useEffect(() => {
     // Only set up subscription if we have a user, valid session, and are initialized
     if (!userId || !hasValidSession() || !initialized) {
@@ -490,6 +535,13 @@ export const useNotifications = () => {
     // Prevent multiple concurrent subscription setups
     if (subscriptionSetupInProgress.current) {
       console.log('Subscription setup already in progress, skipping');
+      return;
+    }
+
+    // Rate limit subscription setup - don't set up too frequently
+    const now = Date.now();
+    if (lastUpdateTime.current && (now - lastUpdateTime.current) < 10000) { // 10 second minimum between setups
+      console.log('Subscription setup rate limited');
       return;
     }
 
@@ -506,6 +558,7 @@ export const useNotifications = () => {
 
     console.log('Setting up notification subscription for user:', userId);
     subscriptionSetupInProgress.current = true;
+    lastUpdateTime.current = now;
 
     try {
       subscriptionRef.current = supabase
@@ -518,11 +571,21 @@ export const useNotifications = () => {
         }, (payload) => {
           const now = Date.now();
           
-          // Throttle updates to prevent excessive re-renders
+          // Enhanced throttling to prevent excessive re-renders and API calls
           if (now - lastUpdateTime.current < UPDATE_THROTTLE) {
-            console.log('Throttling notification update');
+            console.log('Throttling notification update - too frequent');
             return;
           }
+          
+          // Additional check to prevent processing duplicate events
+          if (payload.eventType === 'UPDATE' && payload.old && payload.new) {
+            const hasActualChange = JSON.stringify(payload.old) !== JSON.stringify(payload.new);
+            if (!hasActualChange) {
+              console.log('Ignoring duplicate update event');
+              return;
+            }
+          }
+          
           lastUpdateTime.current = now;
 
           try {
@@ -605,6 +668,12 @@ export const useNotifications = () => {
     };
   }, [userId, hasValidSession(), initialized, toast]); // Only re-run when these core dependencies change
 
+  // Create throttled version of refresh to prevent abuse
+  const throttledRefresh = useCallback(
+    throttle(refreshNotifications, MIN_REFRESH_INTERVAL),
+    [refreshNotifications]
+  );
+
   return {
     notifications,
     unreadCount,
@@ -613,7 +682,7 @@ export const useNotifications = () => {
     status,
     preferences,
     error,
-    refreshNotifications,
+    refreshNotifications: throttledRefresh, // Use throttled version
     markAsRead,
     markAllAsRead,
     deleteNotification,

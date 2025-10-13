@@ -197,6 +197,52 @@ export type Database = {
         };
         Returns: any;
       };
+      check_user_notification_initialization: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: boolean;
+      };
+      initialize_user_notifications: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: any;
+      };
+      get_user_notifications_safe: {
+        Args: {
+          p_user_id?: string;
+          p_limit?: number;
+          p_unread_only?: boolean;
+        };
+        Returns: any[];
+      };
+      get_notification_preferences: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: any;
+      };
+      mark_notification_read: {
+        Args: {
+          p_notification_id: string;
+          p_user_id?: string;
+        };
+        Returns: boolean;
+      };
+      mark_all_notifications_read: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: number;
+      };
+      delete_notification: {
+        Args: {
+          p_notification_id: string;
+          p_user_id?: string;
+        };
+        Returns: boolean;
+      };
     };
   };
 };

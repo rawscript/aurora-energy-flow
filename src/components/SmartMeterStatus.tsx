@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Wifi, WifiOff, Zap, Clock, AlertTriangle, Link, Sun } from 'lucide-react';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
 import SolarPanel from '@/components/ui/SolarPanel';

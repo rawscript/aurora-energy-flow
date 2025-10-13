@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { MessageCircle, X, Send, Bot, User, Zap, Calculator, Settings, TrendingUp, RefreshCw, Wifi, WifiOff, Database, Cloud } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { aiService, AIServiceStatus, AIResponse } from '@/services/aiService';
 import ReactMarkdown from 'react-markdown';

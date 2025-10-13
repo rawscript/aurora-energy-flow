@@ -1,9 +1,24 @@
+/**
+ * @deprecated This auth system has been replaced with a new AuthContext
+ * Please use: import { useAuth } from '@/contexts/AuthContext'
+ * 
+ * This file is kept for backward compatibility but will be removed in a future version.
+ * The new system provides:
+ * - Better session persistence
+ * - Cross-tab synchronization
+ * - Reduced API calls
+ * - Rate-limited notifications
+ * - Improved performance
+ */
+
 import { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../integrations/supabase/client';
 import { useToast } from '../components/ui/use-toast';
 import type { ReactNode } from 'react';
 import { CONFIG } from '@/config/env';
+
+console.warn('⚠️ DEPRECATED: useAuth from hooks/useAuth.tsx is deprecated. Please use AuthContext from contexts/AuthContext.tsx');
 
 interface AuthContextType {
   user: User | null;
@@ -46,7 +61,7 @@ const getStoredSession = (): Session | null => {
 // Helper function to check if a session is still valid without API calls
 const isSessionStillValid = (session: Session | null): boolean => {
   if (!session) return false;
-  
+
   const expiresAt = session.expires_at || 0;
   const currentTime = Math.floor(Date.now() / 1000);
   // Remove buffer entirely for more lenient validation
@@ -74,7 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Single interval reference
   const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null);
-  
+
   // State management refs
   const isInitialized = useRef(false);
   const isSigningOut = useRef(false);
@@ -126,7 +141,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       sessionCheckInterval.current = setInterval(() => {
         checkSessionValidity();
       }, SESSION_VALIDITY_CHECK_INTERVAL);
-      
+
       console.log(`Session validity check interval set for every ${SESSION_VALIDITY_CHECK_INTERVAL / 60000} minutes`);
     }
   }, []);
@@ -134,17 +149,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Manual session refresh function (only used when explicitly called)
   const refreshSession = useCallback(async (): Promise<void> => {
     console.log('Manual session refresh requested...');
-    
+
     // Check if Supabase is configured
     if (!CONFIG.isSupabaseConfigured()) {
       console.warn('Supabase not configured, skipping session refresh');
       setLoading(false);
       return;
     }
-    
+
     try {
       const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-      
+
       if (error) {
         console.error('Error getting current session:', error);
         throw error;
@@ -160,7 +175,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('Updating session state with refreshed session');
       setSession(currentSession);
       setUser(currentSession.user);
-      
+
       // Persist session
       storeSession(currentSession);
 
@@ -223,7 +238,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Sign out function
   const signOut = useCallback(async () => {
     console.log('Sign out requested, isSigningOut:', isSigningOut.current);
-    
+
     if (isSigningOut.current) {
       console.log('Sign out already in progress, ignoring request');
       return;
@@ -249,7 +264,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Call Supabase signOut
         console.log('Calling Supabase signOut');
         const { error } = await supabase.auth.signOut();
-        
+
         if (error) {
           console.error('Error during signOut:', error);
           toast({
@@ -316,22 +331,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // First check for persisted session
         const persistedSession = getStoredSession();
-        
+
         if (persistedSession && isSessionStillValid(persistedSession)) {
           // Use persisted session without verification if it's still valid
           console.log('Found valid persisted session, using without verification');
           setSession(persistedSession);
           setUser(persistedSession.user);
-          
+
           // Set up session monitoring
           resetSessionInterval(persistedSession);
-          
+
           // Call success callback
           if (onAuthSuccessCallback.current) {
             console.log('Calling auth success callback for persisted session');
             onAuthSuccessCallback.current();
           }
-          
+
           setLoading(false);
           return; // Exit early, no need for API call
         }
@@ -339,7 +354,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Only make ONE getSession() call if no valid persisted session
         console.log('No valid persisted session, fetching from Supabase');
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Error getting session:', error);
           setSession(null);
@@ -391,7 +406,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
       return;
     }
-    
+
     console.log('Setting up auth state change listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log('=== AUTH STATE CHANGE EVENT ===', event, {
@@ -417,11 +432,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               currentTime: Math.floor(Date.now() / 1000),
               timeUntilExpiry: (newSession.expires_at || 0) - Math.floor(Date.now() / 1000)
             });
-            
+
             console.log('Setting session and user state');
             setSession(newSession);
             setUser(newSession.user);
-            
+
             // Persist session
             storeSession(newSession);
 
@@ -448,7 +463,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setSession(null);
           setUser(null);
           resetSessionInterval(null);
-          
+
           // Clear persisted session
           storeSession(null);
           break;
@@ -458,7 +473,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // But if it does, handle it gracefully with rate limiting
           if (newSession) {
             const now = Date.now();
-            
+
             // Rate limiting - prevent too many token refreshes in a short time
             if (now - lastTokenRefresh.current < 15000) { // Increase to 15 seconds
               tokenRefreshCount.current++;
@@ -470,9 +485,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               // Reset counter if more than 15 seconds have passed
               tokenRefreshCount.current = 0;
             }
-            
+
             lastTokenRefresh.current = now;
-            
+
             console.log('TOKEN_REFRESHED event received:', {
               userId: newSession.user.id,
               expiresAt: newSession.expires_at,
@@ -480,16 +495,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               timeUntilExpiry: (newSession.expires_at || 0) - Math.floor(Date.now() / 1000),
               refreshCount: tokenRefreshCount.current
             });
-            
+
             setSession(newSession);
             setUser(newSession.user);
-            
+
             // Persist session
             storeSession(newSession);
 
             // Reset interval for new session
             resetSessionInterval(newSession);
-            
+
             // Call success callback to notify listeners of the refreshed session
             if (onAuthSuccessCallback.current) {
               console.log('Executing auth success callback after TOKEN_REFRESHED event');
@@ -516,7 +531,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (sessionCheckInterval.current) {
         clearInterval(sessionCheckInterval.current);
       }
-      
+
       // Clear any pending timeouts
       if (authSuccessTimeout.current) {
         clearTimeout(authSuccessTimeout.current);
@@ -528,7 +543,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     return () => {
       resetSessionInterval(null);
-      
+
       // Clear any pending timeouts
       if (authSuccessTimeout.current) {
         clearTimeout(authSuccessTimeout.current);
@@ -537,14 +552,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [resetSessionInterval]);
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      loading, 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
       isAuthenticated: isAuthenticated(), // Call the function to get the boolean value
-      signOut, 
-      refreshSession, 
-      setOnAuthSuccess 
+      signOut,
+      refreshSession,
+      setOnAuthSuccess
     }}>
       {children}
     </AuthContext.Provider>

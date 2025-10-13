@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from './useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../integrations/supabase/client';
 import { useToast } from './use-toast';
 import type { Database } from '../integrations/supabase/types';
@@ -28,82 +28,42 @@ const DEFAULT_CACHE_DURATION = 120000; // Increase to 2 minutes (increased from 
 const MAX_CACHE_DURATION = 600000; // Increase to 10 minutes maximum cache
 
 /**
- * Production-ready authenticated API hook
- * - Centralizes authentication logic
- * - Prevents duplicate auth calls
- * - Implements caching to reduce API overhead
- * - Optimized session validation
+ * Simplified authenticated API hook
+ * - Works with new AuthContext
+ * - Reduced complexity and caching conflicts
+ * - Better session validation
  */
 export const useAuthenticatedApi = () => {
   const { user, session, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  
-  // Cache session validity to prevent frequent checks
-  const sessionValidityCache = useRef<{ isValid: boolean; timestamp: number } | null>(null);
-  const VALIDITY_CACHE_DURATION = 10000; // 10 seconds (increased from 5 seconds)
 
   // Memoized user ID to prevent unnecessary re-renders
   const userId = useMemo(() => user?.id || null, [user?.id]);
+  
+  // Track last session to prevent excessive cache clearing
+  const lastSessionIdRef = useRef<string | undefined>(undefined);
 
-  // Optimized session validation with caching
+  // Simple session validation - no caching to prevent conflicts
   const hasValidSession = useCallback(() => {
-    const now = Date.now();
-    
-    // Use cached result if it's recent
-    if (sessionValidityCache.current && (now - sessionValidityCache.current.timestamp) < VALIDITY_CACHE_DURATION) {
-      // console.log('Using cached session validity result:', sessionValidityCache.current.isValid);
-      return sessionValidityCache.current.isValid;
-    }
-
-    // Perform validation
     if (!isAuthenticated || !user || !session) {
-      // console.log('Session invalid - missing auth data:', {
-      //   isAuthenticated,
-      //   user: !!user,
-      //   session: !!session
-      // });
-      sessionValidityCache.current = { isValid: false, timestamp: now };
       return false;
     }
 
-    const nowSeconds = Math.floor(now / 1000);
+    const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at || 0;
-    // Remove buffer entirely for more lenient validation
     const isValid = expiresAt > nowSeconds;
 
-    // Reduce debug logging to prevent console spam
-    // Debug logging to understand the session validation
-    // console.log('Session validation check:', {
-    //   isAuthenticated,
-    //   user: !!user,
-    //   session: !!session,
-    //   expiresAt,
-    //   nowSeconds,
-    //   timeUntilExpiry: expiresAt - nowSeconds,
-    //   isValid
-    // });
-
-    // Cache the result
-    sessionValidityCache.current = { isValid, timestamp: now };
     return isValid;
   }, [isAuthenticated, user, session]);
 
-  // Check if user is authenticated
+  // Check if user is authenticated (simple check)
   const isUserAuthenticated = useCallback(() => {
-    const result = !!user && !!session;
-    // Reduce debug logging to prevent console spam
-    // console.log('isAuthenticated check:', {
-    //   user: !!user,
-    //   session: !!session,
-    //   result
-    // });
-    return result;
-  }, [user, session]);
+    return isAuthenticated;
+  }, [isAuthenticated]);
 
   // Clear caches when session changes
   const clearCache = useCallback(() => {
     rpcCache.clear();
-    sessionValidityCache.current = null;
     console.log('Cleared API caches due to session change');
   }, []);
 
@@ -199,11 +159,9 @@ export const useAuthenticatedApi = () => {
       if (error) {
         console.error(`RPC call ${String(functionName)} failed:`, error);
         
-        // Check if this is an authentication error that might trigger token refresh
+        // Check if this is an authentication error
         if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
-          // console.log('Authentication error detected in RPC call, clearing session cache to prevent token refresh loop');
-          // Clear session cache to force revalidation
-          sessionValidityCache.current = null;
+          console.log('Authentication error detected in RPC call');
         }
         
         if (showErrorToast) {
@@ -225,11 +183,9 @@ export const useAuthenticatedApi = () => {
     } catch (error) {
       console.error(`Error calling ${String(functionName)}:`, error);
       
-      // Check if this is an authentication error that might trigger token refresh
+      // Check if this is an authentication error
       if (error.message && (error.message.includes('JWT') || error.message.includes('token') || error.message.includes('auth') || error.message.includes('401') || error.message.includes('403'))) {
-        // console.log('Authentication error detected in RPC call catch block, clearing session cache to prevent token refresh loop');
-        // Clear session cache to force revalidation
-        sessionValidityCache.current = null;
+        console.log('Authentication error detected in RPC call catch block');
       }
       
       // Only show toast for first retry attempt
@@ -292,14 +248,17 @@ export const useAuthenticatedApi = () => {
     return hasValidSession() ? session : null;
   }, [hasValidSession, session]);
 
-  // Clear session validity cache when session changes
+  // Clear cache when session changes - with rate limiting
   useEffect(() => {
-    console.log('Session access token changed, clearing session validity cache', {
-      oldToken: sessionValidityCache.current?.timestamp ? 'exists' : 'none',
-      newToken: session?.access_token ? 'exists' : 'none'
-    });
-    sessionValidityCache.current = null;
-  }, [session?.access_token]);
+    // Only clear cache if session actually changed meaningfully
+    const sessionId = session?.access_token;
+    
+    if (sessionId !== lastSessionIdRef.current) {
+      console.log('Session changed, clearing API cache');
+      clearCache();
+      lastSessionIdRef.current = sessionId;
+    }
+  }, [session?.access_token, clearCache]);
 
   return {
     // Status checks (optimized)

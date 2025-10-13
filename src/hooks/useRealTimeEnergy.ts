@@ -94,8 +94,10 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
   const lastFetchTime = useRef<number>(0);
+  const lastSubscriptionSetup = useRef<number>(0); // ADDED: Track last subscription setup time
   const dataCache = useRef<{ data: EnergyData; readings: EnergyReading[]; timestamp: number; userId?: string } | null>(null);
   const CACHE_DURATION = 10 * 60 * 1000; // Increased cache duration to 10 minutes
+  const MIN_SUBSCRIPTION_INTERVAL = 30000; // 30 seconds minimum between subscription setups
 
   // Update the meterNumber ref when context meter number changes
   useEffect(() => {
@@ -859,13 +861,23 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     }
   }, [userId, hasValidSession, fetchRealEnergyData]);
 
-  // Initial setup - check meter connection first
+  // Initial setup - check meter connection first with rate limiting
   useEffect(() => {
     if (isInitialized.current) return;
+
+    // CRITICAL FIX: Add rate limiting to prevent excessive initialization
+    const now = Date.now();
+    const MIN_INIT_INTERVAL = 10000; // 10 seconds minimum between initializations
+    
+    if (now - lastFetchTime.current < MIN_INIT_INTERVAL) {
+      console.log('Initialization rate limited - too frequent');
+      return;
+    }
 
     const initializeData = async () => {
       try {
         isInitialized.current = true;
+        lastFetchTime.current = now;
 
         if (userId && hasValidSession()) {
           // Check if user has a meter connected
@@ -902,9 +914,9 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
     // Initialize immediately
     initializeData();
-  }, [userId, hasValidSession(), fetchRealEnergyData, energyProvider, meterStatus]);
+  }, [userId, energyProvider, meterStatus]); // FIXED: Removed hasValidSession() and fetchRealEnergyData to prevent excessive re-runs
 
-  // Set up real-time data subscription (only when meter is connected) - IMPROVED VERSION
+  // Set up real-time data subscription with enhanced rate limiting - FIXED VERSION
   useEffect(() => {
     // Only set up subscription if we have all required conditions
     if (!userId || !hasValidSession() || !hasMeterConnected || !meterNumber.current) {
@@ -916,6 +928,15 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       });
       return;
     }
+
+    // CRITICAL FIX: Add rate limiting to prevent excessive subscription setups
+    const now = Date.now();
+    
+    if (now - lastSubscriptionSetup.current < MIN_SUBSCRIPTION_INTERVAL) {
+      console.log('Subscription setup rate limited - too frequent');
+      return;
+    }
+    lastSubscriptionSetup.current = now;
 
     // Clear cache when energyProvider changes
     dataCache.current = null;
@@ -1108,7 +1129,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         }
       }
     };
-  }, [userId, hasValidSession, hasMeterConnected, meterNumber.current, refreshData, processNewReading, energyProvider, toast]);
+  }, [userId, hasMeterConnected, energyProvider]); // FIXED: Removed frequently changing dependencies
 
   // Cleanup on unmount
   useEffect(() => {
