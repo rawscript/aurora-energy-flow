@@ -15,12 +15,46 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Constants
+// Constants - Increased intervals to prevent 429 errors
 const SESSION_STORAGE_KEY = 'aurora_auth_session';
-const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes - check session validity
+const SESSION_CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes - check session validity (increased)
 const CROSS_TAB_SYNC_KEY = 'aurora_auth_sync';
-const MIN_SESSION_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes minimum between manual refreshes
-const TOKEN_REFRESH_BUFFER = 10 * 60; // 10 minutes before expiry
+const MIN_SESSION_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes minimum between manual refreshes (increased)
+const TOKEN_REFRESH_BUFFER = 15 * 60; // 15 minutes before expiry (increased)
+const MAX_REFRESH_ATTEMPTS = 3; // Maximum refresh attempts before giving up
+const REFRESH_COOLDOWN = 30 * 1000; // 30 seconds cooldown after failed refresh
+
+// Safe session serialization to prevent "Cannot convert object to primitive value" errors
+const safeSerializeSession = (session: Session | null): string | null => {
+    if (!session) return null;
+
+    try {
+        // Create a safe copy with only serializable properties
+        const safeSession = {
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+            expires_at: session.expires_at,
+            expires_in: session.expires_in,
+            token_type: session.token_type,
+            user: session.user ? {
+                id: session.user.id,
+                email: session.user.email,
+                phone: session.user.phone,
+                created_at: session.user.created_at,
+                updated_at: session.user.updated_at,
+                email_confirmed_at: session.user.email_confirmed_at,
+                phone_confirmed_at: session.user.phone_confirmed_at,
+                user_metadata: session.user.user_metadata,
+                app_metadata: session.user.app_metadata
+            } : null
+        };
+
+        return JSON.stringify(safeSession);
+    } catch (error) {
+        console.warn('Failed to serialize session safely:', error);
+        return null;
+    }
+};
 
 // Cross-tab session synchronization
 class CrossTabAuthSync {
@@ -81,17 +115,21 @@ class CrossTabAuthSync {
 
     broadcastSessionUpdate(session: Session | null) {
         const now = Date.now();
-        // Rate limit broadcasts to prevent spam (increased to 5 seconds)
-        if (now - this.lastBroadcast < 5000) return;
+        // Rate limit broadcasts to prevent spam (increased to 30 seconds to prevent 429 errors)
+        if (now - this.lastBroadcast < 30000) return;
 
         this.lastBroadcast = now;
 
         try {
+            // Use safe serialization to prevent object-to-primitive conversion errors
+            const safeSessionData = session ? JSON.parse(safeSerializeSession(session) || 'null') : null;
+
             const syncData = {
                 type: 'session_update',
-                session,
+                session: safeSessionData,
                 timestamp: now
             };
+
             localStorage.setItem(CROSS_TAB_SYNC_KEY, JSON.stringify(syncData));
 
             // Clean up old sync data
@@ -157,7 +195,10 @@ const sessionStorage = {
     set(session: Session | null) {
         try {
             if (session) {
-                localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+                const serialized = safeSerializeSession(session);
+                if (serialized) {
+                    localStorage.setItem(SESSION_STORAGE_KEY, serialized);
+                }
             } else {
                 this.remove();
             }
@@ -185,6 +226,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isInitialized = useRef(false);
     const isSigningOut = useRef(false);
     const lastRefresh = useRef(0);
+    const refreshAttempts = useRef(0);
+    const lastRefreshError = useRef(0);
     const sessionCheckInterval = useRef<NodeJS.Timeout | null>(null);
     const crossTabSync = useRef<CrossTabAuthSync>(CrossTabAuthSync.getInstance());
     const lastToastTime = useRef(0);
@@ -202,14 +245,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toast({ title, description, variant });
     }, [toast]);
 
-    // Update session state and sync across tabs
+    // Update session state and sync across tabs (with deduplication)
     const updateSession = useCallback((newSession: Session | null, showSuccessToast = false) => {
+        // Prevent unnecessary updates if session hasn't actually changed
+        const currentToken = session?.access_token;
+        const newToken = newSession?.access_token;
+
+        // Only update if there's a meaningful change
+        if (currentToken === newToken && !!session === !!newSession) {
+            return; // No meaningful change, skip update
+        }
+
         // Only log session updates when they're significant to reduce noise
         if (showSuccessToast || (!session && newSession) || (session && !newSession)) {
             console.log('🔄 Updating session:', {
                 hasSession: !!newSession,
                 userId: newSession?.user?.id,
-                showToast: showSuccessToast
+                showToast: showSuccessToast,
+                tokenChanged: currentToken !== newToken
             });
         }
 
@@ -219,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Store session
         sessionStorage.set(newSession);
 
-        // Broadcast to other tabs
+        // Broadcast to other tabs (rate limited)
         crossTabSync.current.broadcastSessionUpdate(newSession);
 
         // Show success toast only for actual sign-ins, not automatic refreshes
@@ -229,47 +282,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 'You have been signed in successfully.'
             );
         }
-    }, [showToast]);
+    }, [session?.access_token, showToast]);
 
-    // Refresh session manually
-    const refreshSession = useCallback(async (): Promise<void> => {
-        const now = Date.now();
-
-        // Rate limit refresh attempts
-        if (now - lastRefresh.current < MIN_SESSION_REFRESH_INTERVAL) {
-            console.log('⏳ Session refresh rate limited');
-            return;
-        }
-
-        lastRefresh.current = now;
-
-        if (!CONFIG.isSupabaseConfigured()) {
-            console.warn('⚠️ Supabase not configured');
-            return;
-        }
-
-        try {
-            console.log('🔄 Refreshing session...');
-            const { data: { session: newSession }, error } = await supabase.auth.getSession();
-
-            if (error) {
-                console.error('❌ Session refresh error:', error);
-                throw error;
-            }
-
-            updateSession(newSession);
-            console.log('✅ Session refreshed successfully');
-        } catch (error) {
-            console.error('❌ Failed to refresh session:', error);
-            showToast(
-                'Session Error',
-                'Failed to refresh your session. Please sign in again.',
-                'destructive'
-            );
-        }
-    }, [updateSession, showToast]);
-
-    // Sign out
+    // Sign out - moved before refreshSession to fix dependency order
     const signOut = useCallback(async () => {
         if (isSigningOut.current) {
             console.log('🚫 Sign out already in progress');
@@ -316,6 +331,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [updateSession, showToast]);
 
+    // Refresh session manually with enhanced rate limiting and 429 error handling
+    const refreshSession = useCallback(async (): Promise<void> => {
+        const now = Date.now();
+
+        // Check if we're in cooldown after a failed refresh
+        if (now - lastRefreshError.current < REFRESH_COOLDOWN) {
+            console.log('⏳ Session refresh in cooldown after error');
+            return;
+        }
+
+        // Rate limit refresh attempts
+        if (now - lastRefresh.current < MIN_SESSION_REFRESH_INTERVAL) {
+            console.log('⏳ Session refresh rate limited');
+            return;
+        }
+
+        // Check max attempts
+        if (refreshAttempts.current >= MAX_REFRESH_ATTEMPTS) {
+            console.log('� Meax refresh attempts reached, signing out');
+            signOut();
+            return;
+        }
+
+        lastRefresh.current = now;
+        refreshAttempts.current++;
+
+        if (!CONFIG.isSupabaseConfigured()) {
+            console.warn('⚠️ Supabase not configured');
+            return;
+        }
+
+        try {
+            console.log(`🔄 Refreshing session (attempt ${refreshAttempts.current}/${MAX_REFRESH_ATTEMPTS})...`);
+            const { data: { session: newSession }, error } = await supabase.auth.getSession();
+
+            if (error) {
+                // Handle 429 errors specifically
+                if (error.message?.includes('429') || error.message?.includes('Too Many Requests')) {
+                    console.warn('⚠️ Rate limited by Supabase, backing off');
+                    lastRefreshError.current = now;
+                    return;
+                }
+                console.error('❌ Session refresh error:', error);
+                throw error;
+            }
+
+            // Reset attempts on success
+            refreshAttempts.current = 0;
+            updateSession(newSession);
+            console.log('✅ Session refreshed successfully');
+        } catch (error) {
+            console.error('❌ Failed to refresh session:', error);
+            lastRefreshError.current = now;
+
+            // Only show toast on final attempt to avoid spam
+            if (refreshAttempts.current >= MAX_REFRESH_ATTEMPTS) {
+                showToast(
+                    'Session Error',
+                    'Failed to refresh your session. Please sign in again.',
+                    'destructive'
+                );
+            }
+        }
+    }, [updateSession, showToast, signOut]);
+
     // Check session validity periodically
     const checkSessionValidity = useCallback(() => {
         if (!session || isSigningOut.current) return;
@@ -346,7 +426,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, [session, signOut, showToast]);
 
-    // Set up session monitoring
+    // Set up session monitoring (with reduced logging)
     useEffect(() => {
         if (session && !sessionCheckInterval.current) {
             console.log('⏰ Setting up session monitoring');
@@ -363,7 +443,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 sessionCheckInterval.current = null;
             }
         };
-    }, [session, checkSessionValidity]);
+    }, [session?.access_token, checkSessionValidity]); // Only depend on access_token, not entire session object
 
     // Initialize auth state
     useEffect(() => {
@@ -391,7 +471,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Get session from Supabase
                 // Only log session fetch on initialization to reduce noise
-        console.log('🔍 Fetching session from Supabase...');
+                console.log('🔍 Fetching session from Supabase...');
                 const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
                 if (error) {
@@ -427,18 +507,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             switch (event) {
                 case 'SIGNED_IN':
+                    // Reset refresh attempts on successful sign in
+                    refreshAttempts.current = 0;
                     updateSession(newSession, true);
                     break;
 
                 case 'SIGNED_OUT':
+                    // Reset refresh attempts on sign out
+                    refreshAttempts.current = 0;
                     updateSession(null);
                     break;
 
                 case 'TOKEN_REFRESHED':
-                    // Only update if token actually changed - prevent refresh loops
-                    if (newSession?.access_token !== session?.access_token) {
-                        updateSession(newSession, false);
-                    }
+                    // IGNORE token refresh events to prevent excessive updates and 429 errors
+                    // We'll rely on manual session checks instead of automatic token refreshes
+                    console.log('� IgnoTring TOKEN_REFRESHED event to prevent 429 errors');
                     break;
 
                 case 'USER_UPDATED':
@@ -449,14 +532,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     break;
 
                 case 'INITIAL_SESSION':
-                    // Handle initial session load
-                    if (newSession && !session) {
+                    // Handle initial session load - be conservative
+                    if (newSession && !session && !isInitialized.current) {
                         updateSession(newSession, false);
                     }
                     break;
 
                 default:
-                    // Ignore other events to prevent loops
+                    // Ignore all other events to prevent loops and excessive requests
+                    console.log('🔇 Ignoring auth event:', event);
                     break;
             }
         });

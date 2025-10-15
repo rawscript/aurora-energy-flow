@@ -487,7 +487,14 @@ const NotificationCenter = () => {
                           
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                              {(() => {
+                                try {
+                                  const date = notification.createdAt ? new Date(notification.createdAt) : new Date();
+                                  return isNaN(date.getTime()) ? 'Just now' : formatDistanceToNow(date, { addSuffix: true });
+                                } catch (error) {
+                                  return 'Just now';
+                                }
+                              })()}
                             </span>
                             
                             {/* Quick action buttons for mobile */}

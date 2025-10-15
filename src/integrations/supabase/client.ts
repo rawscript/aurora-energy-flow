@@ -19,7 +19,7 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 }
 
 // Create the Supabase client with optimized configuration
-// Disable auto refresh to prevent self-triggered refreshes
+// Disable auto refresh to prevent self-triggered refreshes and 429 errors
 const supabase = CONFIG.isSupabaseConfigured() ? 
   createClient<Database>(
     SUPABASE_URL,
@@ -27,9 +27,10 @@ const supabase = CONFIG.isSupabaseConfigured() ?
     {
       auth: {
         persistSession: true,
-        autoRefreshToken: false, // Disable auto refresh to prevent self-triggered refreshes
-        detectSessionInUrl: false, // Disable session detection in URL to prevent automatic refreshes
-        flowType: 'pkce'
+        autoRefreshToken: false, // CRITICAL: Disable auto refresh to prevent 429 errors
+        detectSessionInUrl: false, // Disable session detection in URL
+        flowType: 'pkce',
+        debug: false // Disable debug to reduce console noise
       },
       global: {
         headers: {

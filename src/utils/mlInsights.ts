@@ -44,6 +44,18 @@ export interface EnergyReading {
   frequency?: number;
 }
 
+// Helper function to safely get date properties
+const safeGetDateProperty = (dateStr: string | undefined | null, property: 'getHours' | 'getDay' | 'getMonth' | 'getTime'): number => {
+  try {
+    if (!dateStr) return 0;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 0;
+    return date[property]();
+  } catch (error) {
+    return 0;
+  }
+};
+
 // Enhanced ML Models for different analysis types
 export class EnergyMLAnalyzer {
   private category: string;
@@ -54,7 +66,7 @@ export class EnergyMLAnalyzer {
     this.category = category;
     this.industryType = industryType;
     this.readings = readings.sort((a, b) => 
-      new Date(a.reading_date).getTime() - new Date(b.reading_date).getTime()
+      safeGetDateProperty(a.reading_date, 'getTime') - safeGetDateProperty(b.reading_date, 'getTime')
     );
   }
 
@@ -514,9 +526,23 @@ export class EnergyMLAnalyzer {
             severity: maxDistance > 3 ? 'high' : 'medium',
             confidence: Math.min(0.95, maxDistance / 4),
             deviation: maxDistance,
-            description: `Unusual combination of energy metrics on ${new Date(reading.reading_date).toLocaleDateString()}`,
+            description: `Unusual combination of energy metrics on ${(() => {
+              try {
+                const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
+                return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+              } catch (error) {
+                return 'Unknown date';
+              }
+            })()}`,
             recommendation: 'Review all energy metrics for this period to identify contributing factors',
-            timeframe: new Date(reading.reading_date).toLocaleDateString(),
+            timeframe: (() => {
+              try {
+                const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
+                return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+              } catch (error) {
+                return 'Unknown date';
+              }
+            })(),
             mlModel: 'Isolation Forest Anomaly Detection'
           });
         }
@@ -585,8 +611,8 @@ export class EnergyMLAnalyzer {
     try {
       // Extract state features
       const states = this.readings.map(r => ({
-        hour: new Date(r.reading_date).getHours(),
-        day: new Date(r.reading_date).getDay(),
+        hour: safeGetDateProperty(r.reading_date, 'getHours'),
+        day: safeGetDateProperty(r.reading_date, 'getDay'),
         consumption: r.kwh_consumed,
         cost: r.total_cost
       }));
@@ -633,8 +659,8 @@ export class EnergyMLAnalyzer {
       const features = this.readings.map(r => [
         r.kwh_consumed,
         r.total_cost,
-        new Date(r.reading_date).getDay(),
-        new Date(r.reading_date).getHours()
+        safeGetDateProperty(r.reading_date, 'getDay'),
+        safeGetDateProperty(r.reading_date, 'getHours')
       ]);
       
       // Simple clustering approach using statistical methods
@@ -736,7 +762,7 @@ export class EnergyMLAnalyzer {
     const hourlyData = new Array(24).fill(0).map(() => ({ total: 0, count: 0 }));
     
     this.readings.forEach(reading => {
-      const hour = new Date(reading.reading_date).getHours();
+      const hour = safeGetDateProperty(reading.reading_date, 'getHours');
       hourlyData[hour].total += reading.kwh_consumed;
       hourlyData[hour].count += 1;
     });
@@ -752,7 +778,7 @@ export class EnergyMLAnalyzer {
     const weeklyData = new Array(7).fill(0).map(() => ({ total: 0, count: 0 }));
     
     this.readings.forEach(reading => {
-      const day = new Date(reading.reading_date).getDay();
+      const day = safeGetDateProperty(reading.reading_date, 'getDay');
       weeklyData[day].total += reading.kwh_consumed;
       weeklyData[day].count += 1;
     });
@@ -769,7 +795,7 @@ export class EnergyMLAnalyzer {
     const monthlyData = new Map<number, { total: number; count: number }>();
     
     this.readings.forEach(reading => {
-      const month = new Date(reading.reading_date).getMonth();
+      const month = safeGetDateProperty(reading.reading_date, 'getMonth');
       if (!monthlyData.has(month)) {
         monthlyData.set(month, { total: 0, count: 0 });
       }
@@ -994,9 +1020,23 @@ export class EnergyMLAnalyzer {
           severity,
           confidence,
           deviation: zScore,
-          description: `${type} of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${new Date(reading.reading_date).toLocaleDateString()}`,
+          description: `${type} of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${(() => {
+            try {
+              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
+              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+            } catch (error) {
+              return 'Unknown date';
+            }
+          })()}`,
           recommendation: this.getAnomalyRecommendation(type, severity, value, mean),
-          timeframe: new Date(reading.reading_date).toLocaleDateString()
+          timeframe: (() => {
+            try {
+              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
+              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+            } catch (error) {
+              return 'Unknown date';
+            }
+          })()
         });
       }
     });
@@ -1025,9 +1065,23 @@ export class EnergyMLAnalyzer {
           severity,
           confidence,
           deviation: value > upperBound ? (value - upperBound) / (iqr || 1) : (lowerBound - value) / (iqr || 1),
-          description: `${type} outlier of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${new Date(reading.reading_date).toLocaleDateString()}`,
+          description: `${type} outlier of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${(() => {
+            try {
+              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
+              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+            } catch (error) {
+              return 'Unknown date';
+            }
+          })()}`,
           recommendation: this.getAnomalyRecommendation(type, severity, value, ss.mean(values)),
-          timeframe: new Date(reading.reading_date).toLocaleDateString()
+          timeframe: (() => {
+            try {
+              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
+              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
+            } catch (error) {
+              return 'Unknown date';
+            }
+          })()
         });
       }
     });
@@ -1333,7 +1387,7 @@ export class EnergyMLAnalyzer {
     let totalUsage = 0;
 
     readings.forEach(reading => {
-      const hour = new Date(reading.reading_date).getHours();
+      const hour = safeGetDateProperty(reading.reading_date, 'getHours');
       totalUsage += reading.kwh_consumed;
       if (optimalHours.includes(hour)) {
         optimalUsage += reading.kwh_consumed;
@@ -1509,7 +1563,7 @@ export class EnergyMLAnalyzer {
     let weekdayUsage = 0;
 
     readings.forEach(reading => {
-      const day = new Date(reading.reading_date).getDay();
+      const day = safeGetDateProperty(reading.reading_date, 'getDay');
       if (day === 0 || day === 6) {
         weekendUsage += reading.kwh_consumed;
       } else {
@@ -1551,11 +1605,12 @@ export class EnergyMLAnalyzer {
     
     // Sort readings by date to ensure correct first and last dates
     const sortedReadings = [...this.readings].sort(
-      (a, b) => new Date(a.reading_date).getTime() - new Date(b.reading_date).getTime()
+      (a, b) => safeGetDateProperty(a.reading_date, 'getTime') - safeGetDateProperty(b.reading_date, 'getTime')
     );
     
-    const firstDate = new Date(sortedReadings[0].reading_date);
-    const lastDate = new Date(sortedReadings[sortedReadings.length - 1].reading_date);
+    const firstDate = sortedReadings[0]?.reading_date ? new Date(sortedReadings[0].reading_date) : new Date();
+    const lastDate = sortedReadings[sortedReadings.length - 1]?.reading_date ? 
+      new Date(sortedReadings[sortedReadings.length - 1].reading_date) : new Date();
     const daysDiff = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
     
     // Handle case where dates might be the same
