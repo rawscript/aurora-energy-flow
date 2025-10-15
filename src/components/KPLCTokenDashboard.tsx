@@ -41,34 +41,35 @@ import { SMSFallbackStatus } from './SMSFallbackStatus';
 import { shouldUseSMSFallback } from '../utils/africasTalkingSMS';
 import { formatDistanceToNow, format } from 'date-fns';
 import { useIsMobile } from '../hooks/use-mobile';
-import { useProfile } from '../hooks/use-profile';
+import { useProfile } from '../hooks/useProfile';
+import { useMeter } from '../contexts/MeterContext';
 
 interface KPLCTokenDashboardProps {
   energyProvider?: 'KPLC' | 'SunCulture' | 'M-KOPA Solar' | 'Other';
 }
 
 const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider = '' }) => {
-  const { 
-    analytics, 
-    transactions, 
+  const {
+    analytics,
+    transactions,
     kplcBalance,
-    loading, 
-    purchasing, 
+    loading,
+    purchasing,
     error,
     purchaseTokens,
     checkKPLCBalance,
     fetchTokenAnalytics,
     hasValidSession
   } = useKPLCTokens(energyProvider);
-  
-  const { 
-    billData, 
-    loading: puppeteerLoading, 
-    error: puppeteerError, 
-    lastFetched, 
-    fetchBillData, 
-    getLatestBillData, 
-    getUserCredentials 
+
+  const {
+    billData,
+    loading: puppeteerLoading,
+    error: puppeteerError,
+    lastFetched,
+    fetchBillData,
+    getLatestBillData,
+    getUserCredentials
   } = useKPLCPuppeteer();
 
   // SMS fallback hook
@@ -78,9 +79,11 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     loading: smsLoading,
     error: smsError
   } = useKPLCTokensWithSMS();
-  
+
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { profile } = useProfile();
+  const { status: meterStatus, meterNumber } = useMeter();
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [purchaseAmount, setPurchaseAmount] = useState('200');
   const [paymentMethod, setPaymentMethod] = useState('M-PESA');
@@ -136,7 +139,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   // Handle manual refresh
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
-    
+
     setRefreshing(true);
     try {
       await Promise.all([
@@ -255,7 +258,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
 
   const getDataSourceText = (source?: string, cacheHit?: boolean) => {
     if (cacheHit) return 'Cached data';
-    
+
     switch (source) {
       case 'cache':
         return 'Cached data';
@@ -270,9 +273,12 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     }
   };
 
+  // Check if user has access - either valid session OR connected meter with profile
+  const hasAccess = hasValidSession() || (profile && meterStatus === 'connected' && meterNumber);
+
   // Auto-refresh every 5 minutes (much less frequent)
   useEffect(() => {
-    if (!hasValidSession() || !analytics) return;
+    if (!hasAccess || !analytics) return;
 
     const interval = setInterval(() => {
       console.log('Auto-refreshing token data...');
@@ -280,7 +286,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [hasValidSession, analytics, fetchTokenAnalytics, energyProvider]);
+  }, [hasAccess, analytics, fetchTokenAnalytics, energyProvider]);
 
   if (loading && !analytics) {
     return (
@@ -295,7 +301,132 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     );
   }
 
-  if (!hasValidSession()) {
+  if (!hasAccess) {
+    // If meter is connected but session validation fails, show meter-specific interface
+    if (meterStatus === 'connected' && meterNumber && profile) {
+      return (
+        <div className="space-y-4 sm:space-y-6 animate-fade-in">
+          <Card className="bg-aurora-card border-aurora-green/20">
+            <CardContent className="p-6 text-center">
+              <Zap className="h-12 w-12 mx-auto mb-4 text-aurora-green-light" />
+              <h3 className="text-lg font-semibold mb-2">Meter Connected</h3>
+              <p className="text-muted-foreground mb-4">
+                Meter {meterNumber} is connected. You can purchase tokens using SMS.
+              </p>
+              <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-aurora-green hover:bg-aurora-green/80">
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Purchase Tokens via SMS
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md bg-aurora-card border-aurora-green/20">
+                  <DialogHeader>
+                    <DialogTitle className="text-aurora-green-light">
+                      Purchase KPLC Tokens via SMS
+                    </DialogTitle>
+                    <DialogDescription>
+                      Purchase electricity tokens directly via SMS. You'll receive a token code to enter in your meter.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-sm font-medium">Quick Amounts</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {[100, 200, 500, 1000].map((amount) => (
+                          <Button
+                            key={amount}
+                            variant={purchaseAmount === amount.toString() ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPurchaseAmount(amount.toString())}
+                            className="text-sm"
+                          >
+                            KSh {amount}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="amount" className="text-sm font-medium">Custom Amount (KSh)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        min="10"
+                        max="10000"
+                        value={purchaseAmount}
+                        onChange={(e) => setPurchaseAmount(e.target.value)}
+                        className="mt-1 bg-slate-800 border-aurora-green/30"
+                        placeholder="Enter amount"
+                      />
+                    </div>
+                    <div className="p-3 bg-slate-800/50 rounded-lg border border-aurora-green/20">
+                      <div className="flex justify-between items-center text-sm">
+                        <span>Meter Number:</span>
+                        <span className="font-medium">{meterNumber}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span>Amount:</span>
+                        <span className="font-medium">KSh {parseFloat(purchaseAmount || '0').toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span>Phone:</span>
+                        <span className="font-medium">{profile.phone_number || 'Not set'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setPurchaseDialogOpen(false)}
+                      disabled={purchasing}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        const amount = parseFloat(purchaseAmount);
+                        if (amount >= 10 && profile.phone_number && meterNumber) {
+                          try {
+                            await purchaseTokensWithSMS(amount, meterNumber, profile.phone_number, energyProvider as any);
+                            setPurchaseDialogOpen(false);
+                            toast({
+                              title: "Purchase Initiated",
+                              description: `SMS sent to purchase KSh ${amount} tokens for meter ${meterNumber}`,
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Purchase Failed",
+                              description: "Failed to initiate SMS purchase. Please try again.",
+                              variant: "destructive",
+                            });
+                          }
+                        }
+                      }}
+                      disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10 || !profile.phone_number}
+                      className="bg-aurora-green hover:bg-aurora-green/80"
+                    >
+                      {purchasing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Purchase via SMS
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Default authentication required message
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
@@ -308,7 +439,151 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
 
   if (!analytics || analytics.data_source === 'no_meter') {
     const terminology = getProviderTerminology(energyProvider);
-    
+
+    // If user has a connected meter but no analytics, show meter-specific options
+    if (meterStatus === 'connected' && meterNumber && profile) {
+      return (
+        <div className="space-y-4 sm:space-y-6 animate-fade-in">
+          <Card className="bg-aurora-card border-aurora-green/20">
+            <CardContent className="p-6 text-center">
+              <Zap className="h-12 w-12 mx-auto mb-4 text-aurora-green-light" />
+              <h3 className="text-lg font-semibold mb-2">Meter Connected</h3>
+              <p className="text-muted-foreground mb-4">
+                Meter {meterNumber} is connected. Token analytics are not available, but you can still purchase tokens via SMS.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  variant="outline"
+                >
+                  {refreshing ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Check Analytics
+                    </>
+                  )}
+                </Button>
+                <Dialog open={purchaseDialogOpen} onOpenChange={setPurchaseDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-aurora-green hover:bg-aurora-green/80">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Purchase Tokens via SMS
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md bg-aurora-card border-aurora-green/20">
+                    <DialogHeader>
+                      <DialogTitle className="text-aurora-green-light">
+                        Purchase KPLC Tokens via SMS
+                      </DialogTitle>
+                      <DialogDescription>
+                        Purchase electricity tokens directly via SMS. You'll receive a token code to enter in your meter.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium">Quick Amounts</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {[100, 200, 500, 1000].map((amount) => (
+                            <Button
+                              key={amount}
+                              variant={purchaseAmount === amount.toString() ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setPurchaseAmount(amount.toString())}
+                              className="text-sm"
+                            >
+                              KSh {amount}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="amount" className="text-sm font-medium">Custom Amount (KSh)</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          min="10"
+                          max="10000"
+                          value={purchaseAmount}
+                          onChange={(e) => setPurchaseAmount(e.target.value)}
+                          className="mt-1 bg-slate-800 border-aurora-green/30"
+                          placeholder="Enter amount"
+                        />
+                      </div>
+                      <div className="p-3 bg-slate-800/50 rounded-lg border border-aurora-green/20">
+                        <div className="flex justify-between items-center text-sm">
+                          <span>Meter Number:</span>
+                          <span className="font-medium">{meterNumber}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm mt-1">
+                          <span>Amount:</span>
+                          <span className="font-medium">KSh {parseFloat(purchaseAmount || '0').toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm mt-1">
+                          <span>Phone:</span>
+                          <span className="font-medium">{profile.phone_number || 'Not set'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setPurchaseDialogOpen(false)}
+                        disabled={purchasing}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          const amount = parseFloat(purchaseAmount);
+                          if (amount >= 10 && profile.phone_number && meterNumber) {
+                            try {
+                              await purchaseTokensWithSMS(amount, meterNumber, profile.phone_number, energyProvider as any);
+                              setPurchaseDialogOpen(false);
+                              toast({
+                                title: "Purchase Initiated",
+                                description: `SMS sent to purchase KSh ${amount} tokens for meter ${meterNumber}`,
+                              });
+                            } catch (error) {
+                              toast({
+                                title: "Purchase Failed",
+                                description: "Failed to initiate SMS purchase. Please try again.",
+                                variant: "destructive",
+                              });
+                            }
+                          }
+                        }}
+                        disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10 || !profile.phone_number}
+                        className="bg-aurora-green hover:bg-aurora-green/80"
+                      >
+                        {purchasing ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Purchase via SMS
+                          </>
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Default no meter message
     return (
       <div className="text-center py-8">
         <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
@@ -356,7 +631,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
         return <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-aurora-green-light" />;
     }
   };
-  
+
   const getTrendIcon = (trend: string) => {
     switch (trend) {
       case 'increasing': return <TrendingUp className="h-4 w-4 text-red-500" />;
@@ -385,7 +660,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   return (
     <div className="space-y-4 sm:space-y-6 animate-fade-in">
       {/* SMS Fallback Status */}
-      <SMSFallbackStatus 
+      <SMSFallbackStatus
         energyProvider={energyProvider}
         onConfigureClick={() => {
           toast({
@@ -406,7 +681,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                   {getDataSourceText(analytics.data_source, analytics.cache_hit)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {analytics.last_updated ? 
+                  {analytics.last_updated ?
                     `Updated ${formatDistanceToNow(new Date(analytics.last_updated), { addSuffix: true })}` :
                     'No recent updates'
                   }
@@ -515,9 +790,9 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                 {getProviderIcon()}
                 <div>
                   <p className="text-sm font-medium">
-                    Live {energyProvider === 'KPLC' ? 'KPLC' : 
-                         energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? 'Solar' : 
-                         energyProvider || 'Energy'} Balance
+                    Live {energyProvider === 'KPLC' ? 'KPLC' :
+                      energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar' ? 'Solar' :
+                        energyProvider || 'Energy'} Balance
                   </p>
                   <p className="text-2xl font-bold text-green-400">
                     KSh {kplcBalance.balance.toFixed(2)}
@@ -579,8 +854,8 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                       {energyProvider === 'KPLC' || !energyProvider
                         ? 'Buy electricity tokens directly from KPLC. You\'ll receive a token code to enter in your meter.'
                         : energyProvider === 'Solar' || energyProvider === 'SunCulture' || energyProvider === 'M-KOPA Solar'
-                        ? 'Buy solar credits for your solar provider. You\'ll receive a transaction reference.'
-                        : 'Buy energy credits for your provider. You\'ll receive a transaction reference.'}
+                          ? 'Buy solar credits for your solar provider. You\'ll receive a transaction reference.'
+                          : 'Buy energy credits for your provider. You\'ll receive a transaction reference.'}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -730,7 +1005,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                     </Button>
                     <Button
                       onClick={handlePurchaseTokens}
-                      disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10 || 
+                      disabled={purchasing || !purchaseAmount || parseFloat(purchaseAmount) < 10 ||
                         ((paymentMethod === 'M-PESA' || paymentMethod === 'Airtel Money') && (!phoneNumber || phoneNumber.length < 10))}
                       className="bg-aurora-green hover:bg-aurora-green/80"
                     >
@@ -816,11 +1091,10 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
             {transactions.slice(0, isMobile ? 5 : 8).map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-full ${
-                    transaction.transaction_type === 'purchase' ? 'bg-green-500/20' :
+                  <div className={`p-2 rounded-full ${transaction.transaction_type === 'purchase' ? 'bg-green-500/20' :
                     transaction.transaction_type === 'consumption' ? 'bg-red-500/20' :
-                    'bg-blue-500/20'
-                  }`}>
+                      'bg-blue-500/20'
+                    }`}>
                     {transaction.transaction_type === 'purchase' ? (
                       <CreditCard className="h-4 w-4 text-green-500" />
                     ) : transaction.transaction_type === 'consumption' ? (
@@ -853,9 +1127,8 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-medium text-sm ${
-                    transaction.transaction_type === 'purchase' ? 'text-green-500' : 'text-red-500'
-                  }`}>
+                  <p className={`font-medium text-sm ${transaction.transaction_type === 'purchase' ? 'text-green-500' : 'text-red-500'
+                    }`}>
                     {transaction.transaction_type === 'purchase' ? '+' : '-'}KSh {transaction.amount.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -937,11 +1210,11 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="pt-4 border-t border-slate-700">
-                  <Button 
+                  <Button
                     onClick={() => fetchBillData(profile?.meter_number || '')}
-                    size="sm" 
+                    size="sm"
                     variant="outline"
                     className="border-aurora-blue/30 hover:bg-aurora-blue/10"
                     disabled={puppeteerLoading || loading}
@@ -960,7 +1233,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                 <p className="text-sm text-muted-foreground mb-3">
                   Connect to KPLC portal to view your bill information
                 </p>
-                <Button 
+                <Button
                   onClick={() => {
                     if (profile?.meter_number) {
                       fetchBillData(profile.meter_number);
@@ -972,7 +1245,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                       });
                     }
                   }}
-                  size="sm" 
+                  size="sm"
                   className="bg-aurora-blue hover:bg-aurora-blue/80"
                   disabled={puppeteerLoading || loading}
                 >
