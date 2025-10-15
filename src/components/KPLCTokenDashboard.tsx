@@ -617,7 +617,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     );
   }
 
-  const balancePercentage = Math.min(100, (analytics.current_balance / 500) * 100);
+  const balancePercentage = Math.min(100, ((analytics?.current_balance || 0) / 500) * 100);
 
   // Get provider icon
   const getProviderIcon = () => {
@@ -677,10 +677,10 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              {getDataSourceIcon(analytics.data_source)}
+              {getDataSourceIcon(analytics?.data_source)}
               <div>
                 <p className="text-sm font-medium">
-                  {getDataSourceText(analytics.data_source, analytics.cache_hit)}
+                  {getDataSourceText(analytics?.data_source, analytics?.cache_hit)}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {analytics.last_updated ?
@@ -724,8 +724,8 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                   <p className="text-xs sm:text-sm text-muted-foreground">
                     {getProviderTerminology(energyProvider).balance} Balance
                   </p>
-                  <p className={`text-lg sm:text-2xl font-bold ${getBalanceColor(analytics.current_balance)}`}>
-                    KSh {analytics.current_balance.toFixed(2)}
+                  <p className={`text-lg sm:text-2xl font-bold ${getBalanceColor(analytics?.current_balance || 0)}`}>
+                    KSh {(analytics?.current_balance || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -744,7 +744,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
               <div>
                 <p className="text-xs sm:text-sm text-muted-foreground">Days Remaining</p>
                 <p className="text-lg sm:text-2xl font-bold text-aurora-blue-light">
-                  {analytics.estimated_days_remaining}
+                  {analytics?.estimated_days_remaining || 0}
                 </p>
               </div>
             </div>
@@ -759,11 +759,11 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                 <div>
                   <p className="text-xs sm:text-sm text-muted-foreground">Daily Avg</p>
                   <p className="text-lg sm:text-2xl font-bold text-aurora-purple-light">
-                    KSh {analytics.daily_consumption_avg.toFixed(2)}
+                    KSh {(analytics?.daily_consumption_avg || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
-              {getTrendIcon(analytics.consumption_trend)}
+              {getTrendIcon(analytics?.consumption_trend || 'stable')}
             </div>
           </CardContent>
         </Card>
@@ -775,7 +775,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
               <div>
                 <p className="text-xs sm:text-sm text-muted-foreground">Monthly Spend</p>
                 <p className="text-lg sm:text-2xl font-bold text-emerald-400">
-                  KSh {analytics.monthly_spending.toFixed(2)}
+                  KSh {(analytics?.monthly_spending || 0).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -817,7 +817,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row items-center justify-between space-y-3 sm:space-y-0">
             <div className="flex items-center space-x-3">
-              <div className={`w-3 h-3 rounded-full ${analytics.current_balance > 100 ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${analytics?.current_balance && analytics.current_balance > 100 ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`}></div>
               <span className="text-sm">
                 {analytics.current_balance > 100
                   ? `${getProviderTerminology(energyProvider).balance} balance is healthy`
@@ -1093,8 +1093,8 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
             {transactions.slice(0, isMobile ? 5 : 8).map((transaction) => (
               <div key={transaction.id} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-full ${transaction.transaction_type === 'purchase' ? 'bg-green-500/20' :
-                    transaction.transaction_type === 'consumption' ? 'bg-red-500/20' :
+                  <div className={`p-2 rounded-full ${transaction?.transaction_type === 'purchase' ? 'bg-green-500/20' :
+                    transaction?.transaction_type === 'consumption' ? 'bg-red-500/20' :
                       'bg-blue-500/20'
                     }`}>
                     {transaction.transaction_type === 'purchase' ? (
@@ -1129,7 +1129,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`font-medium text-sm ${transaction.transaction_type === 'purchase' ? 'text-green-500' : 'text-red-500'
+                  <p className={`font-medium text-sm ${transaction?.transaction_type === 'purchase' ? 'text-green-500' : 'text-red-500'
                     }`}>
                     {transaction.transaction_type === 'purchase' ? '+' : '-'}KSh {transaction.amount.toFixed(2)}
                   </p>

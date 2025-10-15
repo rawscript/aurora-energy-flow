@@ -1,6 +1,8 @@
 // Basic Supabase types for the Aurora Energy Flow project
 import { SupabaseClient } from '@supabase/supabase-js';
 
+// Updated to include all RPC functions
+
 // Define the Database type structure
 export type Database = {
   public: {
@@ -351,6 +353,22 @@ export type Database = {
           p_user_id?: string;
         };
         Returns: boolean;
+      };
+      get_or_create_profile: {
+        Args: {
+          p_user_id: string;
+          p_email?: string;
+          p_full_name?: string;
+          p_phone_number?: string;
+          p_meter_number?: string;
+        };
+        Returns: any;
+      };
+      check_profile_status: {
+        Args: {
+          p_user_id?: string;
+        };
+        Returns: any;
       };
     };
   };

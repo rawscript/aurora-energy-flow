@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuthenticatedApi } from '@/hooks/useAuthenticatedApi';
 import { useToast } from '@/components/ui/use-toast';
-import type { Tables } from '@/integrations/supabase/types';
 import { getEnergySettings } from '@/utils/energySettings';
 
 // Explicitly define the BaseProfile type with all required properties
@@ -45,7 +43,7 @@ export const useProfile = () => {
   const [error, setError] = useState<string | null>(null);
   const { user, userId, hasValidSession, callRpc, query } = useAuthenticatedApi();
   const { toast } = useToast();
-  
+
   // Control refs
   const isInitialized = useRef(false);
   const fetchingRef = useRef(false);
@@ -131,9 +129,9 @@ export const useProfile = () => {
 
     } catch (error: any) {
       console.error('Error fetching profile:', error);
-      
+
       let errorMessage = "Could not load user profile";
-      
+
       // More specific error handling
       if (error.message?.includes('timeout')) {
         errorMessage = "Request timed out. Please try again.";
@@ -157,7 +155,7 @@ export const useProfile = () => {
     } finally {
       fetchingRef.current = false;
       setLoading(false);
-      
+
       if (!isInitialized.current) {
         isInitialized.current = true;
       }
@@ -167,6 +165,7 @@ export const useProfile = () => {
   // Optimized update function using centralized auth
   const updateProfile = useCallback(async (updates: Partial<Omit<Profile, 'id' | 'created_at'>>) => {
     if (!userId || !hasValidSession()) {
+      console.error('Authentication check failed:', { userId, hasValidSession: hasValidSession() });
       toast({
         title: "Authentication Error",
         description: "Please sign in to update your profile.",
@@ -176,7 +175,7 @@ export const useProfile = () => {
     }
 
     try {
-      console.log('Updating profile with:', updates);
+      console.log('Updating profile with:', { updates, userId, authState: { userId, hasValidSession: hasValidSession() } });
 
       // Input validation
       if (updates.energy_rate !== undefined && (typeof updates.energy_rate !== 'number' || updates.energy_rate < 0)) {
@@ -197,8 +196,11 @@ export const useProfile = () => {
         return false;
       }
 
-      // Use centralized auth for query
-      const { data, error } = await query('profiles')
+      // Use centralized auth for query with fallback for different schema versions
+      let data: any, error: any;
+
+      // Try with id first (newer schema)
+      const result = await query('profiles')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -206,6 +208,25 @@ export const useProfile = () => {
         .eq('id', userId)
         .select()
         .single();
+
+      data = result.data;
+      error = result.error;
+
+      // If that fails, try with user_id (older schema compatibility)
+      if (error && error.code === 'PGRST116') {
+        console.log('Trying profile update with user_id fallback');
+        const fallbackResult = await query('profiles')
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
+
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
 
       if (error) {
         throw error;
@@ -223,17 +244,37 @@ export const useProfile = () => {
 
       return false;
     } catch (error: any) {
-      console.error('Error updating profile:', error);
-      
+      console.error('Error updating profile:', {
+        error,
+        userId,
+        updates,
+        errorCode: error.code,
+        errorMessage: error.message,
+        errorDetails: error.details
+      });
+
       let errorMessage = "Could not update profile";
+      let errorTitle = "Update Failed";
+
       if (error.message?.includes('timeout')) {
         errorMessage = "Update timed out. Please try again.";
       } else if (error.message?.includes('network')) {
         errorMessage = "Network error. Please check your connection.";
+      } else if (error.code === 'PGRST301') {
+        errorMessage = "Authentication required. Please sign in again.";
+        errorTitle = "Authentication Error";
+      } else if (error.code === 'PGRST116') {
+        errorMessage = "Profile not found. Please contact support.";
+        errorTitle = "Profile Error";
+      } else if (error.message?.includes('RLS') || error.message?.includes('policy')) {
+        errorMessage = "Permission denied. Please sign in again.";
+        errorTitle = "Permission Error";
+      } else if (error.details) {
+        errorMessage = `Database error: ${error.details}`;
       }
 
       toast({
-        title: "Update Failed",
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive"
       });
@@ -259,7 +300,7 @@ export const useProfile = () => {
 
     if (!meterData.meter_category?.trim()) {
       toast({
-        title: "Validation Error", 
+        title: "Validation Error",
         description: "Meter category is required.",
         variant: "destructive"
       });
@@ -311,7 +352,7 @@ export const useProfile = () => {
 
       return () => clearTimeout(timer);
     }
-    
+
     // Clear state when no user
     if (!currentUserId) {
       if (abortControllerRef.current) {
