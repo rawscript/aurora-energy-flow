@@ -184,10 +184,16 @@ const ChatInterface = () => {
             // Calculate real energy data from readings
             const today = new Date();
             const dailyReadings = readings.filter(r => {
-              const readingDate = new Date(r.reading_date);
-              return readingDate.getDate() === today.getDate() &&
-                     readingDate.getMonth() === today.getMonth() &&
-                     readingDate.getFullYear() === today.getFullYear();
+              try {
+                if (!r.reading_date) return false;
+                const readingDate = new Date(r.reading_date);
+                if (isNaN(readingDate.getTime())) return false;
+                return readingDate.getDate() === today.getDate() &&
+                       readingDate.getMonth() === today.getMonth() &&
+                       readingDate.getFullYear() === today.getFullYear();
+              } catch (error) {
+                return false;
+              }
             });
 
             const dailyTotal = dailyReadings.reduce((sum, r) => sum + r.kwh_consumed, 0);
@@ -208,8 +214,15 @@ const ChatInterface = () => {
             // Find peak usage time
             const hourlyUsage = new Map<number, number>();
             readings.forEach(reading => {
-              const hour = new Date(reading.reading_date).getHours();
-              hourlyUsage.set(hour, (hourlyUsage.get(hour) || 0) + reading.kwh_consumed);
+              try {
+                if (!reading.reading_date) return;
+                const date = new Date(reading.reading_date);
+                if (isNaN(date.getTime())) return;
+                const hour = date.getHours();
+                hourlyUsage.set(hour, (hourlyUsage.get(hour) || 0) + reading.kwh_consumed);
+              } catch (error) {
+                // Skip invalid dates
+              }
             });
 
             let maxHour = 18;

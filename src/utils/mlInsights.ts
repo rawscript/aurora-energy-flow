@@ -56,6 +56,18 @@ const safeGetDateProperty = (dateStr: string | undefined | null, property: 'getH
   }
 };
 
+// Helper function to safely format dates
+const safeFormatDate = (dateStr: string | undefined | null): string => {
+  try {
+    if (!dateStr) return 'Unknown date';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Unknown date';
+    return date.toLocaleDateString();
+  } catch (error) {
+    return 'Unknown date';
+  }
+};
+
 // Enhanced ML Models for different analysis types
 export class EnergyMLAnalyzer {
   private category: string;
@@ -65,7 +77,7 @@ export class EnergyMLAnalyzer {
   constructor(category: string, industryType?: string, readings: EnergyReading[] = []) {
     this.category = category;
     this.industryType = industryType;
-    this.readings = readings.sort((a, b) => 
+    this.readings = readings.sort((a, b) =>
       safeGetDateProperty(a.reading_date, 'getTime') - safeGetDateProperty(b.reading_date, 'getTime')
     );
   }
@@ -95,7 +107,7 @@ export class EnergyMLAnalyzer {
   // Enhanced Pattern Recognition ML Model with LSTM
   private async analyzeUsagePatterns(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
-    
+
     // Time series analysis for usage patterns
     const hourlyPatterns = this.extractHourlyPatterns();
     const weeklyPatterns = this.extractWeeklyPatterns();
@@ -103,7 +115,7 @@ export class EnergyMLAnalyzer {
 
     // LSTM-based pattern recognition for complex temporal patterns
     const lstmPatterns = await this.lstmPatternRecognition();
-    
+
     // Detect peak usage patterns
     const peakHours = this.detectPeakHours(hourlyPatterns);
     if (peakHours.confidence > 0.7) {
@@ -119,7 +131,7 @@ export class EnergyMLAnalyzer {
         industryType: this.industryType,
         priority: 8,
         actionable: !peakHours.isOptimal,
-        recommendation: peakHours.isOptimal ? 
+        recommendation: peakHours.isOptimal ?
           'Your peak usage pattern is well-optimized for cost efficiency.' :
           `Consider shifting ${peakHours.shiftableLoad}% of your load to off-peak hours (${peakHours.offPeakHours.join(', ')}) to reduce costs by an estimated ${peakHours.potentialSavings}%.`,
         mlModel: 'LSTM Time Series Pattern Recognition',
@@ -169,13 +181,13 @@ export class EnergyMLAnalyzer {
   // Enhanced Anomaly Detection ML Model with Isolation Forest
   private async detectAnomalies(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
-    
+
     // Statistical anomaly detection using Z-score and IQR
     const statisticalAnomalies = this.detectStatisticalAnomalies();
-    
+
     // Isolation Forest-based anomaly detection for multivariate analysis
     const isolationForestAnomalies = await this.isolationForestAnomalyDetection();
-    
+
     // Combine anomalies from both methods
     const allAnomalies = [...statisticalAnomalies, ...isolationForestAnomalies];
 
@@ -211,16 +223,16 @@ export class EnergyMLAnalyzer {
   // Enhanced Predictive ML Model with LSTM
   private async predictFutureTrends(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
-    
+
     // Linear regression for trend prediction
     const linearTrendAnalysis = this.performTrendAnalysis();
-    
+
     // LSTM neural network for advanced time series forecasting
     const lstmPrediction = await this.lstmForecasting();
-    
+
     if (linearTrendAnalysis.confidence > 0.65) {
       const prediction = this.predictNextPeriod(linearTrendAnalysis);
-      
+
       insights.push({
         id: 'ml-trend-prediction',
         type: 'prediction',
@@ -278,13 +290,13 @@ export class EnergyMLAnalyzer {
   // Enhanced Efficiency Optimization ML Model with Q-Learning
   private async optimizeEfficiency(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
-    
+
     // Multi-variate analysis for efficiency optimization
     const efficiencyAnalysis = this.analyzeEfficiencyFactors();
-    
+
     // Q-Learning based optimization recommendations
     const qlOptimization = await this.qLearningOptimization();
-    
+
     if (efficiencyAnalysis.confidence > 0.7) {
       insights.push({
         id: 'ml-efficiency-optimization',
@@ -339,13 +351,13 @@ export class EnergyMLAnalyzer {
   // Enhanced Behavioral Pattern ML Model with K-Means Clustering
   private async analyzeBehavioralPatterns(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
-    
+
     // Clustering analysis for behavioral patterns
     const behaviorAnalysis = this.clusterBehavioralPatterns();
-    
+
     // K-Means clustering for user segmentation
     const kmeansAnalysis = await this.kMeansUserSegmentation();
-    
+
     if (behaviorAnalysis.confidence > 0.6) {
       insights.push({
         id: 'ml-behavioral-pattern',
@@ -399,13 +411,13 @@ export class EnergyMLAnalyzer {
   // Enhanced Cost Optimization ML Model with Linear Regression
   private async detectCostOptimizations(): Promise<MLInsight[]> {
     const insights: MLInsight[] = [];
-    
+
     // Cost optimization through pattern analysis
     const costAnalysis = this.analyzeCostOptimization();
-    
+
     // Linear regression for cost prediction
     const linearRegressionAnalysis = await this.linearRegressionCostPrediction();
-    
+
     if (costAnalysis.confidence > 0.65 && costAnalysis.potentialSavings > 5) {
       insights.push({
         id: 'ml-cost-optimization',
@@ -466,14 +478,14 @@ export class EnergyMLAnalyzer {
     try {
       // Prepare time series data
       const timeSeries = this.readings.map(r => r.kwh_consumed);
-      
+
       // For demonstration, we'll use a simplified approach
       // In a real implementation, we would train an LSTM model
       const patterns = this.extractAdvancedPatterns(timeSeries);
-      
+
       // Calculate confidence based on pattern consistency
       const confidence = Math.min(95, 60 + (patterns.length * 5));
-      
+
       return { patterns, confidence };
     } catch (error) {
       console.warn('LSTM pattern recognition failed:', error);
@@ -485,7 +497,7 @@ export class EnergyMLAnalyzer {
   private async isolationForestAnomalyDetection(): Promise<any[]> {
     try {
       const anomalies = [];
-      
+
       // Extract features for multivariate analysis
       const features = this.readings.map(r => [
         r.kwh_consumed,
@@ -493,17 +505,17 @@ export class EnergyMLAnalyzer {
         r.peak_demand || 0,
         r.power_factor || 0.8
       ]);
-      
+
       // Simple isolation approach using statistical methods
       // In a real implementation, we would use a proper Isolation Forest
-      const means = features[0].map((_, i) => 
+      const means = features[0].map((_, i) =>
         ss.mean(features.map(row => row[i]))
       );
-      
-      const stdDevs = features[0].map((_, i) => 
+
+      const stdDevs = features[0].map((_, i) =>
         ss.standardDeviation(features.map(row => row[i]))
       );
-      
+
       // Detect anomalies based on multivariate distance
       this.readings.forEach((reading, index) => {
         const featureVector = [
@@ -512,42 +524,28 @@ export class EnergyMLAnalyzer {
           reading.peak_demand || 0,
           reading.power_factor || 0.8
         ];
-        
+
         // Calculate Mahalanobis distance (simplified)
-        const distances = featureVector.map((val, i) => 
+        const distances = featureVector.map((val, i) =>
           Math.abs(val - means[i]) / (stdDevs[i] || 1)
         );
-        
+
         const maxDistance = Math.max(...distances);
-        
+
         if (maxDistance > 2.5) {
           anomalies.push({
             type: 'multivariate',
             severity: maxDistance > 3 ? 'high' : 'medium',
             confidence: Math.min(0.95, maxDistance / 4),
             deviation: maxDistance,
-            description: `Unusual combination of energy metrics on ${(() => {
-              try {
-                const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
-                return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
-              } catch (error) {
-                return 'Unknown date';
-              }
-            })()}`,
+            description: `Unusual combination of energy metrics on ${safeFormatDate(reading.reading_date)}`,
             recommendation: 'Review all energy metrics for this period to identify contributing factors',
-            timeframe: (() => {
-              try {
-                const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
-                return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
-              } catch (error) {
-                return 'Unknown date';
-              }
-            })(),
+            timeframe: safeFormatDate(reading.reading_date),
             mlModel: 'Isolation Forest Anomaly Detection'
           });
         }
       });
-      
+
       return anomalies;
     } catch (error) {
       console.warn('Isolation Forest anomaly detection failed:', error);
@@ -561,37 +559,37 @@ export class EnergyMLAnalyzer {
       // Prepare time series data
       const timeSeries = this.readings.map(r => r.kwh_consumed);
       const n = timeSeries.length;
-      
+
       if (n < 10) {
         return { confidence: 0, direction: 'stable', nextValue: 0, mse: 0, mae: 0, r2: 0 };
       }
-      
+
       // Simple forecasting using moving averages for demonstration
       // In a real implementation, we would use an actual LSTM model
       const windowSize = Math.min(7, Math.floor(n / 2));
       const recentValues = timeSeries.slice(-windowSize);
       const forecast = ss.mean(recentValues);
-      
+
       // Calculate trend direction
       const lastValue = timeSeries[timeSeries.length - 1];
       const direction = forecast > lastValue ? 'increasing' : forecast < lastValue ? 'decreasing' : 'stable';
-      
+
       // Calculate metrics
       const predictions = timeSeries.slice(windowSize).map((_, i) => {
         const window = timeSeries.slice(i, i + windowSize);
         return ss.mean(window);
       });
-      
+
       const actuals = timeSeries.slice(windowSize);
       const mse = ss.mean(actuals.map((a, i) => Math.pow(a - predictions[i], 2)));
       const mae = ss.mean(actuals.map((a, i) => Math.abs(a - predictions[i])));
       const ssRes = ss.sum(actuals.map((a, i) => Math.pow(a - predictions[i], 2)));
       const ssTot = ss.sum(actuals.map(a => Math.pow(a - ss.mean(actuals), 2)));
       const r2 = 1 - (ssRes / (ssTot || 1));
-      
+
       // Confidence based on model performance
       const confidence = Math.min(90, Math.max(30, 100 - (mae * 2)));
-      
+
       return {
         confidence,
         direction,
@@ -616,18 +614,18 @@ export class EnergyMLAnalyzer {
         consumption: r.kwh_consumed,
         cost: r.total_cost
       }));
-      
+
       // Simple Q-Learning simulation
       // In a real implementation, we would train a proper Q-Learning agent
       const actionValues = new Map();
-      
+
       // Evaluate potential actions (time shifting)
       const offPeakHours = [22, 23, 0, 1, 2, 3, 4, 5];
       const peakHours = [18, 19, 20, 21];
-      
+
       let totalSavings = 0;
       let totalCount = 0;
-      
+
       states.forEach(state => {
         if (peakHours.includes(state.hour)) {
           const offPeakRate = 0.7; // 30% savings during off-peak
@@ -636,10 +634,10 @@ export class EnergyMLAnalyzer {
           totalCount++;
         }
       });
-      
+
       const avgSavings = totalCount > 0 ? (totalSavings / totalCount) * 100 : 0;
       const confidence = Math.min(90, Math.max(40, avgSavings));
-      
+
       return {
         confidence,
         savings: avgSavings,
@@ -662,16 +660,16 @@ export class EnergyMLAnalyzer {
         safeGetDateProperty(r.reading_date, 'getDay'),
         safeGetDateProperty(r.reading_date, 'getHours')
       ]);
-      
+
       // Simple clustering approach using statistical methods
       // In a real implementation, we would use actual K-Means clustering
       const avgConsumption = ss.mean(this.readings.map(r => r.kwh_consumed));
       const avgCost = ss.mean(this.readings.map(r => r.total_cost));
-      
+
       // Determine user segment based on consumption patterns
       let segment = 'Moderate';
       let recommendation = 'Continue monitoring your energy usage patterns';
-      
+
       if (avgConsumption > ss.quantile(this.readings.map(r => r.kwh_consumed), 0.75)) {
         segment = 'High Consumption';
         recommendation = 'Consider energy efficiency measures to reduce consumption';
@@ -682,11 +680,11 @@ export class EnergyMLAnalyzer {
         segment = 'Moderate';
         recommendation = 'Monitor usage patterns for optimization opportunities';
       }
-      
+
       // Calculate similarity to segment (simplified)
       const similarUsersPercentage = Math.min(90, Math.max(30, 100 - (Math.abs(avgConsumption - ss.median(this.readings.map(r => r.kwh_consumed))) / avgConsumption) * 100));
       const confidence = Math.min(85, Math.max(50, similarUsersPercentage));
-      
+
       return {
         confidence,
         segment,
@@ -706,33 +704,33 @@ export class EnergyMLAnalyzer {
       if (n < 5) {
         return { confidence: 0, trend: 0, r2: 0, mse: 0, recommendation: '' };
       }
-      
+
       // Prepare data for linear regression
       const xValues = Array.from({ length: n }, (_, i) => i);
       const yValues = this.readings.map(r => r.total_cost);
-      
+
       // Calculate linear regression coefficients
       const xMean = ss.mean(xValues);
       const yMean = ss.mean(yValues);
-      
+
       const numerator = xValues.reduce((sum, x, i) => sum + (x - xMean) * (yValues[i] - yMean), 0);
       const denominator = xValues.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
-      
+
       const slope = denominator !== 0 ? numerator / denominator : 0;
       const intercept = yMean - slope * xMean;
-      
+
       // Calculate R-squared
       const yPredicted = xValues.map(x => slope * x + intercept);
       const ssRes = yValues.reduce((sum, y, i) => sum + Math.pow(y - yPredicted[i], 2), 0);
       const ssTot = yValues.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
       const r2 = 1 - (ssRes / (ssTot || 1));
-      
+
       // Calculate MSE
       const mse = ssRes / n;
-      
+
       // Confidence based on model fit
       const confidence = Math.min(90, Math.max(20, r2 * 100));
-      
+
       // Recommendation based on trend
       let recommendation = '';
       if (slope > 0) {
@@ -742,7 +740,7 @@ export class EnergyMLAnalyzer {
       } else {
         recommendation = 'Your energy costs are stable, continue monitoring';
       }
-      
+
       return {
         confidence,
         trend: slope,
@@ -760,7 +758,7 @@ export class EnergyMLAnalyzer {
 
   private extractHourlyPatterns() {
     const hourlyData = new Array(24).fill(0).map(() => ({ total: 0, count: 0 }));
-    
+
     this.readings.forEach(reading => {
       const hour = safeGetDateProperty(reading.reading_date, 'getHours');
       hourlyData[hour].total += reading.kwh_consumed;
@@ -776,7 +774,7 @@ export class EnergyMLAnalyzer {
 
   private extractWeeklyPatterns() {
     const weeklyData = new Array(7).fill(0).map(() => ({ total: 0, count: 0 }));
-    
+
     this.readings.forEach(reading => {
       const day = safeGetDateProperty(reading.reading_date, 'getDay');
       weeklyData[day].total += reading.kwh_consumed;
@@ -793,7 +791,7 @@ export class EnergyMLAnalyzer {
   private extractSeasonalPatterns() {
     // Group by month for seasonal analysis
     const monthlyData = new Map<number, { total: number; count: number }>();
-    
+
     this.readings.forEach(reading => {
       const month = safeGetDateProperty(reading.reading_date, 'getMonth');
       if (!monthlyData.has(month)) {
@@ -816,7 +814,7 @@ export class EnergyMLAnalyzer {
   private extractAdvancedPatterns(timeSeries: number[]) {
     // Extract advanced patterns using statistical methods
     const patterns = [];
-    
+
     // Detect trends
     const trend = this.calculateTrendSimple(timeSeries);
     if (Math.abs(trend) > 0.1) {
@@ -826,7 +824,7 @@ export class EnergyMLAnalyzer {
         strength: Math.abs(trend)
       });
     }
-    
+
     // Detect seasonality (weekly pattern)
     const weeklyPattern = this.detectWeeklyPattern(timeSeries);
     if (weeklyPattern.confidence > 0.7) {
@@ -836,7 +834,7 @@ export class EnergyMLAnalyzer {
         confidence: weeklyPattern.confidence
       });
     }
-    
+
     // Detect volatility
     const volatility = ss.standardDeviation(timeSeries) / ss.mean(timeSeries);
     if (volatility > 0.3) {
@@ -845,38 +843,38 @@ export class EnergyMLAnalyzer {
         volatility: volatility
       });
     }
-    
+
     return patterns;
   }
 
   private calculateTrendSimple(data: number[]): number {
     if (data.length < 2) return 0;
-    
+
     const n = data.length;
     const xValues = Array.from({ length: n }, (_, i) => i);
     const yValues = data;
-    
+
     const xMean = ss.mean(xValues);
     const yMean = ss.mean(yValues);
-    
+
     const numerator = xValues.reduce((sum, x, i) => sum + (x - xMean) * (yValues[i] - yMean), 0);
     const denominator = xValues.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
-    
+
     return denominator !== 0 ? numerator / denominator : 0;
   }
 
   private detectWeeklyPattern(data: number[]): { confidence: number } {
     if (data.length < 14) return { confidence: 0 };
-    
+
     // Simple autocorrelation at lag 7 (weekly)
     let autocorr = 0;
     let count = 0;
-    
+
     for (let i = 7; i < data.length; i++) {
       autocorr += data[i] * data[i - 7];
       count++;
     }
-    
+
     const confidence = count > 0 ? Math.min(1, Math.abs(autocorr) / count) : 0;
     return { confidence };
   }
@@ -889,7 +887,7 @@ export class EnergyMLAnalyzer {
 
     const sortedHours = validHours.sort((a, b) => b.average - a.average);
     const peakHours = sortedHours.slice(0, 3).map(h => `${h.hour}:00`);
-    
+
     // Calculate confidence based on data consistency
     const avgUsage = validHours.reduce((sum, h) => sum + h.average, 0) / validHours.length;
     const variance = validHours.reduce((sum, h) => sum + Math.pow(h.average - avgUsage, 2), 0) / validHours.length;
@@ -948,16 +946,16 @@ export class EnergyMLAnalyzer {
 
     // Calculate weekday average (Mon-Fri, indices 1-5)
     const weekdayData = validDays.filter(d => d.day >= 1 && d.day <= 5);
-    const weekdayAvg = weekdayData.length > 0 
-      ? weekdayData.reduce((sum, d) => sum + d.average, 0) / weekdayData.length 
+    const weekdayAvg = weekdayData.length > 0
+      ? weekdayData.reduce((sum, d) => sum + d.average, 0) / weekdayData.length
       : 0;
-    
+
     // Calculate weekend average (Sat-Sun, indices 0 and 6)
     const weekendData = validDays.filter(d => d.day === 0 || d.day === 6);
-    const weekendAvg = weekendData.length > 0 
-      ? weekendData.reduce((sum, d) => sum + d.average, 0) / weekendData.length 
+    const weekendAvg = weekendData.length > 0
+      ? weekendData.reduce((sum, d) => sum + d.average, 0) / weekendData.length
       : 0;
-    
+
     const efficiency = this.calculateWeeklyEfficiency(weekdayAvg, weekendAvg);
     const confidence = Math.min(0.9, validDays.length / 7);
 
@@ -983,17 +981,17 @@ export class EnergyMLAnalyzer {
   private detectStatisticalAnomalies() {
     const usageValues = this.readings.map(r => r.kwh_consumed);
     const costValues = this.readings.map(r => r.total_cost);
-    
+
     const anomalies = [];
-    
+
     // Z-score anomaly detection for usage
     const usageAnomalies = this.detectZScoreAnomalies(usageValues, 'usage');
     anomalies.push(...usageAnomalies);
-    
+
     // Z-score anomaly detection for cost
     const costAnomalies = this.detectZScoreAnomalies(costValues, 'cost');
     anomalies.push(...costAnomalies);
-    
+
     // IQR anomaly detection
     const iqrAnomalies = this.detectIQRAnomalies(usageValues, 'usage');
     anomalies.push(...iqrAnomalies);
@@ -1004,39 +1002,25 @@ export class EnergyMLAnalyzer {
   private detectZScoreAnomalies(values: number[], type: string) {
     const mean = ss.mean(values);
     const stdDev = ss.standardDeviation(values);
-    
+
     const anomalies = [];
     const threshold = 2.5; // Z-score threshold
-    
+
     values.forEach((value, index) => {
       const zScore = Math.abs((value - mean) / (stdDev || 1));
       if (zScore > threshold) {
         const reading = this.readings[index];
         const severity = zScore > 3 ? 'high' : 'medium';
         const confidence = Math.min(0.95, zScore / 4);
-        
+
         anomalies.push({
           type,
           severity,
           confidence,
           deviation: zScore,
-          description: `${type} of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${(() => {
-            try {
-              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
-              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
-            } catch (error) {
-              return 'Unknown date';
-            }
-          })()}`,
+          description: `${type} of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${safeFormatDate(reading.reading_date)}`,
           recommendation: this.getAnomalyRecommendation(type, severity, value, mean),
-          timeframe: (() => {
-            try {
-              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
-              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
-            } catch (error) {
-              return 'Unknown date';
-            }
-          })()
+          timeframe: safeFormatDate(reading.reading_date)
         });
       }
     });
@@ -1051,37 +1035,23 @@ export class EnergyMLAnalyzer {
     const iqr = q3 - q1;
     const lowerBound = q1 - 1.5 * iqr;
     const upperBound = q3 + 1.5 * iqr;
-    
+
     const anomalies = [];
-    
+
     values.forEach((value, index) => {
       if (value < lowerBound || value > upperBound) {
         const reading = this.readings[index];
         const severity = value > upperBound ? 'high' : 'medium';
         const confidence = 0.8;
-        
+
         anomalies.push({
           type: `${type}_iqr`,
           severity,
           confidence,
           deviation: value > upperBound ? (value - upperBound) / (iqr || 1) : (lowerBound - value) / (iqr || 1),
-          description: `${type} outlier of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${(() => {
-            try {
-              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
-              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
-            } catch (error) {
-              return 'Unknown date';
-            }
-          })()}`,
+          description: `${type} outlier of ${value.toFixed(2)} ${type === 'usage' ? 'kWh' : 'KSh'} on ${safeFormatDate(reading.reading_date)}`,
           recommendation: this.getAnomalyRecommendation(type, severity, value, ss.mean(values)),
-          timeframe: (() => {
-            try {
-              const date = reading.reading_date ? new Date(reading.reading_date) : new Date();
-              return isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleDateString();
-            } catch (error) {
-              return 'Unknown date';
-            }
-          })()
+          timeframe: safeFormatDate(reading.reading_date)
         });
       }
     });
@@ -1093,25 +1063,25 @@ export class EnergyMLAnalyzer {
     const n = this.readings.length;
     const xValues = Array.from({ length: n }, (_, i) => i);
     const yValues = this.readings.map(r => r.kwh_consumed);
-    
+
     // Linear regression
     const xMean = ss.mean(xValues);
     const yMean = ss.mean(yValues);
-    
+
     const numerator = xValues.reduce((sum, x, i) => sum + (x - xMean) * (yValues[i] - yMean), 0);
     const denominator = xValues.reduce((sum, x) => sum + Math.pow(x - xMean, 2), 0);
-    
+
     const slope = denominator !== 0 ? numerator / denominator : 0;
     const intercept = yMean - slope * xMean;
-    
+
     // Calculate R-squared (correlation coefficient)
     const yPredicted = xValues.map(x => slope * x + intercept);
     const ssRes = yValues.reduce((sum, y, i) => sum + Math.pow(y - yPredicted[i], 2), 0);
     const ssTot = yValues.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
     const rSquared = 1 - (ssRes / (ssTot || 1));
-    
+
     const confidence = Math.max(0.3, Math.min(0.95, Math.abs(rSquared)));
-    
+
     return {
       slope,
       intercept,
@@ -1124,13 +1094,13 @@ export class EnergyMLAnalyzer {
     const lastIndex = this.readings.length - 1;
     const nextValue = trendAnalysis.slope * (lastIndex + 30) + trendAnalysis.intercept; // 30 days ahead
     const currentAvg = ss.mean(this.readings.slice(-7).map(r => r.kwh_consumed));
-    
+
     const percentChange = currentAvg !== 0 ? ((nextValue - currentAvg) / currentAvg) * 100 : 0;
     const direction = percentChange > 0 ? 'increasing' : 'decreasing';
-    
+
     const avgCostPerKwh = ss.mean(this.readings.map(r => r.total_cost / (r.kwh_consumed || 1)));
     const projectedCost = nextValue * avgCostPerKwh * 30; // Monthly projection
-    
+
     return {
       direction,
       percentChange: Math.abs(percentChange),
@@ -1150,15 +1120,15 @@ export class EnergyMLAnalyzer {
     const avgUsage = ss.mean(readings.map(r => r.kwh_consumed));
     const avgCost = ss.mean(readings.map(r => r.total_cost));
     const costPerKwh = avgCost / (avgUsage || 1);
-    
+
     // Efficiency factors analysis
     const timeEfficiency = this.analyzeTimeEfficiency(readings);
     const costEfficiency = this.analyzeCostEfficiency(costPerKwh);
     const consistencyEfficiency = this.analyzeConsistency(readings);
-    
+
     const currentScore = (timeEfficiency + costEfficiency + consistencyEfficiency) / 3;
     const confidence = Math.min(0.9, readings.length / 30);
-    
+
     const topFactors = [
       { name: 'Time Management', score: timeEfficiency },
       { name: 'Cost Efficiency', score: costEfficiency },
@@ -1166,13 +1136,13 @@ export class EnergyMLAnalyzer {
     ].sort((a, b) => b.score - a.score).map(f => f.name);
 
     const improvementPotential = Math.max(0, 95 - currentScore);
-    
+
     return {
       confidence,
       currentScore,
       topFactors: topFactors.slice(0, 2),
       improvementPotential,
-      recommendation: topFactors.length > 0 
+      recommendation: topFactors.length > 0
         ? this.getEfficiencyRecommendation(currentScore, topFactors[0])
         : this.getEfficiencyRecommendation(currentScore, 'Overall Efficiency')
     };
@@ -1182,7 +1152,7 @@ export class EnergyMLAnalyzer {
     // Simplified behavioral clustering based on usage patterns
     const patterns = this.extractBehavioralFeatures();
     const cluster = this.classifyBehavior(patterns);
-    
+
     return {
       pattern: cluster.name,
       characteristics: cluster.characteristics,
@@ -1203,21 +1173,21 @@ export class EnergyMLAnalyzer {
     const peakHourCosts = this.analyzePeakHourCosts(readings);
     const loadShiftingPotential = this.analyzeLoadShifting(readings);
     const efficiencyGains = this.analyzeEfficiencyGains(readings);
-    
+
     // Sort opportunities by savings potential and get the best one
     const opportunities = [peakHourCosts, loadShiftingPotential, efficiencyGains]
       .sort((a, b) => b.savings - a.savings);
-    
+
     const bestOpportunity = opportunities.length > 0 ? opportunities[0] : {
       savings: 0,
       method: 'baseline optimization',
       opportunity: 'standard efficiency measures',
       recommendation: 'Implement standard energy efficiency measures for your category.'
     };
-    
+
     const confidence = Math.min(0.9, readings.length / 30);
     const currentMonthlyCost = ss.mean(readings.map(r => r.total_cost)) * (30 / readings.length);
-    
+
     return {
       confidence,
       potentialSavings: bestOpportunity.savings,
@@ -1300,7 +1270,7 @@ export class EnergyMLAnalyzer {
     const ySum = ss.sum(values);
     const xySum = values.reduce((sum, val, i) => sum + val * i, 0);
     const xSquareSum = (n * (n - 1) * (2 * n - 1)) / 6;
-    
+
     const denominator = n * xSquareSum - xSum * xSum;
     return denominator !== 0 ? (n * xySum - xSum * ySum) / denominator : 0;
   }
@@ -1346,7 +1316,7 @@ export class EnergyMLAnalyzer {
   private getAnomalyRecommendation(type: string, severity: string, value: number, mean: number): string {
     const isHigh = value > mean;
     const category = this.getCategoryName().toLowerCase();
-    
+
     if (type === 'usage') {
       if (isHigh) {
         return `Unusually high energy usage detected. Check for malfunctioning equipment, increased occupancy, or changes in ${category} operations.`;
@@ -1364,7 +1334,7 @@ export class EnergyMLAnalyzer {
 
   private getTrendRecommendation(direction: string, percentChange: number): string {
     const category = this.getCategoryName().toLowerCase();
-    
+
     if (direction === 'increasing') {
       if (percentChange > 20) {
         return `Significant usage increase predicted. Conduct an energy audit for your ${category} operations and consider efficiency upgrades.`;
@@ -1404,7 +1374,7 @@ export class EnergyMLAnalyzer {
       SME: 28,
       industry: 22
     };
-    
+
     const benchmark = benchmarks[this.category as keyof typeof benchmarks] || 25;
     const efficiency = Math.max(0, 100 - ((costPerKwh - benchmark) / benchmark) * 100);
     return Math.min(100, Math.max(0, efficiency));
@@ -1415,14 +1385,14 @@ export class EnergyMLAnalyzer {
     const mean = ss.mean(usageValues);
     const variance = ss.variance(usageValues);
     const coefficientOfVariation = mean !== 0 ? Math.sqrt(variance) / mean : 0;
-    
+
     // Lower variation = higher consistency score
     return Math.max(0, 100 - (coefficientOfVariation * 100));
   }
 
   private getEfficiencyRecommendation(score: number, topFactor: string): string {
     const category = this.getCategoryName().toLowerCase();
-    
+
     if (score >= 85) {
       return `Excellent ${category} efficiency! Focus on maintaining current practices and exploring advanced optimization techniques.`;
     } else if (score >= 70) {
@@ -1435,7 +1405,7 @@ export class EnergyMLAnalyzer {
   private extractBehavioralFeatures() {
     // Extract features for behavioral analysis
     const readings = this.readings.slice(-30);
-    
+
     return {
       avgDailyUsage: ss.mean(readings.map(r => r.kwh_consumed)),
       peakHourRatio: this.calculatePeakHourRatio(readings),
@@ -1448,7 +1418,7 @@ export class EnergyMLAnalyzer {
   private classifyBehavior(patterns: any) {
     // Simplified behavioral classification
     const { avgDailyUsage, peakHourRatio, weekendRatio, variability } = patterns;
-    
+
     if (variability < 0.2 && peakHourRatio < 0.3) {
       return {
         name: 'Efficient Optimizer',
@@ -1495,7 +1465,7 @@ export class EnergyMLAnalyzer {
     let totalUsage = 0;
 
     readings.forEach(reading => {
-      const hour = new Date(reading.reading_date).getHours();
+      const hour = safeGetDateProperty(reading.reading_date, 'getHours');
       totalUsage += reading.kwh_consumed;
       if (peakHours.includes(hour)) {
         peakUsage += reading.kwh_consumed;
@@ -1548,7 +1518,7 @@ export class EnergyMLAnalyzer {
     let totalUsage = 0;
 
     readings.forEach(reading => {
-      const hour = new Date(reading.reading_date).getHours();
+      const hour = safeGetDateProperty(reading.reading_date, 'getHours');
       totalUsage += reading.kwh_consumed;
       if (peakHours.includes(hour)) {
         peakUsage += reading.kwh_consumed;
@@ -1585,34 +1555,33 @@ export class EnergyMLAnalyzer {
     // Analyze how usage responds to cost changes
     const costPerKwh = readings.map(r => r.total_cost / (r.kwh_consumed || 1));
     const usage = readings.map(r => r.kwh_consumed);
-    
+
     // Simple correlation between cost and usage (inverse relationship expected)
     const n = readings.length;
     const costMean = ss.mean(costPerKwh);
     const usageMean = ss.mean(usage);
-    
+
     const numerator = costPerKwh.reduce((sum, c, i) => sum + (c - costMean) * (usage[i] - usageMean), 0);
     const denominator = Math.sqrt(
       costPerKwh.reduce((sum, c) => sum + Math.pow(c - costMean, 2), 0) *
       usage.reduce((sum, u) => sum + Math.pow(u - usageMean, 2), 0)
     );
-    
+
     return denominator > 0 ? Math.abs(numerator / denominator) : 0;
   }
 
   private getTimeframe(): string {
     if (this.readings.length === 0) return 'No data';
-    
+
     // Sort readings by date to ensure correct first and last dates
     const sortedReadings = [...this.readings].sort(
       (a, b) => safeGetDateProperty(a.reading_date, 'getTime') - safeGetDateProperty(b.reading_date, 'getTime')
     );
-    
-    const firstDate = sortedReadings[0]?.reading_date ? new Date(sortedReadings[0].reading_date) : new Date();
-    const lastDate = sortedReadings[sortedReadings.length - 1]?.reading_date ? 
-      new Date(sortedReadings[sortedReadings.length - 1].reading_date) : new Date();
-    const daysDiff = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
-    
+
+    const firstTime = safeGetDateProperty(sortedReadings[0]?.reading_date, 'getTime');
+    const lastTime = safeGetDateProperty(sortedReadings[sortedReadings.length - 1]?.reading_date, 'getTime');
+    const daysDiff = Math.ceil((lastTime - firstTime) / (1000 * 60 * 60 * 24));
+
     // Handle case where dates might be the same
     if (daysDiff <= 0) return '1 day';
     if (daysDiff <= 7) return `${daysDiff} days`;

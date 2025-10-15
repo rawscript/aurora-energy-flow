@@ -72,21 +72,22 @@ interface MeterHistory {
   industry_type?: string;
 }
 
-const MeterSetup = ({}: MeterSetupProps) => {
+const MeterSetup = ({ }: MeterSetupProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [meterHistory, setMeterHistory] = useState<MeterHistory[]>([]);
   const [activeTab, setActiveTab] = useState('current');
   const [showIndustryType, setShowIndustryType] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+
   const fetchingRef = useRef(false);
-  
+
   const { user, session } = useAuth();
   const { profile, loading: profileLoading, setupMeter } = useProfile();
   const { provider, providerConfig, setProvider } = useEnergyProvider();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { connectToMeter, hasMeterConnected, meterNumber, loading: energyLoading } = useRealTimeEnergy();
+  const { hasMeterConnected, loading: energyLoading } = useRealTimeEnergy();
 
   const form = useForm<MeterFormValues>({
     resolver: zodResolver(meterFormSchema(provider || 'KPLC')),
@@ -100,11 +101,11 @@ const MeterSetup = ({}: MeterSetupProps) => {
       energyProvider: provider || 'KPLC',
     },
   });
-  
+
   // Handle meter category change to show/hide industry type field
   const handleMeterCategoryChange = (value: string) => {
     form.setValue('meterCategory', value as 'household' | 'SME' | 'industry');
-    
+
     if (value === 'industry') {
       setShowIndustryType(true);
       // Set a default value for industry type
@@ -118,24 +119,24 @@ const MeterSetup = ({}: MeterSetupProps) => {
 
   const fetchMeterHistory = useCallback(async (): Promise<void> => {
     if (!user?.id || fetchingRef.current) return;
-    
+
     try {
       fetchingRef.current = true;
       setHistoryLoading(true);
       console.log('Fetching meter history for user:', user.id);
-      
+
       // We'll get previous meter configurations by looking at profile updates
       const { data, error } = await supabase
         .from('profiles')
         .select('meter_number, full_name, phone_number, meter_category, industry_type, updated_at')
         .eq('id', user.id)
         .not('meter_number', 'is', null);
-        
+
       if (error) {
         console.error('Error fetching meter history:', error);
         return;
       }
-      
+
       // For now, we'll create a simple history based on the current profile
       // In a production app, you'd have a separate meter_history table
       const currentProfile = data?.[0];
@@ -152,7 +153,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
             industry_type: currentProfile.industry_type
           }
         ];
-        
+
         // Add some example historical meters for demonstration
         // In production, these would come from actual historical data
         if (currentProfile.meter_number !== '12345678901') {
@@ -166,7 +167,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
             meter_category: 'household'
           });
         }
-        
+
         if (currentProfile.meter_number !== '98765432109') {
           historyItems.push({
             id: '3',
@@ -178,7 +179,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
             meter_category: 'SME'
           });
         }
-        
+
         setMeterHistory(historyItems);
       }
     } catch (error) {
@@ -217,7 +218,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
 
   const selectFromHistory = async (historyItem: MeterHistory): Promise<void> => {
     if (isLoading) return; // Prevent multiple simultaneous selections
-    
+
     setIsLoading(true);
     try {
       console.log(`Selecting meter ${historyItem.meter_number} from history`);
@@ -236,7 +237,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
         industry_type: historyItem.meter_category === 'industry' ? (historyItem.industry_type || 'medium') : null,
         updated_at: new Date().toISOString()
       };
-        
+
       // Update the profile with the selected meter - following useRealTimeEnergy pattern
       const { error } = await supabase
         .from('profiles')
@@ -244,28 +245,17 @@ const MeterSetup = ({}: MeterSetupProps) => {
         .eq('id', user.id);
 
       if (error) throw error;
-      
-      // Wait a bit for the profile to update before connecting
+
+      // Wait a bit for the profile to update
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Connect to the SPECIFIC meter using the real-time energy hook
-      const success = await connectToMeter(historyItem.meter_number);
-      
-      if (success) {
-        toast({
-          title: "Meter Connected",
-          description: `Successfully connected to meter ${historyItem.meter_number}. Real-time data collection is now enabled.`,
-        });
-        
-        // Refresh the meter history to reflect the current selection
-        await fetchMeterHistory();
-      } else {
-        toast({
-          title: "Connection Issue",
-          description: `Meter ${historyItem.meter_number} was set up but real-time connection failed. Will retry automatically.`,
-          variant: "destructive",
-        });
-      }
+
+      toast({
+        title: "Meter Selected",
+        description: `Successfully selected meter ${historyItem.meter_number}. Profile updated.`,
+      });
+
+      // Refresh the meter history to reflect the current selection
+      await fetchMeterHistory();
 
       setActiveTab('current');
     } catch (error) {
@@ -310,28 +300,17 @@ const MeterSetup = ({}: MeterSetupProps) => {
 
       if (error) throw error;
 
-      // Wait a bit for the profile to update before connecting
+      // Wait a bit for the profile to update
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Connect to the meter using the real-time energy hook
-      const meterSuccess = await connectToMeter(data.meterNumber);
+      toast({
+        title: `${data.energyProvider} ${data.energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} Setup Complete`,
+        description: `Your ${data.energyProvider === 'KPLC' ? 'smart meter' : 'inverter'} has been successfully set up in Aurora Energy.`,
+      });
 
-      if (meterSuccess) {
-        toast({
-          title: `${data.energyProvider} ${data.energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} Connected`,
-          description: `Your ${data.energyProvider === 'KPLC' ? 'smart meter' : 'inverter'} has been successfully connected to Aurora Energy. Real-time data collection is now enabled.`,
-        });
-
-        // Refresh the meter history to show the new meter
-        await fetchMeterHistory();
-        setActiveTab('current');
-      } else {
-        toast({
-          title: "Partial Setup",
-          description: `${data.energyProvider === 'KPLC' ? 'Meter' : 'Inverter'} details saved but real-time connection failed. Will retry automatically.`,
-          variant: "destructive",
-        });
-      }
+      // Refresh the meter history to show the new meter
+      await fetchMeterHistory();
+      setActiveTab('current');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -437,7 +416,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
               </CardContent>
             </Card>
           )}
-          
+
           {profile?.meter_number ? (
             <Card className="bg-aurora-card border-aurora-green/20">
               <CardHeader className="pb-3">
@@ -454,8 +433,8 @@ const MeterSetup = ({}: MeterSetupProps) => {
                           ) : (
                             <Building className="h-3 w-3 mr-1" />
                           )}
-                          {profile.meter_category === 'SME' ? 'SME' : 
-                           profile.meter_category.charAt(0).toUpperCase() + profile.meter_category.slice(1)}
+                          {profile.meter_category === 'SME' ? 'SME' :
+                            profile.meter_category.charAt(0).toUpperCase() + profile.meter_category.slice(1)}
                         </Badge>
                       )}
                       {profile?.meter_category === 'industry' && profile?.industry_type && (
@@ -537,7 +516,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                         <Factory className="h-4 w-4 text-orange-400" />
                         <span className="text-lg">
                           {INDUSTRY_TYPES.find(t => t.value === profile.industry_type)?.label ||
-                           profile.industry_type}
+                            profile.industry_type}
                         </span>
                       </div>
                     </div>
@@ -616,11 +595,10 @@ const MeterSetup = ({}: MeterSetupProps) => {
                   {meterHistory.map((meter) => (
                     <div
                       key={meter.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                        meter.is_current 
-                          ? 'bg-aurora-green/10 border-aurora-green/30 hover:border-aurora-green/50' 
-                          : 'bg-slate-800/30 border-slate-700/50 hover:border-aurora-blue/30'
-                      }`}
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${meter.is_current
+                        ? 'bg-aurora-green/10 border-aurora-green/30 hover:border-aurora-green/50'
+                        : 'bg-slate-800/30 border-slate-700/50 hover:border-aurora-blue/30'
+                        }`}
                     >
                       <div className="flex-1">
                         <div className="flex items-center space-x-3">
@@ -646,16 +624,24 @@ const MeterSetup = ({}: MeterSetupProps) => {
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {meter.location && `${meter.location} • `}
-                              {providerConfig.type === 'solar' 
-                                ? 'Used: ' 
+                              {providerConfig.type === 'solar'
+                                ? 'Used: '
                                 : 'Used: '}
-                              {new Date(meter.created_at).toLocaleDateString()}
+                              {(() => {
+                                try {
+                                  if (!meter.created_at) return 'Unknown date';
+                                  const date = new Date(meter.created_at);
+                                  return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleDateString();
+                                } catch (error) {
+                                  return 'Error formatting date';
+                                }
+                              })()}
                             </p>
                             <div className="flex items-center mt-1">
                               {meter.meter_category && (
                                 <Badge className="mr-2 bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
-                                  {meter.meter_category === 'SME' ? 'SME' : 
-                                   meter.meter_category.charAt(0).toUpperCase() + meter.meter_category.slice(1)}
+                                  {meter.meter_category === 'SME' ? 'SME' :
+                                    meter.meter_category.charAt(0).toUpperCase() + meter.meter_category.slice(1)}
                                 </Badge>
                               )}
                               {meter.meter_category === 'industry' && meter.industry_type && (
@@ -825,7 +811,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                             <Input
                               placeholder="Your full name as on the bill"
                               className="pl-10 bg-slate-800 border-aurora-blue/30 h-11"
-                              {...field} 
+                              {...field}
                             />
                           </div>
                         </FormControl>
@@ -881,7 +867,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                       </FormItem>
                     )}
                   />
-                  
+
                   {/* Meter Category Dropdown */}
                   <FormField
                     control={form.control}
@@ -891,8 +877,8 @@ const MeterSetup = ({}: MeterSetupProps) => {
                         <FormLabel className="text-amber-400">Meter Category</FormLabel>
                         <div className="relative">
                           <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-                          <Select 
-                            value={field.value} 
+                          <Select
+                            value={field.value}
                             onValueChange={(value) => handleMeterCategoryChange(value)}
                           >
                             <FormControl>
@@ -916,7 +902,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
                       </FormItem>
                     )}
                   />
-                  
+
                   {/* Industry Type Dropdown - Only shown when meter category is 'industry' */}
                   {showIndustryType && (
                     <FormField
@@ -927,8 +913,8 @@ const MeterSetup = ({}: MeterSetupProps) => {
                           <FormLabel className="text-orange-400">Industry Type</FormLabel>
                           <div className="relative">
                             <Factory className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-                            <Select 
-                              value={field.value} 
+                            <Select
+                              value={field.value}
                               onValueChange={field.onChange}
                             >
                               <FormControl>
@@ -1013,7 +999,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
               )}
             </ul>
           </div>
-          
+
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Meter Categories:</h4>
             <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
@@ -1025,7 +1011,7 @@ const MeterSetup = ({}: MeterSetupProps) => {
               <li className="pl-4">- <span className="text-orange-400">Light Duty:</span> Lower energy industrial operations</li>
             </ul>
           </div>
-          
+
           <div className="space-y-2">
             <h4 className="font-medium text-sm">Troubleshooting:</h4>
             <ul className="text-xs sm:text-sm text-gray-400 space-y-1">

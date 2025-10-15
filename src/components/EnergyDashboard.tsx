@@ -92,8 +92,23 @@ const EnergyDashboard = () => {
         .reverse()
         .map(reading => {
           try {
+            if (!reading.reading_date) {
+              return {
+                time: 'Unknown',
+                usage: Number(reading.kwh_consumed) || 0,
+                cost: Number(reading.total_cost) || 0,
+              };
+            }
+            const date = new Date(reading.reading_date);
+            if (isNaN(date.getTime())) {
+              return {
+                time: 'Invalid',
+                usage: Number(reading.kwh_consumed) || 0,
+                cost: Number(reading.total_cost) || 0,
+              };
+            }
             return {
-              time: format(new Date(reading.reading_date), isMobile ? 'HH:mm' : 'HH:mm'),
+              time: format(date, isMobile ? 'HH:mm' : 'HH:mm'),
               usage: Number(reading.kwh_consumed) || 0,
               cost: Number(reading.total_cost) || 0,
             };

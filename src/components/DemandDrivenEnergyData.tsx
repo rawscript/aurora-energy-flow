@@ -112,7 +112,15 @@ export const DemandDrivenEnergyData: React.FC<DemandDrivenEnergyDataProps> = ({ 
             </div>
             
             <div className="mt-4 text-xs text-muted-foreground">
-              Last updated: {new Date(insights.lastUpdated).toLocaleString()}
+              Last updated: {(() => {
+                try {
+                  if (!insights.lastUpdated) return 'Unknown';
+                  const date = new Date(insights.lastUpdated);
+                  return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
+                } catch (error) {
+                  return 'Error formatting date';
+                }
+              })()}
             </div>
           </CardContent>
         </Card>

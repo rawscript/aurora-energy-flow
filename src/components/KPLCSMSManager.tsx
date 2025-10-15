@@ -90,11 +90,18 @@ export const KPLCSMSManager: React.FC<KPLCSMSManagerProps> = ({ className = '' }
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-KE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    try {
+      if (!dateStr) return 'Unknown date';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return date.toLocaleDateString('en-KE', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Error formatting date';
+    }
   };
 
   return (

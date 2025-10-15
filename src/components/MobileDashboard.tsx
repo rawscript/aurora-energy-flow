@@ -198,7 +198,15 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
             <div key={reading.id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
               <div>
                 <p className="text-sm font-medium">
-                  {format(new Date(reading.reading_date), 'MMM dd, HH:mm')}
+                  {(() => {
+                    try {
+                      if (!reading.reading_date) return 'Unknown date';
+                      const date = new Date(reading.reading_date);
+                      return isNaN(date.getTime()) ? 'Invalid date' : format(date, 'MMM dd, HH:mm');
+                    } catch (error) {
+                      return 'Error formatting date';
+                    }
+                  })()}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {reading.kwh_consumed.toFixed(2)} kWh

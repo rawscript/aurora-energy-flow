@@ -39,11 +39,11 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
   const { status: meterStatus, deviceType } = useMeter(); // Get meter status from context
   const { energyData, analytics, loading, recentReadings } = useRealTimeEnergy(energyProvider);
   const isMobile = useIsMobile();
-  
+
   // State for ML insights
   const [mlInsights, setMlInsights] = useState<MLInsight[]>([]);
   const [mlLoading, setMlLoading] = useState(false);
-  
+
   // Get meter category from energy data or fallback
   const meterCategory = energyData.meter_category || 'household';
   const industryType = energyData.industry_type;
@@ -68,13 +68,13 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
             current: reading.kwh_consumed / 240, // Rough calculation, would come from actual data
             frequency: 50 // Default value, would come from actual data
           }));
-          
+
           const generatedInsights = await generateMLInsights(
             meterCategory,
             industryType,
             energyReadings
           );
-          
+
           setMlInsights(generatedInsights);
         } catch (error) {
           console.error('Error generating ML insights:', error);
@@ -83,7 +83,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
         }
       }
     };
-    
+
     generateMLInsightsData();
   }, [meterStatus, recentReadings, meterCategory, industryType]);
 
@@ -246,14 +246,14 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
                 </div>
               </div>
             </div>
-            
+
             <div className="border-t border-slate-700 pt-6">
               <div className="text-center">
                 <h4 className="font-medium text-aurora-green-light mb-3">Ready to get started?</h4>
                 <p className="text-sm text-muted-foreground mb-4">
                   {`Setting up your ${providerConfig.terminology.device} takes just a few minutes and unlocks all these powerful insights.`}
                 </p>
-                <Button 
+                <Button
                   onClick={handleSetupMeter}
                   className="bg-aurora-green hover:bg-aurora-green/80"
                   size="lg"
@@ -310,43 +310,40 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
             {mlInsights.map((insight) => {
               const IconComponent = insight.icon;
               return (
-                <div 
-                  key={`ml-${insight.id}`} 
-                  className={`p-4 rounded-lg border transition-all hover:border-opacity-50 ${
-                    insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
-                    insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
-                    insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
-                    'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
-                  }`}
+                <div
+                  key={`ml-${insight.id}`}
+                  className={`p-4 rounded-lg border transition-all hover:border-opacity-50 ${insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
+                      insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                        insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                          'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                    }`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="mt-0.5">
-                      <IconComponent className={`h-6 w-6 ${
-                        insight.severity === 'alert' ? 'text-red-400' :
-                        insight.severity === 'warning' ? 'text-amber-400' :
-                        insight.severity === 'success' ? 'text-green-400' :
-                        'text-blue-400'
-                      }`} />
+                      <IconComponent className={`h-6 w-6 ${insight.severity === 'alert' ? 'text-red-400' :
+                          insight.severity === 'warning' ? 'text-amber-400' :
+                            insight.severity === 'success' ? 'text-green-400' :
+                              'text-blue-400'
+                        }`} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className={`font-medium ${
-                            insight.severity === 'alert' ? 'text-red-400' :
-                            insight.severity === 'warning' ? 'text-amber-400' :
-                            insight.severity === 'success' ? 'text-green-400' :
-                            'text-blue-400'
-                          }`}>
+                          <h4 className={`font-medium ${insight.severity === 'alert' ? 'text-red-400' :
+                              insight.severity === 'warning' ? 'text-amber-400' :
+                                insight.severity === 'success' ? 'text-green-400' :
+                                  'text-blue-400'
+                            }`}>
                             {insight.title}
                           </h4>
                           <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
-                          
+
                           {/* Confidence and Model Info */}
                           <div className="flex items-center mt-2 text-xs text-gray-400">
                             <span className="mr-3">Confidence: {insight.confidence.toFixed(1)}%</span>
                             <span>Model: {insight.mlModel}</span>
                           </div>
-                          
+
                           {/* Recommendation */}
                           {insight.recommendation && (
                             <div className="mt-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
@@ -380,7 +377,7 @@ const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) =>
                 {energyData.efficiency_score > 0 ? `${energyData.efficiency_score}%` : '—'}
               </div>
               <p className="text-muted-foreground">
-                {energyData.efficiency_score > 0 ?  (
+                {energyData.efficiency_score > 0 ? (
                   energyData.efficiency_score >= 85 ? 'Excellent efficiency' : 'Room for improvement'
                 ) : 'No data yet'}
               </p>

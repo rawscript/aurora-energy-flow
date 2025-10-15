@@ -18,8 +18,16 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
   const { provider, providerConfig } = useEnergyProvider();
   
   const lastReading = recentReadings[0];
-  const isConnected = hasMeterConnected && lastReading && 
-    new Date().getTime() - new Date(lastReading.reading_date).getTime() < 300000; // 5 minutes
+  const isConnected = hasMeterConnected && lastReading && (() => {
+    try {
+      if (!lastReading.reading_date) return false;
+      const readingDate = new Date(lastReading.reading_date);
+      if (isNaN(readingDate.getTime())) return false;
+      return new Date().getTime() - readingDate.getTime() < 300000; // 5 minutes
+    } catch (error) {
+      return false;
+    }
+  })();
 
   const isSolarProvider = providerConfig.type === 'solar';
   const deviceLabel = isSolarProvider ? 'Inverter' : 'Meter';
@@ -75,7 +83,15 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
               <div className="flex items-center space-x-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {new Date(lastReading.reading_date).toLocaleTimeString()}
+                  {(() => {
+                    try {
+                      if (!lastReading.reading_date) return 'Unknown time';
+                      const date = new Date(lastReading.reading_date);
+                      return isNaN(date.getTime()) ? 'Unknown time' : date.toLocaleTimeString();
+                    } catch (error) {
+                      return 'Unknown time';
+                    }
+                  })()}
                 </span>
               </div>
             </div>

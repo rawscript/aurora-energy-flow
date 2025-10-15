@@ -213,7 +213,16 @@ export const EnergyInsightsDashboard: React.FC<EnergyInsightsDashboardProps> = (
                   <span className="text-sm">Last Updated</span>
                 </div>
                 <span className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(new Date(insights.lastUpdated), { addSuffix: true })}
+                  {(() => {
+                    try {
+                      if (!insights.lastUpdated) return 'Unknown';
+                      const date = new Date(insights.lastUpdated);
+                      if (isNaN(date.getTime())) return 'Invalid date';
+                      return formatDistanceToNow(date, { addSuffix: true });
+                    } catch (error) {
+                      return 'Error formatting date';
+                    }
+                  })()}
                 </span>
               </div>
               

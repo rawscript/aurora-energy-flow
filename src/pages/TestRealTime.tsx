@@ -110,7 +110,15 @@ const TestRealTime = () => {
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {recentReadings.slice(0, 10).map((reading) => (
                   <div key={reading.id} className="flex justify-between text-sm p-2 bg-slate-700/50 rounded">
-                    <span>{new Date(reading.reading_date).toLocaleTimeString()}</span>
+                    <span>{(() => {
+                      try {
+                        if (!reading.reading_date) return 'Unknown time';
+                        const date = new Date(reading.reading_date);
+                        return isNaN(date.getTime()) ? 'Unknown time' : date.toLocaleTimeString();
+                      } catch (error) {
+                        return 'Unknown time';
+                      }
+                    })()}</span>
                     <span className="text-aurora-green-light">{reading.kwh_consumed.toFixed(2)} kWh</span>
                   </div>
                 ))}
