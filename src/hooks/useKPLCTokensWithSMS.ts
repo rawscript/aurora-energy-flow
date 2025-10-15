@@ -53,7 +53,7 @@ export const useKPLCTokensWithSMS = () => {
       if (shouldUseSMSFallback(energyProvider)) {
         console.log('🚀 Using SMS-first approach for token purchase...');
         result = await purchaseTokensViaSMS(meterNumber, amount, phoneNumber, user.id);
-        
+
         // If SMS fails, try Puppeteer as backup
         if (!result) {
           console.log('⚠️ SMS token purchase failed, trying Puppeteer backup...');
@@ -87,7 +87,7 @@ export const useKPLCTokensWithSMS = () => {
     } catch (error: any) {
       console.error('Token purchase error:', error);
       const errorMessage = error.message || 'Failed to purchase tokens. Please try again.';
-      
+
       toast({
         title: 'Purchase Failed',
         description: errorMessage,
@@ -170,6 +170,11 @@ export const useKPLCTokensWithSMS = () => {
         };
       }
 
+      // Handle specific SMS service errors
+      if (data && data.code === 'NO_SMS_RESPONSE') {
+        throw new Error(data.error || 'No token response received from KPLC via SMS');
+      }
+
       return null;
     } catch (error) {
       console.error('SMS token purchase error:', error);
@@ -197,7 +202,7 @@ export const useKPLCTokensWithSMS = () => {
       if (shouldUseSMSFallback(energyProvider)) {
         console.log('🚀 Using SMS-first approach for balance check...');
         result = await checkBalanceViaSMS(meterNumber, user.id);
-        
+
         // If SMS fails, try Puppeteer as backup
         if (!result) {
           console.log('⚠️ SMS balance check failed, trying Puppeteer backup...');
@@ -220,7 +225,7 @@ export const useKPLCTokensWithSMS = () => {
     } catch (error: any) {
       console.error('Balance check error:', error);
       const errorMessage = error.message || 'Failed to check balance. Please try again.';
-      
+
       toast({
         title: 'Balance Check Failed',
         description: errorMessage,
@@ -297,6 +302,11 @@ export const useKPLCTokensWithSMS = () => {
           ...data.data,
           source: 'sms' as const
         };
+      }
+
+      // Handle specific SMS service errors
+      if (data && data.code === 'NO_SMS_RESPONSE') {
+        throw new Error(data.error || 'No balance response received from KPLC via SMS');
       }
 
       return null;

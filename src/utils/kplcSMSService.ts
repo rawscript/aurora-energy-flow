@@ -99,8 +99,8 @@ export class KPLCSMSService {
       const responseData = await this.waitForSMSResponse(phoneNumber, 'balance', SMS_TIMEOUT);
       
       if (!responseData) {
-        // Return fallback data if no SMS response
-        return this.generateFallbackBillData(meterNumber);
+        // No SMS response received - throw error to maintain empty state
+        throw new Error('No response received from KPLC. Please try again later.');
       }
 
       // Parse the SMS response
@@ -112,8 +112,8 @@ export class KPLCSMSService {
       return billData;
     } catch (error) {
       console.error('Error fetching bill data via SMS:', error);
-      // Return fallback data on error
-      return this.generateFallbackBillData(meterNumber);
+      // Re-throw error to maintain empty state
+      throw error;
     }
   }
 
@@ -136,8 +136,8 @@ export class KPLCSMSService {
       const responseData = await this.waitForSMSResponse(phoneNumber, 'token', SMS_TIMEOUT * 2); // Longer timeout for token generation
       
       if (!responseData) {
-        // Return fallback token data
-        return this.generateFallbackTokenData(meterNumber, amount);
+        // No SMS response received - throw error to maintain empty state
+        throw new Error('No token response received from KPLC. Please try again later.');
       }
 
       // Parse the SMS response
@@ -149,8 +149,8 @@ export class KPLCSMSService {
       return tokenData;
     } catch (error) {
       console.error('Error purchasing tokens via SMS:', error);
-      // Return fallback token data on error
-      return this.generateFallbackTokenData(meterNumber, amount);
+      // Re-throw error to maintain empty state
+      throw error;
     }
   }
 
@@ -173,8 +173,8 @@ export class KPLCSMSService {
       const responseData = await this.waitForSMSResponse(phoneNumber, 'balance', SMS_TIMEOUT);
       
       if (!responseData) {
-        // Return fallback units data
-        return this.generateFallbackUnitsData(meterNumber);
+        // No SMS response received - throw error to maintain empty state
+        throw new Error('No units response received from KPLC. Please try again later.');
       }
 
       // Parse the SMS response
@@ -183,8 +183,8 @@ export class KPLCSMSService {
       return unitsData;
     } catch (error) {
       console.error('Error checking units via SMS:', error);
-      // Return fallback units data on error
-      return this.generateFallbackUnitsData(meterNumber);
+      // Re-throw error to maintain empty state
+      throw error;
     }
   }
 
@@ -280,8 +280,8 @@ export class KPLCSMSService {
     const lastPayment = this.extractPattern(message, SMS_PATTERNS.LAST_PAYMENT);
     const paymentDate = this.extractPattern(message, SMS_PATTERNS.PAYMENT_DATE);
 
-    const currentReading = reading ? parseInt(reading) : Math.floor(Math.random() * 10000) + 50000;
-    const previousReading = currentReading - (units ? parseFloat(units) : 100);
+    const currentReading = reading ? parseInt(reading) : 0;
+    const previousReading = currentReading > 0 ? Math.max(0, currentReading - (units ? parseFloat(units) : 100)) : 0;
 
     return {
       accountName: 'SMS User',
@@ -314,7 +314,7 @@ export class KPLCSMSService {
     const cost = this.extractPattern(message, SMS_PATTERNS.COST);
 
     return {
-      tokenCode: tokenCode || this.generateFallbackToken(amount),
+      tokenCode: tokenCode || null, // No fallback token generation
       referenceNumber: reference || `SMS${Date.now()}`,
       amount: cost ? parseFloat(cost) : amount,
       units: units ? parseFloat(units) : amount, // 1:1 ratio fallback
@@ -334,8 +334,8 @@ export class KPLCSMSService {
     const status = this.extractPattern(message, SMS_PATTERNS.STATUS);
 
     return {
-      currentUnits: units ? parseFloat(units) : Math.floor(Math.random() * 500) + 50,
-      lastReading: reading ? parseInt(reading) : Math.floor(Math.random() * 10000) + 50000,
+      currentUnits: units ? parseFloat(units) : 0,
+      lastReading: reading ? parseInt(reading) : 0,
       meterNumber,
       status: (status as any) || 'active',
       timestamp: new Date().toISOString(),
@@ -445,62 +445,9 @@ export class KPLCSMSService {
     return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
   }
 
-  private generateFallbackToken(amount: number): string {
-    const timestamp = Date.now().toString();
-    const amountStr = amount.toString().padStart(4, '0');
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `${amountStr}${timestamp.slice(-8)}${random}`.substring(0, 20);
-  }
 
-  // Fallback data generators
-  private generateFallbackBillData(meterNumber: string): KPLCBillData {
-    const currentReading = Math.floor(Math.random() * 10000) + 50000;
-    const previousReading = currentReading - Math.floor(Math.random() * 500) - 100;
-    const consumption = currentReading - previousReading;
-    const billAmount = consumption * 25; // Approximate KSh 25 per unit
 
-    return {
-      accountName: 'SMS User',
-      accountNumber: meterNumber,
-      meterNumber,
-      currentReading,
-      previousReading,
-      consumption,
-      billAmount,
-      outstandingBalance: billAmount * 0.8,
-      dueDate: this.getDefaultDueDate(),
-      billingPeriod: this.getCurrentBillingPeriod(),
-      status: 'active',
-      fetchedAt: new Date().toISOString(),
-      source: 'sms',
-      address: 'SMS Retrieved Address',
-      tariff: 'Domestic'
-    };
-  }
 
-  private generateFallbackTokenData(meterNumber: string, amount: number): KPLCTokenData {
-    return {
-      tokenCode: this.generateFallbackToken(amount),
-      referenceNumber: `SMS${Date.now()}`,
-      amount,
-      units: amount, // 1:1 ratio
-      timestamp: new Date().toISOString(),
-      source: 'sms',
-      meterNumber,
-      status: 'success'
-    };
-  }
-
-  private generateFallbackUnitsData(meterNumber: string): KPLCUnitsData {
-    return {
-      currentUnits: Math.floor(Math.random() * 500) + 50,
-      lastReading: Math.floor(Math.random() * 10000) + 50000,
-      meterNumber,
-      status: 'active',
-      timestamp: new Date().toISOString(),
-      source: 'sms'
-    };
-  }
 }
 
 // Export singleton instance

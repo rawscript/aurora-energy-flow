@@ -142,7 +142,7 @@ class KPLCEnergyService implements SMSEnergyService {
       current_usage: billData.consumption || 0,
       daily_total: billData.consumption || 0,
       daily_cost: billData.billAmount || 0,
-      efficiency_score: Math.floor(Math.random() * 40) + 60, // 60-100%
+      efficiency_score: billData.consumption > 0 ? Math.min(100, Math.max(0, 100 - (billData.consumption / 10))) : 0, // Calculate based on consumption
       weekly_average: (billData.consumption || 0) * 7,
       monthly_total: (billData.consumption || 0) * 30,
       peak_usage_time: '18:00',
@@ -391,7 +391,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       weeklyTrend: recentReadings.slice(0, 7).map((reading, index) => ({
         day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index] || `Day ${index + 1}`,
         usage: reading.kwh_consumed || 0,
-        efficiency: Math.min(100, Math.max(0, (reading.kwh_consumed || 0) > 0 ? 85 + Math.random() * 15 : 0))
+        efficiency: Math.min(100, Math.max(0, (reading.kwh_consumed || 0) > 0 ? Math.max(0, 100 - (reading.kwh_consumed || 0) / 5) : 0))
       })),
       peakHours: recentReadings.length > 0 ? [
         { hour: 18, usage: Math.max(...recentReadings.map(r => r.kwh_consumed || 0)) },

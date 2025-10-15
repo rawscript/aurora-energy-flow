@@ -139,15 +139,20 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
     // Try to get response from SMS responses table
     const responseData = await getLatestSMSResponse(supabase, phoneNumber, 'balance');
     
-    let billData;
-    if (responseData) {
-      billData = parseBalanceResponse(responseData, meterNumber);
-    } else {
-      // Fallback: create simulated response based on meter number
-      billData = createFallbackBillData(meterNumber);
+    if (!responseData) {
+      // No response received from KPLC - return empty state
+      return { 
+        success: false, 
+        error: "No response received from KPLC. Please try again later.",
+        code: "NO_SMS_RESPONSE",
+        data: null
+      };
     }
 
-    // Store the bill data
+    // Parse real KPLC response
+    const billData = parseBalanceResponse(responseData, meterNumber);
+
+    // Store the real bill data
     const { error: storeError } = await supabase
       .from('kplc_bills')
       .insert({
@@ -198,15 +203,20 @@ async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: 
     // Try to get response from SMS responses table
     const responseData = await getLatestSMSResponse(supabase, phoneNumber, 'token');
     
-    let tokenData;
-    if (responseData) {
-      tokenData = parseTokenResponse(responseData, amount);
-    } else {
-      // Fallback: create simulated token response
-      tokenData = createFallbackTokenData(amount);
+    if (!responseData) {
+      // No response received from KPLC - return empty state
+      return { 
+        success: false, 
+        error: "No token response received from KPLC. Please try again later.",
+        code: "NO_SMS_RESPONSE",
+        data: null
+      };
     }
 
-    // Store the token transaction
+    // Parse real KPLC token response
+    const tokenData = parseTokenResponse(responseData, amount);
+
+    // Store the real token transaction
     const { error: storeError } = await supabase
       .from('token_transactions')
       .insert({
@@ -297,20 +307,27 @@ function parseBalanceResponse(message: string, meterNumber: string) {
   const dueDate = extractPattern(message, SMS_PATTERNS.DUE_DATE);
   const accountNumber = extractPattern(message, SMS_PATTERNS.ACCOUNT);
 
+  // Calculate consumption only if we have valid readings
+  const currentReading = reading ? parseInt(reading) : null;
+  const previousReading = currentReading ? Math.max(0, currentReading - 100) : null;
+  const consumption = (currentReading && previousReading) ? currentReading - previousReading : null;
+
   return {
     accountName: 'SMS User',
     accountNumber: accountNumber || meterNumber,
     meterNumber,
-    currentReading: reading ? parseInt(reading) : 0,
-    previousReading: reading ? parseInt(reading) - 100 : 0,
-    consumption: 100,
+    currentReading: currentReading || 0,
+    previousReading: previousReading || 0,
+    consumption: consumption || 0,
     billAmount: billAmount ? parseFloat(billAmount) : 0,
     outstandingBalance: balance ? parseFloat(balance) : 0,
     dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     billingPeriod: getCurrentBillingPeriod(),
     status: balance && parseFloat(balance) > 0 ? 'active' : 'inactive',
     fetchedAt: new Date().toISOString(),
-    source: 'sms'
+    source: 'sms',
+    address: null, // No address from SMS
+    tariff: null   // No tariff info from SMS
   };
 }
 
@@ -320,62 +337,23 @@ function parseTokenResponse(message: string, amount: number) {
   const reference = extractPattern(message, SMS_PATTERNS.REFERENCE);
 
   return {
-    tokenCode: tokenCode || generateFallbackToken(amount),
+    tokenCode: tokenCode || null, // No fallback token generation
     referenceNumber: reference || `SMS${Date.now()}`,
     amount,
-    units: units ? parseFloat(units) : amount,
+    units: units ? parseFloat(units) : 0, // Use 0 instead of amount if no units found
     timestamp: new Date().toISOString(),
     source: 'sms'
   };
 }
 
-function createFallbackBillData(meterNumber: string) {
-  const currentReading = Math.floor(Math.random() * 10000) + 50000;
-  const previousReading = currentReading - Math.floor(Math.random() * 500) - 100;
-  const consumption = currentReading - previousReading;
-  const billAmount = consumption * 25; // Approximate KSh 25 per unit
 
-  return {
-    accountName: 'SMS User',
-    accountNumber: meterNumber,
-    meterNumber,
-    currentReading,
-    previousReading,
-    consumption,
-    billAmount,
-    outstandingBalance: billAmount * 0.8, // 80% of bill amount
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    billingPeriod: getCurrentBillingPeriod(),
-    status: 'active' as const,
-    fetchedAt: new Date().toISOString(),
-    source: 'sms' as const,
-    address: 'SMS Retrieved Address',
-    tariff: 'Domestic'
-  };
-}
-
-function createFallbackTokenData(amount: number) {
-  return {
-    tokenCode: generateFallbackToken(amount),
-    referenceNumber: `SMS${Date.now()}`,
-    amount,
-    units: amount, // 1:1 ratio
-    timestamp: new Date().toISOString(),
-    source: 'sms' as const
-  };
-}
 
 function extractPattern(message: string, pattern: RegExp): string | null {
   const match = message.match(pattern);
   return match ? match[1] : null;
 }
 
-function generateFallbackToken(amount: number): string {
-  const timestamp = Date.now().toString();
-  const amountStr = amount.toString().padStart(4, '0');
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `${amountStr}${timestamp.slice(-8)}${random}`.substring(0, 20);
-}
+
 
 function getCurrentBillingPeriod(): string {
   const now = new Date();
