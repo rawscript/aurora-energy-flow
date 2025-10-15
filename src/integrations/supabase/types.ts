@@ -130,6 +130,115 @@ export type Database = {
           updated_at?: string;
         };
       };
+      energy_readings: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_number: string;
+          kwh_consumed: number;
+          total_cost: number;
+          reading_date: string;
+          cost_per_kwh: number;
+          peak_usage: number | null;
+          off_peak_usage: number | null;
+          battery_state: number | null;
+          power_generated: number | null;
+          load_consumption: number | null;
+          battery_count: number | null;
+          billing_period_start: string | null;
+          billing_period_end: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_number: string;
+          kwh_consumed: number;
+          total_cost: number;
+          reading_date?: string;
+          cost_per_kwh?: number;
+          peak_usage?: number | null;
+          off_peak_usage?: number | null;
+          battery_state?: number | null;
+          power_generated?: number | null;
+          load_consumption?: number | null;
+          battery_count?: number | null;
+          billing_period_start?: string | null;
+          billing_period_end?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          meter_number?: string;
+          kwh_consumed?: number;
+          total_cost?: number;
+          reading_date?: string;
+          cost_per_kwh?: number;
+          peak_usage?: number | null;
+          off_peak_usage?: number | null;
+          battery_state?: number | null;
+          power_generated?: number | null;
+          load_consumption?: number | null;
+          battery_count?: number | null;
+          billing_period_start?: string | null;
+          billing_period_end?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      energy_insights: {
+        Row: {
+          id: string;
+          user_id: string;
+          meter_number: string;
+          current_usage: number;
+          daily_total: number;
+          daily_cost: number;
+          weekly_average: number;
+          monthly_total: number;
+          efficiency_score: number;
+          last_updated: string;
+          source: string;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          meter_number: string;
+          current_usage: number;
+          daily_total: number;
+          daily_cost: number;
+          weekly_average: number;
+          monthly_total: number;
+          efficiency_score: number;
+          last_updated?: string;
+          source?: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          meter_number?: string;
+          current_usage?: number;
+          daily_total?: number;
+          daily_cost?: number;
+          weekly_average?: number;
+          monthly_total?: number;
+          efficiency_score?: number;
+          last_updated?: string;
+          source?: string;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       // Add view definitions as needed

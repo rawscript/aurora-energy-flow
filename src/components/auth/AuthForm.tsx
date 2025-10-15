@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -23,7 +23,7 @@ const AuthForm = () => {
   });
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading, setOnAuthSuccess } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const isMobile = useIsMobile();
 
   // Check if Supabase is properly configured
@@ -34,10 +34,12 @@ const AuthForm = () => {
   // Get the redirect path from location state or default to dashboard
   const from = location.state?.from || '/dashboard';
 
-  // Redirect if user is already authenticated
+  // Redirect if user is already authenticated (with reduced logging)
+  const hasRedirectedRef = useRef(false);
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !hasRedirectedRef.current) {
       console.log('User already authenticated, redirecting to:', from);
+      hasRedirectedRef.current = true;
       navigate(from, { replace: true });
     }
   }, [user, authLoading, navigate, from]);
@@ -149,7 +151,7 @@ const AuthForm = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    
+
     // Check if Supabase is configured
     if (!isSupabaseConfigured()) {
       toast({
@@ -159,7 +161,7 @@ const AuthForm = () => {
       });
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -176,7 +178,8 @@ const AuthForm = () => {
           variant: "destructive"
         });
       } else if (data.session) {
-        console.log('Sign in successful with session:', data.session);
+        // Only log successful sign in once
+        console.log('Sign in successful with session');
         // The auth state will be updated by the useAuth hook's onAuthStateChange listener
         // We don't need to manually redirect here as the useEffect above will handle it
         // once the auth state is updated
@@ -202,52 +205,39 @@ const AuthForm = () => {
     }));
   };
 
-  // Set up auth success callback for automatic redirect
-  useEffect(() => {
-    console.log('Setting up auth success callback, redirect target:', from);
-    const handleAuthSuccess = () => {
-      console.log('Auth success callback triggered, redirecting to:', from);
-      // Add a check to prevent duplicate toasts
-      const lastToastTime = localStorage.getItem('lastAuthToastTime');
-      const now = Date.now();
-      
-      // Only show toast if it's been more than 5 seconds since the last one
-      if (!lastToastTime || now - parseInt(lastToastTime) > 5000) {
-        localStorage.setItem('lastAuthToastTime', now.toString());
-        toast({
-          title: "Welcome!",
-          description: "You have been signed in successfully."
-        });
-      }
-      
-      // Redirect to the original path or dashboard after successful authentication
-      console.log('Executing navigation to:', from);
-      navigate(from, { replace: true });
-    };
-    
-    if (setOnAuthSuccess) {
-      console.log('Registering auth success callback');
-      setOnAuthSuccess(handleAuthSuccess);
-    }
-    
-    // Also check if user is already authenticated when component mounts
-    if (user && !authLoading) {
-      console.log('User already authenticated on mount, redirecting to:', from);
-      navigate(from, { replace: true });
-    }
-  }, [setOnAuthSuccess, navigate, from, user, authLoading]);
+  // Handle successful authentication with toast (simplified approach)
+  const showWelcomeToast = useCallback(() => {
+    const lastToastTime = localStorage.getItem('lastAuthToastTime');
+    const now = Date.now();
 
-  // Additional useEffect to handle user state changes directly
+    // Only show toast if it's been more than 5 seconds since the last one
+    if (!lastToastTime || now - parseInt(lastToastTime) > 5000) {
+      localStorage.setItem('lastAuthToastTime', now.toString());
+      toast({
+        title: "Welcome!",
+        description: "You have been signed in successfully."
+      });
+    }
+  }, []);
+
+  // Handle user state changes and show welcome toast (reduced logging)
+  const userStateChangeRef = useRef<string | null>(null);
   useEffect(() => {
-    if (user && !authLoading) {
+    const currentUserId = user?.id || null;
+    if (user && !authLoading && currentUserId !== userStateChangeRef.current) {
       console.log('User state changed, redirecting to:', from);
+      userStateChangeRef.current = currentUserId;
+
+      // Show welcome toast for new sign-ins
+      showWelcomeToast();
+
       // Small delay to ensure state is fully updated
       const timer = setTimeout(() => {
         navigate(from, { replace: true });
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [user, authLoading, navigate, from]);
+  }, [user, authLoading, navigate, from, showWelcomeToast]);
 
   // Show loading while checking auth state
   if (authLoading) {
@@ -323,7 +313,7 @@ const AuthForm = () => {
               <TabsTrigger value="signin" className="text-sm">Sign In</TabsTrigger>
               <TabsTrigger value="signup" className="text-sm">Sign Up</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
@@ -354,8 +344,8 @@ const AuthForm = () => {
                     autoComplete="current-password"
                   />
                 </div>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full bg-aurora-green hover:bg-aurora-green/80 h-11 text-base"
                   disabled={loading}
                 >
@@ -363,7 +353,7 @@ const AuthForm = () => {
                 </Button>
               </form>
             </TabsContent>
-            
+
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
@@ -431,8 +421,8 @@ const AuthForm = () => {
                     autoComplete="new-password"
                   />
                 </div>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full bg-aurora-green hover:bg-aurora-green/80 h-11 text-base"
                   disabled={loading}
                 >

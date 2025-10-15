@@ -4,10 +4,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnergyProvider } from "@/contexts/EnergyProviderContext";
+import { useMeter } from "@/contexts/MeterContext";
 import { Info } from "lucide-react";
 
 // Lazy load components for better performance
 const EnergyDashboard = lazy(() => import("@/components/EnergyDashboard"));
+const EnergyInsightsDashboard = lazy(() => import("@/components/EnergyInsightsDashboard"));
+const DemandDrivenEnergyData = lazy(() => import("@/components/DemandDrivenEnergyData"));
 const SolarRealTimeDashboard = lazy(() => import("@/components/SolarRealTimeDashboard"));
 const PayAsYouGoDashboard = lazy(() => import("@/components/PayAsYouGoDashboard"));
 const EnergyInsights = lazy(() => import("@/components/EnergyInsights"));
@@ -58,6 +61,7 @@ const Index = () => {
   const { unreadCount } = useNotifications();
   const { user } = useAuth();
   const { provider, providerConfig, isLoading: providerLoading } = useEnergyProvider();
+  const { meterNumber, status: meterStatus } = useMeter();
 
   // Memoize tab configuration to prevent re-renders and make it reactive to provider changes
   const tabConfig: TabConfig = useMemo(() => {
@@ -67,7 +71,7 @@ const Index = () => {
         component: isMobile ? MobileDashboard : 
                  (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' 
                    ? SolarRealTimeDashboard 
-                   : EnergyDashboard),
+                   : () => meterNumber ? <EnergyInsightsDashboard meterNumber={meterNumber} /> : <EnergyDashboard />),
         visible: true
       },
       notifications: { 
@@ -188,8 +192,8 @@ const Index = () => {
       return <TabLoadingSpinner />;
     }
 
-    // Use cache to prevent re-mounting, but include provider in cache key
-    const cacheKey = `${tabKey}-${isMobile}-${provider}`;
+    // Use cache to prevent re-mounting, but include provider and meter number in cache key
+    const cacheKey = `${tabKey}-${isMobile}-${provider}-${meterNumber || 'no-meter'}`;
     if (componentCache.has(cacheKey)) {
       return componentCache.get(cacheKey);
     }
@@ -218,6 +222,8 @@ const Index = () => {
             <div className="lg:col-span-3">
               {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
                 <SolarRealTimeDashboard />
+              ) : meterNumber ? (
+                <EnergyInsightsDashboard meterNumber={meterNumber} />
               ) : (
                 <EnergyDashboard />
               )}
@@ -250,10 +256,10 @@ const Index = () => {
     return content;
   }, [loadedTabs, tabConfig, isMobile, handleNavigate, handleNavigateToMeter, provider]);
 
-  // Clear cache when mobile state or provider changes
+  // Clear cache when mobile state, provider, or meter changes
   useEffect(() => {
     componentCache.clear();
-  }, [isMobile, provider]);
+  }, [isMobile, provider, meterNumber]);
 
   // Preload critical tabs on mount
   useEffect(() => {

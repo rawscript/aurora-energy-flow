@@ -17,9 +17,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Constants
 const SESSION_STORAGE_KEY = 'aurora_auth_session';
-const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SESSION_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes - check session validity
 const CROSS_TAB_SYNC_KEY = 'aurora_auth_sync';
-const MIN_SESSION_REFRESH_INTERVAL = 30 * 1000; // 30 seconds minimum between refreshes
+const MIN_SESSION_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes minimum between manual refreshes
+const TOKEN_REFRESH_BUFFER = 10 * 60; // 10 minutes before expiry
 
 // Cross-tab session synchronization
 class CrossTabAuthSync {
@@ -58,12 +59,20 @@ class CrossTabAuthSync {
     }
 
     private handleWindowFocus() {
-        // When tab becomes active, check for session updates
+        // When tab becomes active, check for session updates (rate limited)
+        const now = Date.now();
+        if (now - this.lastBroadcast < 10000) return; // Don't sync more than once per 10 seconds
+
         try {
             const storedSession = localStorage.getItem(SESSION_STORAGE_KEY);
             if (storedSession) {
                 const session = JSON.parse(storedSession);
-                this.notifyListeners(session);
+                // Only notify if session is still valid
+                const sessionExpiresAt = session?.expires_at || 0;
+                const nowSeconds = Math.floor(now / 1000);
+                if (sessionExpiresAt > nowSeconds) {
+                    this.notifyListeners(session);
+                }
             }
         } catch (error) {
             console.warn('Failed to sync session on window focus:', error);
@@ -72,8 +81,8 @@ class CrossTabAuthSync {
 
     broadcastSessionUpdate(session: Session | null) {
         const now = Date.now();
-        // Rate limit broadcasts to prevent spam
-        if (now - this.lastBroadcast < 1000) return;
+        // Rate limit broadcasts to prevent spam (increased to 5 seconds)
+        if (now - this.lastBroadcast < 5000) return;
 
         this.lastBroadcast = now;
 
@@ -195,11 +204,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Update session state and sync across tabs
     const updateSession = useCallback((newSession: Session | null, showSuccessToast = false) => {
-        console.log('🔄 Updating session:', {
-            hasSession: !!newSession,
-            userId: newSession?.user?.id,
-            showToast: showSuccessToast
-        });
+        // Only log session updates when they're significant to reduce noise
+        if (showSuccessToast || (!session && newSession) || (session && !newSession)) {
+            console.log('🔄 Updating session:', {
+                hasSession: !!newSession,
+                userId: newSession?.user?.id,
+                showToast: showSuccessToast
+            });
+        }
 
         setSession(newSession);
         setUser(newSession?.user || null);
@@ -287,9 +299,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             showToast('Signed out', 'You have been signed out successfully.');
 
-            // Redirect to auth page
+            // Redirect to auth page (only if not already on auth page)
             setTimeout(() => {
-                window.location.href = '/auth';
+                if (!window.location.pathname.includes('/auth')) {
+                    window.location.href = '/auth';
+                }
             }, 1000);
 
         } catch (error) {
@@ -310,15 +324,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const expiresAt = session.expires_at || 0;
         const timeUntilExpiry = expiresAt - now;
 
-        console.log(`⏰ Session expires in ${Math.floor(timeUntilExpiry / 60)} minutes`);
+        // Only log every 30 minutes to reduce noise
+        if (timeUntilExpiry % 1800 < 300) {
+            console.log(`⏰ Session expires in ${Math.floor(timeUntilExpiry / 60)} minutes`);
+        }
 
         // If session expired, sign out
         if (timeUntilExpiry <= 0) {
             console.log('⏰ Session expired, signing out');
             signOut();
+            return;
         }
-        // If session expires in less than 10 minutes, show warning
-        else if (timeUntilExpiry <= 600) {
+
+        // If session expires in less than 10 minutes, show warning (but only once)
+        if (timeUntilExpiry <= TOKEN_REFRESH_BUFFER && timeUntilExpiry > TOKEN_REFRESH_BUFFER - 60) {
             showToast(
                 'Session expiring soon',
                 'Your session will expire soon. Please save your work.',
@@ -371,7 +390,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }
 
                 // Get session from Supabase
-                console.log('🔍 Fetching session from Supabase...');
+                // Only log session fetch on initialization to reduce noise
+        console.log('🔍 Fetching session from Supabase...');
                 const { data: { session: currentSession }, error } = await supabase.auth.getSession();
 
                 if (error) {
@@ -396,16 +416,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('👂 Setting up auth state listener');
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-            console.log('🔔 Auth state change:', event, { hasSession: !!newSession });
+            // Only log important events to reduce console noise
+            if (event !== 'TOKEN_REFRESHED' && event !== 'INITIAL_SESSION') {
+                console.log('🔔 Auth state change:', event, { hasSession: !!newSession });
+            }
 
             if (isSigningOut.current && event !== 'SIGNED_OUT') {
-                console.log('🚫 Ignoring auth event during sign out');
                 return;
             }
 
             switch (event) {
                 case 'SIGNED_IN':
-                    // Only show toast for actual user-initiated sign-ins
                     updateSession(newSession, true);
                     break;
 
@@ -414,12 +435,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     break;
 
                 case 'TOKEN_REFRESHED':
-                    // Silent refresh, no toast
-                    updateSession(newSession, false);
+                    // Only update if token actually changed - prevent refresh loops
+                    if (newSession?.access_token !== session?.access_token) {
+                        updateSession(newSession, false);
+                    }
+                    break;
+
+                case 'USER_UPDATED':
+                    // Only update if user actually changed
+                    if (newSession?.user?.id !== session?.user?.id) {
+                        updateSession(newSession, false);
+                    }
+                    break;
+
+                case 'INITIAL_SESSION':
+                    // Handle initial session load
+                    if (newSession && !session) {
+                        updateSession(newSession, false);
+                    }
                     break;
 
                 default:
-                    console.log('🔔 Other auth event:', event);
+                    // Ignore other events to prevent loops
                     break;
             }
         });
@@ -437,7 +474,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const unsubscribe = crossTabSync.current.addListener((syncedSession) => {
             if (isSigningOut.current) return;
 
-            console.log('🔗 Received cross-tab session update:', { hasSession: !!syncedSession });
+            // Only log cross-tab updates when they're significant
+            if ((!session && syncedSession) || (session && !syncedSession)) {
+                console.log('🔗 Received cross-tab session update:', { hasSession: !!syncedSession });
+            }
 
             // Update local state without showing toast (to prevent duplicate notifications)
             setSession(syncedSession);

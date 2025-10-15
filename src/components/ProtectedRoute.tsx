@@ -9,10 +9,28 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
-  
-  console.log('ProtectedRoute - User:', user, 'Loading:', loading);
-  console.log('Protected route activated');
-  
+
+  // Only log significant state changes to reduce console noise
+  const userIdRef = React.useRef<string | null>(null);
+  const wasLoadingRef = React.useRef<boolean>(true);
+
+  React.useEffect(() => {
+    const currentUserId = user?.id || null;
+    const isSignificantChange =
+      currentUserId !== userIdRef.current ||
+      (wasLoadingRef.current && !loading);
+
+    if (isSignificantChange) {
+      console.log('ProtectedRoute - State change:', {
+        userId: currentUserId,
+        loading,
+        wasLoading: wasLoadingRef.current
+      });
+      userIdRef.current = currentUserId;
+      wasLoadingRef.current = loading;
+    }
+  }, [user?.id, loading]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
@@ -22,12 +40,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!user) {
-    console.log('ProtectedRoute - No user, redirecting to /auth');
-    // Redirect to auth page with a state to indicate where to go after login
+    // Only log redirect once
+    if (userIdRef.current !== null) {
+      console.log('ProtectedRoute - User signed out, redirecting to /auth');
+      userIdRef.current = null;
+    }
     return <Navigate to="/auth" state={{ from: window.location.pathname }} replace />;
   }
 
-  console.log('ProtectedRoute - User authenticated, rendering children');
   return <>{children}</>;
 };
 

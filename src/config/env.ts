@@ -1,22 +1,28 @@
 // Environment configuration helper
 export const getEnvVar = (name: string, defaultValue?: string): string => {
-  // Try Vite's import.meta.env first (for development and production builds)
-  if (import.meta.env && import.meta.env[name]) {
-    return import.meta.env[name];
+  try {
+    // Try Vite's import.meta.env first (for development and production builds)
+    if (import.meta.env && import.meta.env[name]) {
+      return import.meta.env[name];
+    }
+    
+    // Try process.env (for Node.js environments)
+    if (typeof process !== 'undefined' && process.env && process.env[name]) {
+      return process.env[name] || '';
+    }
+    
+    // Return default value if provided
+    if (defaultValue !== undefined) {
+      return defaultValue;
+    }
+    
+    // Log warning instead of throwing error
+    console.warn(`Environment variable ${name} is not defined`);
+    return '';
+  } catch (error) {
+    console.warn(`Error accessing environment variable ${name}:`, error);
+    return defaultValue || '';
   }
-  
-  // Try process.env (for Node.js environments)
-  if (typeof process !== 'undefined' && process.env && process.env[name]) {
-    return process.env[name] || '';
-  }
-  
-  // Return default value if provided
-  if (defaultValue !== undefined) {
-    return defaultValue;
-  }
-  
-  // Throw error if no value found and no default provided
-  throw new Error(`Environment variable ${name} is not defined`);
 };
 
 // Configuration constants
@@ -38,10 +44,14 @@ export const CONFIG = {
   }
 };
 
-// Log configuration status
-console.log('Environment Configuration Status:', {
-  supabaseConfigured: CONFIG.isSupabaseConfigured(),
-  redisConfigured: CONFIG.isRedisConfigured(),
-  supabaseUrl: CONFIG.SUPABASE_URL ? 'SET' : 'MISSING',
-  supabaseKey: CONFIG.SUPABASE_PUBLIC_KEY ? 'SET' : 'MISSING'
-});
+// Log configuration status safely
+try {
+  console.log('✅ Environment Configuration Status:', {
+    supabaseConfigured: CONFIG.isSupabaseConfigured(),
+    redisConfigured: CONFIG.isRedisConfigured(),
+    supabaseUrl: CONFIG.SUPABASE_URL ? 'SET' : 'MISSING',
+    supabaseKey: CONFIG.SUPABASE_PUBLIC_KEY ? 'SET' : 'MISSING'
+  });
+} catch (error) {
+  console.warn('❌ Error checking environment configuration:', error);
+}

@@ -44,11 +44,11 @@ class EnergyInsightsService {
   getCachedInsights(userId: string, meterNumber: string): EnergyInsight | null {
     const cacheKey = `${userId}_${meterNumber}`;
     const cached = this.cache.get(cacheKey);
-    
+
     if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
       return cached.data;
     }
-    
+
     return null;
   }
 
@@ -74,7 +74,7 @@ class EnergyInsightsService {
   canMakeRequest(userId: string, meterNumber: string): boolean {
     const lastUpdate = this.getLastUpdateTime(userId, meterNumber);
     if (!lastUpdate) return true;
-    
+
     return (Date.now() - lastUpdate.getTime()) > this.REQUEST_COOLDOWN;
   }
 
@@ -84,7 +84,7 @@ class EnergyInsightsService {
   getTimeUntilNextRequest(userId: string, meterNumber: string): number {
     const lastUpdate = this.getLastUpdateTime(userId, meterNumber);
     if (!lastUpdate) return 0;
-    
+
     const timeSinceLastRequest = Date.now() - lastUpdate.getTime();
     return Math.max(0, this.REQUEST_COOLDOWN - timeSinceLastRequest);
   }
@@ -114,7 +114,7 @@ class EnergyInsightsService {
 
     try {
       const result = await requestPromise;
-      
+
       // Cache the result
       this.cache.set(requestKey, {
         data: result,
@@ -134,55 +134,115 @@ class EnergyInsightsService {
   private async performEnergyFetch(request: EnergyFetchRequest): Promise<EnergyInsight> {
     const { userId, meterNumber, phoneNumber, requestType } = request;
 
-    console.log(`Fetching energy insights via SMS for meter ${meterNumber}`);
+    console.log(`Fetching energy insights via SMS for meter ${meterNumber}, type: ${requestType}`);
 
     try {
-      // Use SMS service to fetch bill data from KPLC
-      const billData = await kplcSMSService.fetchBillData(meterNumber, phoneNumber, userId);
+      // Use SMS service to fetch bill data from KPLC based on request type
+      const billData = await this.fetchDataByType(meterNumber, phoneNumber, userId, requestType);
 
-      // Transform to energy insight format
+      // Transform to energy insight format - DAILY DATA ONLY
+      const todayConsumption = this.calculateDailyConsumption(billData);
+      const todayCost = this.calculateDailyCost(billData);
+
       const insight: EnergyInsight = {
         id: `insight_${Date.now()}`,
         userId,
         meterNumber,
-        currentUsage: billData.currentReading - billData.previousReading,
-        dailyTotal: billData.consumption,
-        dailyCost: billData.billAmount,
-        weeklyAverage: billData.consumption * 7, // Estimate
-        monthlyTotal: billData.consumption * 30, // Estimate
-        efficiencyScore: this.calculateEfficiencyScore(billData.consumption),
+        currentUsage: todayConsumption, // Today's usage only
+        dailyTotal: todayConsumption, // Same as current usage for daily view
+        dailyCost: todayCost, // Today's cost only
+        weeklyAverage: todayConsumption, // Will be calculated from historical daily data
+        monthlyTotal: todayConsumption * 30, // Estimate based on today's usage
+        efficiencyScore: this.calculateEfficiencyScore(todayConsumption),
         lastUpdated: new Date().toISOString(),
         source: 'sms',
         status: 'fresh'
       };
 
-      // Store in database for persistence
+      // Store in database for persistence (non-blocking)
       await this.storeInsight(insight);
 
       return insight;
     } catch (error) {
       console.error('Error fetching energy insights:', error);
-      
+
       // Return stale data if available, otherwise throw
       const cached = this.getCachedInsights(userId, meterNumber);
       if (cached) {
         return { ...cached, status: 'stale' };
       }
-      
-      throw new Error(`Failed to fetch energy data: ${error.message}`);
+
+      throw new Error(`Failed to fetch energy data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Calculate efficiency score based on consumption
+   * Fetch data based on request type
    */
-  private calculateEfficiencyScore(consumption: number): number {
-    // Simple efficiency calculation - can be enhanced
-    if (consumption < 10) return 95;
-    if (consumption < 20) return 85;
-    if (consumption < 50) return 75;
-    if (consumption < 100) return 65;
-    return 55;
+  private async fetchDataByType(
+    meterNumber: string,
+    phoneNumber: string,
+    userId: string,
+    requestType: 'current' | 'detailed' | 'history'
+  ) {
+    switch (requestType) {
+      case 'current':
+        // Fetch current bill data
+        return await kplcSMSService.fetchBillData(meterNumber, phoneNumber, userId);
+
+      case 'detailed':
+        // For detailed, we could fetch additional data or use different SMS commands
+        // For now, use the same service but could be enhanced
+        return await kplcSMSService.fetchBillData(meterNumber, phoneNumber, userId);
+
+      case 'history':
+        // For history, we could implement historical data fetching
+        // For now, use the same service but could be enhanced
+        return await kplcSMSService.fetchBillData(meterNumber, phoneNumber, userId);
+
+      default:
+        return await kplcSMSService.fetchBillData(meterNumber, phoneNumber, userId);
+    }
+  }
+
+  /**
+   * Calculate daily consumption from bill data (not lifetime)
+   */
+  private calculateDailyConsumption(billData: any): number {
+    // Extract today's consumption only, not lifetime meter reading
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    // If bill data has daily breakdown, use it
+    if (billData.dailyConsumption) {
+      return billData.dailyConsumption;
+    }
+
+    // Otherwise, estimate from recent consumption
+    // This should be enhanced to get actual daily data from KPLC
+    return billData.consumption || 0;
+  }
+
+  /**
+   * Calculate daily cost from bill data (not lifetime)
+   */
+  private calculateDailyCost(billData: any): number {
+    const dailyConsumption = this.calculateDailyConsumption(billData);
+    const costPerKwh = billData.costPerKwh || 25; // Default KSh 25 per kWh
+
+    return dailyConsumption * costPerKwh;
+  }
+
+  /**
+   * Calculate efficiency score based on daily consumption
+   */
+  private calculateEfficiencyScore(dailyConsumption: number): number {
+    // Efficiency based on daily usage (not lifetime)
+    if (dailyConsumption < 5) return 95;   // Very efficient
+    if (dailyConsumption < 10) return 85;  // Good
+    if (dailyConsumption < 20) return 75;  // Average
+    if (dailyConsumption < 30) return 65;  // High usage
+    return 55; // Very high usage
   }
 
   /**
@@ -211,9 +271,11 @@ class EnergyInsightsService {
 
       if (error) {
         console.error('Error storing energy insight:', error);
+        // Don't throw here - we still want to return the insight even if storage fails
       }
     } catch (error) {
       console.error('Error storing energy insight:', error);
+      // Don't throw here - we still want to return the insight even if storage fails
     }
   }
 
@@ -294,5 +356,4 @@ class EnergyInsightsService {
 // Export singleton instance
 export const energyInsightsService = EnergyInsightsService.getInstance();
 
-// Export types
-export type { EnergyFetchRequest };
+// Types are already exported above with the interface declaration

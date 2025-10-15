@@ -403,7 +403,7 @@ const Landing = () => {
             Empowering Kenya with intelligent energy management solutions.
           </p>
           <p className="text-sm text-gray-500">
-            © 2024 Aurora Energy. Built with love for sustainable energy.
+                  © 2025 Aurora Energy. 
           </p>
         </div>
       </footer>
