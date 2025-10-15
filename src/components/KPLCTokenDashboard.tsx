@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -274,7 +274,9 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
   };
 
   // Check if user has access - either valid session OR connected meter with profile
-  const hasAccess = hasValidSession() || (profile && meterStatus === 'connected' && meterNumber);
+  const hasAccess = useMemo(() => {
+    return hasValidSession() || (profile && meterStatus === 'connected' && meterNumber);
+  }, [hasValidSession, profile, meterStatus, meterNumber]);
 
   // Auto-refresh every 5 minutes (much less frequent)
   useEffect(() => {
@@ -286,7 +288,7 @@ const KPLCTokenDashboard: React.FC<KPLCTokenDashboardProps> = ({ energyProvider 
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
-  }, [hasAccess, analytics, fetchTokenAnalytics, energyProvider]);
+  }, [hasAccess, analytics, fetchTokenAnalytics]);
 
   if (loading && !analytics) {
     return (
