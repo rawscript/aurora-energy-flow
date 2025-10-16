@@ -351,7 +351,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     // Get user's phone number from user profile or context, with fallback
     const userPhone = user?.phone || user?.user_metadata?.phone_number || '';
     // Use your phone number as fallback for Africa's Talking API
-    const phoneNumber = userPhone || '+254700000000'; // TODO: Replace with your actual phone number
+    const phoneNumber = userPhone || '+254114841437'; // Your phone number for Africa's Talking API requests
     
     await fetchEnergyData(phoneNumber, false);
   }, [fetchEnergyData, user]);
