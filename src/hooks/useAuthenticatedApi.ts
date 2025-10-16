@@ -134,12 +134,25 @@ export const useAuthenticatedApi = () => {
   // Simple session validation - no caching to prevent conflicts
   const hasValidSession = useCallback(() => {
     if (!isAuthenticated || !user || !session) {
+      console.log('Session validation failed: missing auth data', { 
+        isAuthenticated, 
+        hasUser: !!user, 
+        hasSession: !!session 
+      });
       return false;
     }
 
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at || 0;
     const isValid = expiresAt > nowSeconds;
+    
+    if (!isValid) {
+      console.log('Session validation failed: token expired', { 
+        expiresAt, 
+        nowSeconds, 
+        timeUntilExpiry: expiresAt - nowSeconds 
+      });
+    }
 
     return isValid;
   }, [isAuthenticated, user, session]);

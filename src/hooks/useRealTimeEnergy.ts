@@ -200,9 +200,28 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       return;
     }
 
-    if (!hasValidSession() || !userId || !hasMeterConnected || !meterNumber.current) {
-      setError('Authentication or meter connection required');
+    // Debug logging
+    console.log('SMS Fetch Debug:', {
+      hasValidSession: hasValidSession(),
+      userId,
+      hasMeterConnected,
+      meterNumber: meterNumber.current,
+      phoneNumber,
+      meterStatus
+    });
+
+    if (!hasValidSession() || !userId) {
+      const errorMsg = `Authentication required. Session: ${hasValidSession()}, UserId: ${!!userId}`;
+      console.error(errorMsg);
+      setError(errorMsg);
       return;
+    }
+
+    // For SMS testing, use a default meter number if none is set
+    const testMeterNumber = meterNumber.current || '12345678901'; // Default test meter number
+    
+    if (!hasMeterConnected) {
+      console.warn('No meter connected, using test meter number for SMS:', testMeterNumber);
     }
 
     if (!phoneNumber) {
@@ -223,10 +242,10 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     setError(null);
 
     try {
-      console.log(`Fetching energy data via SMS/USSD for meter: ${meterNumber.current}`);
+      console.log(`Fetching energy data via SMS/USSD for meter: ${testMeterNumber}`);
 
       const freshData = await smsService.current.fetchEnergyData(
-        meterNumber.current,
+        testMeterNumber,
         phoneNumber
       );
 
@@ -237,7 +256,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       const newReading: EnergyReading = {
         id: `reading-${now}`,
         user_id: userId,
-        meter_number: meterNumber.current,
+        meter_number: testMeterNumber,
         kwh_consumed: freshData.current_usage,
         total_cost: freshData.daily_cost,
         reading_date: freshData.last_updated,

@@ -271,10 +271,27 @@ const MeterSetup = ({ }: MeterSetupProps) => {
   };
 
   const onSubmit = async (data: MeterFormValues): Promise<void> => {
-    if (!user?.id || isLoading) return;
+    if (isLoading) return;
+    
+    if (!user?.id) {
+      console.error('Authentication check failed: no user ID');
+      toast({
+        title: "Authentication Error",
+        description: "Please sign in again to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsLoading(true);
     try {
+      console.log('Setting up meter with data:', { 
+        meterNumber: data.meterNumber, 
+        category: data.meterCategory, 
+        provider: data.energyProvider,
+        userId: user.id 
+      });
+
       // Use the profile hook to setup meter
       const success = await setupMeter({
         meter_number: data.meterNumber,
@@ -284,6 +301,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
       });
 
       if (!success) {
+        console.error('setupMeter returned false');
         throw new Error('Failed to setup meter');
       }
 

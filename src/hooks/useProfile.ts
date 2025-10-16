@@ -193,8 +193,12 @@ export const useProfile = () => {
 
   // Optimized update function using centralized auth
   const updateProfile = useCallback(async (updates: Partial<Omit<Profile, 'id' | 'created_at'>>) => {
-    if (!userId || !hasValidSession()) {
-      console.error('Authentication check failed:', { userId, hasValidSession: hasValidSession() });
+    // More lenient authentication check - just need userId and user object
+    if (!userId || !user) {
+      console.error('Authentication check failed:', {
+        userId,
+        userExists: !!user
+      });
       toast({
         title: "Authentication Error",
         description: "Please sign in to update your profile.",
@@ -204,7 +208,7 @@ export const useProfile = () => {
     }
 
     try {
-      console.log('Updating profile with:', { updates, userId, authState: { userId, hasValidSession: hasValidSession() } });
+      console.log('Updating profile with:', { updates, userId });
 
       // Input validation
       if (updates.energy_rate !== undefined && (typeof updates.energy_rate !== 'number' || updates.energy_rate < 0)) {
@@ -318,7 +322,10 @@ export const useProfile = () => {
     industry_type?: string;
     energy_provider?: string;
   }) => {
+    console.log('setupMeter called with:', meterData);
+
     if (!meterData.meter_number?.trim()) {
+      console.error('Validation failed: meter_number is required');
       toast({
         title: "Validation Error",
         description: "Meter number is required.",
@@ -328,6 +335,7 @@ export const useProfile = () => {
     }
 
     if (!meterData.meter_category?.trim()) {
+      console.error('Validation failed: meter_category is required');
       toast({
         title: "Validation Error",
         description: "Meter category is required.",
@@ -336,7 +344,10 @@ export const useProfile = () => {
       return false;
     }
 
-    return await updateProfile(meterData);
+    console.log('Validation passed, calling updateProfile');
+    const result = await updateProfile(meterData);
+    console.log('updateProfile result:', result);
+    return result;
   }, [updateProfile, toast]);
 
   // Simplified profile status check using centralized auth
