@@ -72,7 +72,7 @@ export interface KPLCUnitsData {
 
 export class KPLCSMSService {
   private static instance: KPLCSMSService;
-  
+
   static getInstance(): KPLCSMSService {
     if (!KPLCSMSService.instance) {
       KPLCSMSService.instance = new KPLCSMSService();
@@ -86,18 +86,18 @@ export class KPLCSMSService {
   async fetchBillData(meterNumber: string, phoneNumber: string, userId: string): Promise<KPLCBillData> {
     try {
       console.log(`Fetching bill data for meter ${meterNumber} via SMS`);
-      
+
       // Send balance inquiry SMS
       const command = KPLC_COMMANDS.BALANCE(meterNumber);
       const smsResponse = await this.sendKPLCCommand(command, phoneNumber, userId, 'balance');
-      
+
       if (!smsResponse.success) {
         throw new Error(`Failed to send SMS command: ${smsResponse.error}`);
       }
 
       // Wait for and parse response
       const responseData = await this.waitForSMSResponse(phoneNumber, 'balance', SMS_TIMEOUT);
-      
+
       if (!responseData) {
         // No SMS response received - throw error to maintain empty state
         throw new Error('No response received from KPLC. Please try again later.');
@@ -105,10 +105,10 @@ export class KPLCSMSService {
 
       // Parse the SMS response
       const billData = this.parseBillResponse(responseData, meterNumber);
-      
+
       // Store in database
       await this.storeBillData(billData, userId);
-      
+
       return billData;
     } catch (error) {
       console.error('Error fetching bill data via SMS:', error);
@@ -123,18 +123,18 @@ export class KPLCSMSService {
   async purchaseTokens(meterNumber: string, amount: number, phoneNumber: string, userId: string): Promise<KPLCTokenData> {
     try {
       console.log(`Purchasing ${amount} KES tokens for meter ${meterNumber} via SMS`);
-      
+
       // Send token purchase SMS
       const command = KPLC_COMMANDS.TOKEN(meterNumber, amount);
       const smsResponse = await this.sendKPLCCommand(command, phoneNumber, userId, 'token');
-      
+
       if (!smsResponse.success) {
         throw new Error(`Failed to send SMS command: ${smsResponse.error}`);
       }
 
       // Wait for and parse response
       const responseData = await this.waitForSMSResponse(phoneNumber, 'token', SMS_TIMEOUT * 2); // Longer timeout for token generation
-      
+
       if (!responseData) {
         // No SMS response received - throw error to maintain empty state
         throw new Error('No token response received from KPLC. Please try again later.');
@@ -142,10 +142,10 @@ export class KPLCSMSService {
 
       // Parse the SMS response
       const tokenData = this.parseTokenResponse(responseData, meterNumber, amount);
-      
+
       // Store in database
       await this.storeTokenTransaction(tokenData, userId);
-      
+
       return tokenData;
     } catch (error) {
       console.error('Error purchasing tokens via SMS:', error);
@@ -160,18 +160,18 @@ export class KPLCSMSService {
   async checkUnits(meterNumber: string, phoneNumber: string, userId: string): Promise<KPLCUnitsData> {
     try {
       console.log(`Checking units for meter ${meterNumber} via SMS`);
-      
+
       // Send units inquiry SMS
       const command = KPLC_COMMANDS.UNITS(meterNumber);
       const smsResponse = await this.sendKPLCCommand(command, phoneNumber, userId, 'units');
-      
+
       if (!smsResponse.success) {
         throw new Error(`Failed to send SMS command: ${smsResponse.error}`);
       }
 
       // Wait for and parse response
       const responseData = await this.waitForSMSResponse(phoneNumber, 'balance', SMS_TIMEOUT);
-      
+
       if (!responseData) {
         // No SMS response received - throw error to maintain empty state
         throw new Error('No units response received from KPLC. Please try again later.');
@@ -179,7 +179,7 @@ export class KPLCSMSService {
 
       // Parse the SMS response
       const unitsData = this.parseUnitsResponse(responseData, meterNumber);
-      
+
       return unitsData;
     } catch (error) {
       console.error('Error checking units via SMS:', error);
@@ -246,12 +246,12 @@ export class KPLCSMSService {
         }
 
         pollCount++;
-        
+
         // Exponential backoff - increase poll interval each time
         currentPollInterval = Math.min(currentPollInterval * 1.5, maxPollInterval);
-        
+
         console.log(`Poll ${pollCount}/${maxPolls} - no response, waiting ${currentPollInterval}ms`);
-        
+
         // Wait before next poll with exponential backoff
         await new Promise(resolve => setTimeout(resolve, currentPollInterval));
       } catch (error) {

@@ -5,8 +5,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type, x-client-info, apikey",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-requested-with, accept, origin, referer, user-agent",
+  "Access-Control-Max-Age": "86400",
 };
 
 // Africa's Talking configuration
@@ -133,8 +134,8 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
       throw new Error(`Failed to send SMS: ${smsResult.error}`);
     }
 
-    // Wait for response (in production, this would be handled by webhook)
-    await delay(8000); // Wait 8 seconds for KPLC response
+    // Wait for response - KPLC can take 30-60 seconds to respond
+    await delay(45000); // Wait 45 seconds for KPLC response
     
     // Try to get response from SMS responses table
     const responseData = await getLatestSMSResponse(supabase, phoneNumber, 'balance');
@@ -197,8 +198,8 @@ async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: 
       throw new Error(`Failed to send SMS: ${smsResult.error}`);
     }
 
-    // Wait for response
-    await delay(12000); // Wait 12 seconds for token generation
+    // Wait for response - Token generation can take longer
+    await delay(60000); // Wait 60 seconds for token generation
     
     // Try to get response from SMS responses table
     const responseData = await getLatestSMSResponse(supabase, phoneNumber, 'token');

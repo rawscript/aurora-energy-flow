@@ -332,12 +332,10 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     if (isInitialized.current) return;
     isInitialized.current = true;
 
-    // Only set empty state, no automatic API calls
-    if (!hasMeterConnected) {
-      setEnergyData(EMPTY_ENERGY_DATA);
-      setRecentReadings([]);
-    }
-  }, [hasMeterConnected]);
+    // Always set empty state, never make automatic API calls
+    setEnergyData(EMPTY_ENERGY_DATA);
+    setRecentReadings([]);
+  }, []);
 
   // Clear error when meter status changes
   useEffect(() => {
@@ -352,7 +350,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     const userPhone = user?.phone || user?.user_metadata?.phone_number || '';
     // Use your phone number as fallback for Africa's Talking API
     const phoneNumber = userPhone || '+254114841437'; // Your phone number for Africa's Talking API requests
-    
+
     await fetchEnergyData(phoneNumber, false);
   }, [fetchEnergyData, user]);
 

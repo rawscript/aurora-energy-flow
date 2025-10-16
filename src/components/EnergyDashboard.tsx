@@ -61,12 +61,7 @@ const EnergyDashboard = () => {
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);
 
-  // Add effect to refresh data when meter connection changes
-  useEffect(() => {
-    if (hasMeterConnected) {
-      refreshData();
-    }
-  }, [hasMeterConnected, refreshData]);
+  // Note: Data fetching is now demand-driven only - no automatic API calls
 
   // Safe energy data with fallbacks
   const safeEnergyData = {

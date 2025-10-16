@@ -7,8 +7,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const corsHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-requested-with, accept, origin, referer, user-agent",
+  "Access-Control-Max-Age": "86400",
 };
 
 serve(async (req) => {
