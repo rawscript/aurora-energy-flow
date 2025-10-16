@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // KPLC SMS service configuration
 const KPLC_SMS_NUMBER = '95551';
-const SMS_TIMEOUT = 30000; // 30 seconds timeout for SMS responses
+const SMS_TIMEOUT = 45000; // 45 seconds timeout for SMS responses
 
 // KPLC USSD codes and SMS commands
 export const KPLC_COMMANDS = {
