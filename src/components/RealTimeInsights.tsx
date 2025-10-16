@@ -156,26 +156,26 @@ const RealTimeInsights = () => {
                     <div
                       key={`ml-${insight.id}`}
                       className={`p-3 rounded-lg border transition-all hover:border-opacity-50 mb-3 ${insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
-                          insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
-                            insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
-                              'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                        insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                          insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                            'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
                         }`}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="mt-0.5">
                           <IconComponent className={`h-5 w-5 ${insight.severity === 'alert' ? 'text-red-400' :
-                              insight.severity === 'warning' ? 'text-amber-400' :
-                                insight.severity === 'success' ? 'text-green-400' :
-                                  'text-blue-400'
+                            insight.severity === 'warning' ? 'text-amber-400' :
+                              insight.severity === 'success' ? 'text-green-400' :
+                                'text-blue-400'
                             }`} />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h4 className={`font-medium ${insight.severity === 'alert' ? 'text-red-400' :
-                                  insight.severity === 'warning' ? 'text-amber-400' :
-                                    insight.severity === 'success' ? 'text-green-400' :
-                                      'text-blue-400'
+                                insight.severity === 'warning' ? 'text-amber-400' :
+                                  insight.severity === 'success' ? 'text-green-400' :
+                                    'text-blue-400'
                                 }`}>
                                 {insight.title}
                               </h4>
@@ -212,26 +212,26 @@ const RealTimeInsights = () => {
                 <div
                   key={insight.id}
                   className={`p-3 rounded-lg border transition-all hover:border-opacity-50 ${insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
-                      insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
-                        insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
-                          'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                    insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                      insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                        'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
                     }`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="mt-0.5">
                       <IconComponent className={`h-5 w-5 ${insight.severity === 'alert' ? 'text-red-400' :
-                          insight.severity === 'warning' ? 'text-amber-400' :
-                            insight.severity === 'success' ? 'text-green-400' :
-                              'text-blue-400'
+                        insight.severity === 'warning' ? 'text-amber-400' :
+                          insight.severity === 'success' ? 'text-green-400' :
+                            'text-blue-400'
                         }`} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h4 className={`font-medium ${insight.severity === 'alert' ? 'text-red-400' :
-                              insight.severity === 'warning' ? 'text-amber-400' :
-                                insight.severity === 'success' ? 'text-green-400' :
-                                  'text-blue-400'
+                            insight.severity === 'warning' ? 'text-amber-400' :
+                              insight.severity === 'success' ? 'text-green-400' :
+                                'text-blue-400'
                             }`}>
                             {insight.title}
                           </h4>

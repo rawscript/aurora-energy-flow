@@ -304,8 +304,8 @@ const MeterSetup = ({ }: MeterSetupProps) => {
       });
 
       if (!success) {
-        console.error('setupMeter returned false');
-        throw new Error('Failed to setup meter');
+        console.error('setupMeter returned false - check console for details');
+        throw new Error('Failed to setup meter - please check your connection and try again');
       }
 
       // Also update other profile fields - following useRealTimeEnergy pattern

@@ -220,7 +220,8 @@ export const useProfile = () => {
         return false;
       }
 
-      if (updates.energy_provider && !['', 'KPLC', 'Solar', 'IPP', 'Other'].includes(updates.energy_provider)) {
+      if (updates.energy_provider && !['', 'KPLC', 'Solar', 'IPP', 'Other', 'SunCulture', 'M-KOPA Solar'].includes(updates.energy_provider)) {
+        console.log('Invalid energy provider:', updates.energy_provider);
         toast({
           title: "Validation Error",
           description: "Please select a valid energy provider from the dropdown.",
@@ -281,9 +282,9 @@ export const useProfile = () => {
         error,
         userId,
         updates,
-        errorCode: error.code,
-        errorMessage: error.message,
-        errorDetails: error.details
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        errorDetails: error?.details
       });
 
       let errorMessage = "Could not update profile";
