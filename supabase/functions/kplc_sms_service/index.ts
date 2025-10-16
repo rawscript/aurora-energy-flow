@@ -15,19 +15,20 @@ const AT_API_KEY = Deno.env.get("AFRICAS_TALKING_API_KEY");
 const AT_USERNAME = Deno.env.get("AFRICAS_TALKING_USERNAME");
 const AT_BASE_URL = "https://api.africastalking.com/version1";
 
-// KPLC SMS number
-const KPLC_SMS_NUMBER = "95551";
+// KPLC USSD service codes
+const KPLC_USSD_BASE = "*977";
 
-// SMS response patterns for KPLC
-const SMS_PATTERNS = {
-  BALANCE: /balance.*?(\d+(?:\.\d+)?)/i,
-  TOKEN: /token.*?(\d{20})/i,
-  UNITS: /units.*?(\d+(?:\.\d+)?)/i,
-  METER_READING: /reading.*?(\d+)/i,
-  BILL_AMOUNT: /bill.*?(\d+(?:\.\d+)?)/i,
-  DUE_DATE: /due.*?(\d{1,2}\/\d{1,2}\/\d{4})/i,
-  ACCOUNT: /account.*?(\d+)/i,
-  REFERENCE: /ref(?:erence)?.*?([A-Z0-9]+)/i
+// USSD response patterns for KPLC
+const USSD_PATTERNS = {
+  BALANCE: /(?:balance|bal|amount|ksh).*?(\d+(?:\.\d+)?)/i,
+  TOKEN: /(?:token|code).*?(\d{20})/i,
+  UNITS: /(?:units|kwh).*?(\d+(?:\.\d+)?)/i,
+  METER_READING: /(?:reading|meter).*?(\d+)/i,
+  BILL_AMOUNT: /(?:bill|due|amount).*?(\d+(?:\.\d+)?)/i,
+  DUE_DATE: /(?:due|expires?).*?(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i,
+  ACCOUNT: /(?:account|acc|a\/c).*?(\d+)/i,
+  REFERENCE: /(?:ref|reference|receipt).*?([A-Z0-9]+)/i,
+  ERROR: /(?:error|invalid|failed|not found)/i
 };
 
 serve(async (req) => {
@@ -140,37 +141,36 @@ serve(async (req) => {
 
 async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumber: string, userId: string) {
   try {
-    console.log('Fetching bill data via SMS:', { meterNumber, phoneNumber, userId });
+    console.log('Fetching bill data via USSD:', { meterNumber, phoneNumber, userId });
     
-    // Send balance inquiry SMS to KPLC
-    const message = `BAL ${meterNumber}`;
-    console.log('Sending SMS command to KPLC:', message);
+    // KPLC USSD code for balance inquiry: *977*01*METER_NUMBER#
+    const ussdCode = `*977*01*${meterNumber}#`;
+    console.log('Sending USSD command to KPLC:', ussdCode);
     
-    const smsResult = await sendSMS(KPLC_SMS_NUMBER, message, phoneNumber);
-    console.log('SMS send result:', smsResult);
+    const ussdResult = await sendUSSD(phoneNumber, ussdCode);
+    console.log('USSD send result:', ussdResult);
     
-    if (!smsResult.success) {
-      console.error('SMS send failed:', smsResult.error);
-      throw new Error(`Failed to send SMS: ${smsResult.error}`);
+    if (!ussdResult.success) {
+      console.error('USSD send failed:', ussdResult.error);
+      throw new Error(`Failed to send USSD: ${ussdResult.error}`);
     }
 
-    // Wait for response - KPLC can take 30-60 seconds to respond
-    await delay(45000); // Wait 45 seconds for KPLC response
-    
-    // Try to get response from SMS responses table
-    const responseData = await getLatestSMSResponse(supabase, phoneNumber, 'balance');
+    // USSD responses are immediate, no need to wait
+    const responseData = ussdResult.data?.response;
     
     if (!responseData) {
-      // No response received from KPLC - return empty state
+      // No response received from KPLC
       return { 
         success: false, 
-        error: "No response received from KPLC. Please try again later.",
-        code: "NO_SMS_RESPONSE",
+        error: "No response received from KPLC USSD. Please try again later.",
+        code: "NO_USSD_RESPONSE",
         data: null
       };
     }
 
-    // Parse real KPLC response
+    console.log('KPLC USSD response:', responseData);
+    
+    // Parse real KPLC USSD response
     const billData = parseBalanceResponse(responseData, meterNumber);
 
     // Store the real bill data
@@ -210,37 +210,36 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
 
 async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: number, phoneNumber: string, userId: string) {
   try {
-    console.log('Purchasing tokens via SMS:', { meterNumber, amount, phoneNumber, userId });
+    console.log('Purchasing tokens via USSD:', { meterNumber, amount, phoneNumber, userId });
     
-    // Send token purchase SMS to KPLC
-    const message = `BUY ${meterNumber} ${amount}`;
-    console.log('Sending SMS command to KPLC:', message);
+    // KPLC USSD code for token purchase: *977*METER_NUMBER*AMOUNT#
+    const ussdCode = `*977*${meterNumber}*${amount}#`;
+    console.log('Sending USSD command to KPLC:', ussdCode);
     
-    const smsResult = await sendSMS(KPLC_SMS_NUMBER, message, phoneNumber);
-    console.log('SMS send result:', smsResult);
+    const ussdResult = await sendUSSD(phoneNumber, ussdCode);
+    console.log('USSD send result:', ussdResult);
     
-    if (!smsResult.success) {
-      console.error('SMS send failed:', smsResult.error);
-      throw new Error(`Failed to send SMS: ${smsResult.error}`);
+    if (!ussdResult.success) {
+      console.error('USSD send failed:', ussdResult.error);
+      throw new Error(`Failed to send USSD: ${ussdResult.error}`);
     }
 
-    // Wait for response - Token generation can take longer
-    await delay(60000); // Wait 60 seconds for token generation
-    
-    // Try to get response from SMS responses table
-    const responseData = await getLatestSMSResponse(supabase, phoneNumber, 'token');
+    // USSD responses are immediate
+    const responseData = ussdResult.data?.response;
     
     if (!responseData) {
-      // No response received from KPLC - return empty state
+      // No response received from KPLC
       return { 
         success: false, 
-        error: "No token response received from KPLC. Please try again later.",
-        code: "NO_SMS_RESPONSE",
+        error: "No token response received from KPLC USSD. Please try again later.",
+        code: "NO_USSD_RESPONSE",
         data: null
       };
     }
 
-    // Parse real KPLC token response
+    console.log('KPLC USSD token response:', responseData);
+    
+    // Parse real KPLC USSD token response
     const tokenData = parseTokenResponse(responseData, amount);
 
     // Store the real token transaction
@@ -269,11 +268,11 @@ async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: 
   }
 }
 
-async function sendSMS(to: string, message: string, from: string) {
+async function sendUSSD(phoneNumber: string, ussdCode: string) {
   try {
-    console.log('Sending SMS via Africa\'s Talking:', { to, message, from, username: AT_USERNAME });
+    console.log('Sending USSD via Africa\'s Talking:', { phoneNumber, ussdCode, username: AT_USERNAME });
     
-    const response = await fetch(`${AT_BASE_URL}/messaging`, {
+    const response = await fetch(`${AT_BASE_URL}/ussd/checkout/request`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -282,63 +281,46 @@ async function sendSMS(to: string, message: string, from: string) {
       },
       body: new URLSearchParams({
         username: AT_USERNAME!,
-        to: to,
-        message: message,
-        from: from
+        phoneNumber: phoneNumber,
+        ussdCode: ussdCode
       })
     });
 
     const result = await response.json();
-    console.log('Africa\'s Talking SMS response:', result);
+    console.log('Africa\'s Talking USSD response:', result);
     
-    if (result.SMSMessageData && result.SMSMessageData.Recipients) {
-      const recipient = result.SMSMessageData.Recipients[0];
-      if (recipient.status === 'Success') {
-        console.log('SMS sent successfully:', recipient);
-        return { success: true, data: recipient };
-      } else {
-        console.error('SMS failed:', recipient);
-        return { success: false, error: recipient.status };
-      }
+    if (result.status === 'Success') {
+      console.log('USSD request sent successfully:', result);
+      return { 
+        success: true, 
+        data: {
+          sessionId: result.sessionId,
+          response: result.response || result.message
+        }
+      };
+    } else {
+      console.error('USSD failed:', result);
+      return { success: false, error: result.errorMessage || result.status };
     }
-    
-    console.error('Invalid SMS response format:', result);
-    return { success: false, error: 'Invalid response format' };
   } catch (error) {
-    console.error('Error sending SMS:', error);
+    console.error('Error sending USSD:', error);
     return { success: false, error: error.message };
   }
 }
 
-async function getLatestSMSResponse(supabase: any, phoneNumber: string, type: string) {
-  try {
-    const { data, error } = await supabase
-      .from('sms_responses')
-      .select('message')
-      .eq('phone_number', phoneNumber)
-      .eq('type', type)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error) {
-      console.error('Error fetching SMS response:', error);
-      return null;
-    }
-
-    return data?.message || null;
-  } catch (error) {
-    console.error('Error getting SMS response:', error);
-    return null;
-  }
-}
+// USSD responses are immediate, no need for polling functions
 
 function parseBalanceResponse(message: string, meterNumber: string) {
-  const balance = extractPattern(message, SMS_PATTERNS.BALANCE);
-  const reading = extractPattern(message, SMS_PATTERNS.METER_READING);
-  const billAmount = extractPattern(message, SMS_PATTERNS.BILL_AMOUNT);
-  const dueDate = extractPattern(message, SMS_PATTERNS.DUE_DATE);
-  const accountNumber = extractPattern(message, SMS_PATTERNS.ACCOUNT);
+  // Check for error messages first
+  if (USSD_PATTERNS.ERROR.test(message)) {
+    throw new Error(`KPLC Error: ${message}`);
+  }
+  
+  const balance = extractPattern(message, USSD_PATTERNS.BALANCE);
+  const reading = extractPattern(message, USSD_PATTERNS.METER_READING);
+  const billAmount = extractPattern(message, USSD_PATTERNS.BILL_AMOUNT);
+  const dueDate = extractPattern(message, USSD_PATTERNS.DUE_DATE);
+  const accountNumber = extractPattern(message, USSD_PATTERNS.ACCOUNT);
 
   // Calculate consumption only if we have valid readings
   const currentReading = reading ? parseInt(reading) : null;
@@ -365,9 +347,14 @@ function parseBalanceResponse(message: string, meterNumber: string) {
 }
 
 function parseTokenResponse(message: string, amount: number) {
-  const tokenCode = extractPattern(message, SMS_PATTERNS.TOKEN);
-  const units = extractPattern(message, SMS_PATTERNS.UNITS);
-  const reference = extractPattern(message, SMS_PATTERNS.REFERENCE);
+  // Check for error messages first
+  if (USSD_PATTERNS.ERROR.test(message)) {
+    throw new Error(`KPLC Token Error: ${message}`);
+  }
+  
+  const tokenCode = extractPattern(message, USSD_PATTERNS.TOKEN);
+  const units = extractPattern(message, USSD_PATTERNS.UNITS);
+  const reference = extractPattern(message, USSD_PATTERNS.REFERENCE);
 
   return {
     tokenCode: tokenCode || null, // No fallback token generation

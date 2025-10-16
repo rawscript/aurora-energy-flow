@@ -3,6 +3,7 @@ import { useAuthenticatedApi } from './useAuthenticatedApi';
 import { useToast } from './use-toast';
 import { useMeter } from '../contexts/MeterContext';
 import { KPLCSMSService } from '../utils/kplcSMSService';
+import { supabase } from '@/integrations/supabase/client';
 
 // SMS/USSD API Integration
 interface SMSEnergyService {
@@ -13,11 +14,16 @@ interface SMSEnergyService {
 
 interface EnergyData {
   current_usage: number;
-  daily_total: number;
+  daily_total?: number;
   daily_cost: number;
-  efficiency_score: number;
-  weekly_average: number;
-  monthly_total: number;
+  efficiency_score?: number;
+  weekly_average?: number;
+  weekly_cost: number;
+  monthly_total?: number;
+  monthly_cost: number;
+  balance?: number;
+  meter_reading?: number;
+  units_remaining?: number;
   peak_usage_time: string;
   cost_trend: 'up' | 'down' | 'stable';
   battery_state?: number;
@@ -61,7 +67,9 @@ const EMPTY_ENERGY_DATA: EnergyData = {
   daily_cost: 0,
   efficiency_score: 0,
   weekly_average: 0,
+  weekly_cost: 0,
   monthly_total: 0,
+  monthly_cost: 0,
   peak_usage_time: '00:00',
   cost_trend: 'stable',
   battery_state: 0,
@@ -144,7 +152,9 @@ class KPLCEnergyService implements SMSEnergyService {
       daily_cost: billData.billAmount || 0,
       efficiency_score: billData.consumption > 0 ? Math.min(100, Math.max(0, 100 - (billData.consumption / 10))) : 0, // Calculate based on consumption
       weekly_average: (billData.consumption || 0) * 7,
+      weekly_cost: (billData.billAmount || 0) * 7,
       monthly_total: (billData.consumption || 0) * 30,
+      monthly_cost: (billData.billAmount || 0) * 30,
       peak_usage_time: '18:00',
       cost_trend: billData.billAmount > 1000 ? 'up' : billData.billAmount < 500 ? 'down' : 'stable',
       battery_state: undefined, // KPLC doesn't have battery data
@@ -243,12 +253,45 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     setError(null);
 
     try {
-      console.log(`Fetching energy data via SMS/USSD for meter: ${testMeterNumber}`);
+      console.log(`Fetching energy data via USSD for meter: ${testMeterNumber}`);
 
-      const freshData = await smsService.current.fetchEnergyData(
-        testMeterNumber,
-        phoneNumber
-      );
+      // Call USSD service directly via Supabase function
+      const { data, error } = await supabase.functions.invoke('kplc_sms_service', {
+        body: {
+          action: 'fetch_bill_data',
+          user_id: userId,
+          meter_number: testMeterNumber,
+          phone_number: phoneNumber
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch USSD data');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'USSD request failed');
+      }
+
+      // Transform USSD response to energy data format
+      const billData = data.data;
+      const freshData: EnergyData = {
+        current_usage: billData.consumption || 0,
+        daily_cost: billData.billAmount || 0,
+        weekly_cost: (billData.billAmount || 0) * 7,
+        monthly_cost: (billData.billAmount || 0) * 30,
+        last_updated: new Date().toISOString(),
+        source: 'ussd',
+        peak_usage_time: new Date().toLocaleTimeString(),
+        cost_trend: 'stable',
+        battery_state: 0, // No battery data from USSD
+        power_generated: 0,
+        load_consumption: billData.consumption || 0,
+        battery_count: 0,
+        balance: billData.outstandingBalance || 0,
+        meter_reading: billData.currentReading || 0,
+        units_remaining: Math.max(0, (billData.outstandingBalance || 0) / 25) // Estimate units
+      };
 
       setEnergyData(freshData);
       lastFetchTime.current = now;
@@ -272,8 +315,8 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       setRecentReadings(prev => [newReading, ...prev.slice(0, 9)]); // Keep last 10 readings
 
       toast({
-        title: 'Energy Data Updated',
-        description: `Fresh data received via ${freshData.source.toUpperCase()}`,
+        title: 'Balance Updated via USSD',
+        description: `Balance: KSh ${freshData.balance?.toFixed(2) || '0.00'} | Units: ${freshData.units_remaining?.toFixed(1) || '0.0'} kWh`,
       });
 
     } catch (error) {
