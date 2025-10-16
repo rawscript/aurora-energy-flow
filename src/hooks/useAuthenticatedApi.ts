@@ -131,22 +131,19 @@ export const useAuthenticatedApi = () => {
   // Track last session to prevent excessive cache clearing
   const lastSessionIdRef = useRef<string | undefined>(undefined);
 
-  // Simple session validation - no caching to prevent conflicts
+  // Simple session validation with tolerance for token refresh timing
   const hasValidSession = useCallback(() => {
     if (!isAuthenticated || !user || !session) {
-      console.log('Session validation failed: missing auth data', { 
-        isAuthenticated, 
-        hasUser: !!user, 
-        hasSession: !!session 
-      });
       return false;
     }
 
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAt = session.expires_at || 0;
-    const isValid = expiresAt > nowSeconds;
+    // Add 5 minute tolerance to prevent constant validation failures during refresh
+    const isValid = expiresAt > (nowSeconds - 300); // 5 minute grace period
     
-    if (!isValid) {
+    // Only log validation failures occasionally to reduce spam
+    if (!isValid && Math.random() < 0.1) {
       console.log('Session validation failed: token expired', { 
         expiresAt, 
         nowSeconds, 

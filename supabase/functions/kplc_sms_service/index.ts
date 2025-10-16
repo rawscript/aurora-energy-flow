@@ -39,8 +39,11 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { action, user_id, meter_number, amount, phone_number } = body;
+    
+    console.log('KPLC SMS Service called with:', { action, user_id, meter_number, amount, phone_number });
 
     if (!user_id || !meter_number || !phone_number) {
+      console.error('Missing required parameters:', { user_id: !!user_id, meter_number: !!meter_number, phone_number: !!phone_number });
       return new Response(JSON.stringify({
         error: "user_id, meter_number, and phone_number are required",
         code: "MISSING_PARAMETERS"
@@ -51,6 +54,12 @@ serve(async (req) => {
     }
 
     if (!AT_API_KEY || !AT_USERNAME) {
+      console.error('Africa\'s Talking credentials missing:', { 
+        hasApiKey: !!AT_API_KEY, 
+        hasUsername: !!AT_USERNAME,
+        apiKeyLength: AT_API_KEY?.length,
+        username: AT_USERNAME 
+      });
       return new Response(JSON.stringify({
         error: "Africa's Talking credentials not configured",
         code: "MISSING_CREDENTIALS"
@@ -59,6 +68,11 @@ serve(async (req) => {
         status: 500,
       });
     }
+    
+    console.log('Africa\'s Talking credentials found:', { 
+      username: AT_USERNAME, 
+      apiKeyLength: AT_API_KEY.length 
+    });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -126,11 +140,17 @@ serve(async (req) => {
 
 async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumber: string, userId: string) {
   try {
+    console.log('Fetching bill data via SMS:', { meterNumber, phoneNumber, userId });
+    
     // Send balance inquiry SMS to KPLC
     const message = `BAL ${meterNumber}`;
+    console.log('Sending SMS command to KPLC:', message);
+    
     const smsResult = await sendSMS(KPLC_SMS_NUMBER, message, phoneNumber);
+    console.log('SMS send result:', smsResult);
     
     if (!smsResult.success) {
+      console.error('SMS send failed:', smsResult.error);
       throw new Error(`Failed to send SMS: ${smsResult.error}`);
     }
 
@@ -190,11 +210,17 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
 
 async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: number, phoneNumber: string, userId: string) {
   try {
+    console.log('Purchasing tokens via SMS:', { meterNumber, amount, phoneNumber, userId });
+    
     // Send token purchase SMS to KPLC
     const message = `BUY ${meterNumber} ${amount}`;
+    console.log('Sending SMS command to KPLC:', message);
+    
     const smsResult = await sendSMS(KPLC_SMS_NUMBER, message, phoneNumber);
+    console.log('SMS send result:', smsResult);
     
     if (!smsResult.success) {
+      console.error('SMS send failed:', smsResult.error);
       throw new Error(`Failed to send SMS: ${smsResult.error}`);
     }
 
@@ -245,6 +271,8 @@ async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: 
 
 async function sendSMS(to: string, message: string, from: string) {
   try {
+    console.log('Sending SMS via Africa\'s Talking:', { to, message, from, username: AT_USERNAME });
+    
     const response = await fetch(`${AT_BASE_URL}/messaging`, {
       method: 'POST',
       headers: {
@@ -261,16 +289,20 @@ async function sendSMS(to: string, message: string, from: string) {
     });
 
     const result = await response.json();
+    console.log('Africa\'s Talking SMS response:', result);
     
     if (result.SMSMessageData && result.SMSMessageData.Recipients) {
       const recipient = result.SMSMessageData.Recipients[0];
       if (recipient.status === 'Success') {
-        return { success: true };
+        console.log('SMS sent successfully:', recipient);
+        return { success: true, data: recipient };
       } else {
+        console.error('SMS failed:', recipient);
         return { success: false, error: recipient.status };
       }
     }
     
+    console.error('Invalid SMS response format:', result);
     return { success: false, error: 'Invalid response format' };
   } catch (error) {
     console.error('Error sending SMS:', error);

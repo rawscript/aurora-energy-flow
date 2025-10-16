@@ -15,14 +15,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Constants - Increased intervals to prevent 429 errors
+// Constants - Much longer intervals to prevent 429 errors and token refresh spam
 const SESSION_STORAGE_KEY = 'aurora_auth_session';
-const SESSION_CHECK_INTERVAL = 10 * 60 * 1000; // 10 minutes - check session validity (increased)
+const SESSION_CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes - check session validity (increased)
 const CROSS_TAB_SYNC_KEY = 'aurora_auth_sync';
-const MIN_SESSION_REFRESH_INTERVAL = 10 * 60 * 1000; // 10 minutes minimum between manual refreshes (increased)
-const TOKEN_REFRESH_BUFFER = 15 * 60; // 15 minutes before expiry (increased)
-const MAX_REFRESH_ATTEMPTS = 3; // Maximum refresh attempts before giving up
-const REFRESH_COOLDOWN = 30 * 1000; // 30 seconds cooldown after failed refresh
+const MIN_SESSION_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes minimum between manual refreshes (increased)
+const TOKEN_REFRESH_BUFFER = 30 * 60; // 30 minutes before expiry (increased)
+const MAX_REFRESH_ATTEMPTS = 2; // Reduced attempts to prevent spam
+const REFRESH_COOLDOWN = 2 * 60 * 1000; // 2 minutes cooldown after failed refresh (increased)
 
 // Safe session serialization to prevent "Cannot convert object to primitive value" errors
 const safeSerializeSession = (session: Session | null): string | null => {
@@ -176,13 +176,13 @@ const sessionStorage = {
 
             const session = JSON.parse(stored);
 
-            // Check if session is still valid
+            // Be more lenient - allow 10 minute grace period for expired sessions
             const now = Math.floor(Date.now() / 1000);
-            if (session.expires_at && session.expires_at > now) {
+            if (session.expires_at && session.expires_at > (now - 600)) { // 10 minute grace period
                 return session;
             }
 
-            // Session expired, remove it
+            // Session expired beyond grace period, remove it
             this.remove();
             return null;
         } catch (error) {
@@ -404,23 +404,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const expiresAt = session.expires_at || 0;
         const timeUntilExpiry = expiresAt - now;
 
-        // Only log every 30 minutes to reduce noise
-        if (timeUntilExpiry % 1800 < 300) {
+        // Only log every hour to reduce noise
+        if (timeUntilExpiry % 3600 < 300) {
             console.log(`⏰ Session expires in ${Math.floor(timeUntilExpiry / 60)} minutes`);
         }
 
-        // If session expired, sign out
-        if (timeUntilExpiry <= 0) {
-            console.log('⏰ Session expired, signing out');
+        // Give 10 minute grace period before signing out to allow for token refresh
+        if (timeUntilExpiry <= -600) { // 10 minutes past expiry
+            console.log('⏰ Session expired beyond grace period, signing out');
             signOut();
             return;
         }
 
-        // If session expires in less than 10 minutes, show warning (but only once)
-        if (timeUntilExpiry <= TOKEN_REFRESH_BUFFER && timeUntilExpiry > TOKEN_REFRESH_BUFFER - 60) {
+        // Show warning much earlier (1 hour before expiry) but only once
+        if (timeUntilExpiry <= 3600 && timeUntilExpiry > 3540) { // Between 59-60 minutes
             showToast(
                 'Session expiring soon',
-                'Your session will expire soon. Please save your work.',
+                'Your session will expire in about an hour. Please save your work.',
                 'destructive'
             );
         }

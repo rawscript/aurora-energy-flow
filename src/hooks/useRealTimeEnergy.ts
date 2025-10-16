@@ -202,16 +202,17 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
     // Debug logging
     console.log('SMS Fetch Debug:', {
-      hasValidSession: hasValidSession(),
       userId,
+      hasUser: !!user,
       hasMeterConnected,
       meterNumber: meterNumber.current,
       phoneNumber,
       meterStatus
     });
 
-    if (!hasValidSession() || !userId) {
-      const errorMsg = `Authentication required. Session: ${hasValidSession()}, UserId: ${!!userId}`;
+    // More lenient authentication check - just need userId and user object
+    if (!userId || !user) {
+      const errorMsg = `Authentication required. UserId: ${!!userId}, User: ${!!user}`;
       console.error(errorMsg);
       setError(errorMsg);
       return;
@@ -219,7 +220,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
     // For SMS testing, use a default meter number if none is set
     const testMeterNumber = meterNumber.current || '12345678901'; // Default test meter number
-    
+
     if (!hasMeterConnected) {
       console.warn('No meter connected, using test meter number for SMS:', testMeterNumber);
     }
@@ -288,11 +289,11 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       setLoading(false);
       fetchInProgress.current = false;
     }
-  }, [hasValidSession, userId, hasMeterConnected, toast]);
+  }, [userId, user, hasMeterConnected, toast]);
 
   // Purchase tokens via SMS
   const purchaseTokens = useCallback(async (amount: number, phoneNumber: string) => {
-    if (!hasValidSession() || !userId || !hasMeterConnected || !meterNumber.current) {
+    if (!userId || !user || !hasMeterConnected || !meterNumber.current) {
       throw new Error('Authentication or meter connection required');
     }
 
@@ -329,11 +330,11 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     } finally {
       setLoading(false);
     }
-  }, [hasValidSession, userId, hasMeterConnected, toast]);
+  }, [userId, user, hasMeterConnected, toast]);
 
   // Get current balance via SMS
   const getCurrentBalance = useCallback(async (phoneNumber: string) => {
-    if (!hasValidSession() || !userId || !hasMeterConnected || !meterNumber.current) {
+    if (!userId || !user || !hasMeterConnected || !meterNumber.current) {
       throw new Error('Authentication or meter connection required');
     }
 
@@ -344,7 +345,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
       console.error('Balance fetch failed:', error);
       return 0;
     }
-  }, [hasValidSession, userId, hasMeterConnected]);
+  }, [userId, user, hasMeterConnected]);
 
   // Initialize with empty state (no automatic fetching)
   useEffect(() => {
