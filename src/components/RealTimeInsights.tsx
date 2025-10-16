@@ -10,18 +10,18 @@ import { generateMeterSpecificInsights, getCategoryDisplayName, type MeterCatego
 import { generateMLInsights, type MLInsight, type EnergyReading } from '@/utils/mlInsights';
 
 const RealTimeInsights = () => {
-  const { energyData, analytics, hasMeterConnected, error, loading, recentReadings } = useRealTimeEnergy(energyProvider || 'KPLC');
   const { provider: energyProvider, providerConfig } = useEnergyProvider(); // Get energy provider from context
+  const { energyData, analytics, hasMeterConnected, error, loading, recentReadings } = useRealTimeEnergy(energyProvider || 'KPLC');
   const { profile } = useProfile();
-  
+
   // Get meter category and industry type from profile with fallbacks
   const meterCategory = (profile?.meter_category as MeterCategory) || 'household';
   const industryType = profile?.industry_type as IndustryType;
-  
+
   // State for ML insights
   const [mlInsights, setMlInsights] = useState<MLInsight[]>([]);
   const [mlLoading, setMlLoading] = useState(false);
-  
+
   // Generate meter-specific insights
   const insights = generateMeterSpecificInsights(
     energyData,
@@ -31,7 +31,7 @@ const RealTimeInsights = () => {
     hasMeterConnected,
     energyProvider // Pass energy provider to generate solar-specific insights
   );
-  
+
   // Generate ML insights when we have enough data
   useEffect(() => {
     const generateMLInsightsData = async () => {
@@ -52,13 +52,13 @@ const RealTimeInsights = () => {
             current: reading.kwh_consumed / 240, // Rough calculation, would come from actual data
             frequency: 50 // Default value, would come from actual data
           }));
-          
+
           const generatedInsights = await generateMLInsights(
             meterCategory,
             industryType,
             energyReadings
           );
-          
+
           setMlInsights(generatedInsights);
         } catch (error) {
           console.error('Error generating ML insights:', error);
@@ -67,10 +67,10 @@ const RealTimeInsights = () => {
         }
       }
     };
-    
+
     generateMLInsightsData();
   }, [hasMeterConnected, recentReadings, meterCategory, industryType]);
-  
+
   // Handle error state by adding error insight
   if (error && insights.length > 0) {
     insights.unshift({
@@ -85,7 +85,7 @@ const RealTimeInsights = () => {
       priority: 10
     });
   }
-  
+
   if (loading) {
     return (
       <Card className="bg-aurora-card border-aurora-purple/20">
@@ -106,7 +106,7 @@ const RealTimeInsights = () => {
       </Card>
     );
   }
-  
+
   return (
     <Card className="bg-aurora-card border-aurora-purple/20">
       <CardHeader className="pb-2">
@@ -149,47 +149,44 @@ const RealTimeInsights = () => {
                     {mlInsights.length} insights
                   </Badge>
                 </div>
-                
+
                 {mlInsights.map((insight) => {
                   const IconComponent = insight.icon;
                   return (
-                    <div 
-                      key={`ml-${insight.id}`} 
-                      className={`p-3 rounded-lg border transition-all hover:border-opacity-50 mb-3 ${
-                        insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
-                        insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
-                        insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
-                        'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
-                      }`}
+                    <div
+                      key={`ml-${insight.id}`}
+                      className={`p-3 rounded-lg border transition-all hover:border-opacity-50 mb-3 ${insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
+                          insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                            insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                              'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                        }`}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="mt-0.5">
-                          <IconComponent className={`h-5 w-5 ${
-                            insight.severity === 'alert' ? 'text-red-400' :
-                            insight.severity === 'warning' ? 'text-amber-400' :
-                            insight.severity === 'success' ? 'text-green-400' :
-                            'text-blue-400'
-                          }`} />
+                          <IconComponent className={`h-5 w-5 ${insight.severity === 'alert' ? 'text-red-400' :
+                              insight.severity === 'warning' ? 'text-amber-400' :
+                                insight.severity === 'success' ? 'text-green-400' :
+                                  'text-blue-400'
+                            }`} />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <h4 className={`font-medium ${
-                                insight.severity === 'alert' ? 'text-red-400' :
-                                insight.severity === 'warning' ? 'text-amber-400' :
-                                insight.severity === 'success' ? 'text-green-400' :
-                                'text-blue-400'
-                              }`}>
+                              <h4 className={`font-medium ${insight.severity === 'alert' ? 'text-red-400' :
+                                  insight.severity === 'warning' ? 'text-amber-400' :
+                                    insight.severity === 'success' ? 'text-green-400' :
+                                      'text-blue-400'
+                                }`}>
                                 {insight.title}
                               </h4>
                               <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
-                              
+
                               {/* Confidence and Model Info */}
                               <div className="flex items-center mt-2 text-xs text-gray-400">
                                 <span className="mr-3">Confidence: {insight.confidence.toFixed(1)}%</span>
                                 <span>Model: {insight.mlModel}</span>
                               </div>
-                              
+
                               {/* Recommendation */}
                               {insight.recommendation && (
                                 <div className="mt-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
@@ -207,42 +204,39 @@ const RealTimeInsights = () => {
                 })}
               </div>
             )}
-            
+
             {/* Traditional Insights */}
             {insights.map((insight) => {
               const IconComponent = insight.icon;
               return (
-                <div 
-                  key={insight.id} 
-                  className={`p-3 rounded-lg border transition-all hover:border-opacity-50 ${
-                    insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
-                    insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
-                    insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
-                    'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
-                  }`}
+                <div
+                  key={insight.id}
+                  className={`p-3 rounded-lg border transition-all hover:border-opacity-50 ${insight.severity === 'alert' ? 'bg-red-500/10 border-red-500/20 hover:bg-red-500/15' :
+                      insight.severity === 'warning' ? 'bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15' :
+                        insight.severity === 'success' ? 'bg-green-500/10 border-green-500/20 hover:bg-green-500/15' :
+                          'bg-blue-500/10 border-blue-500/20 hover:bg-blue-500/15'
+                    }`}
                 >
                   <div className="flex items-start space-x-3">
                     <div className="mt-0.5">
-                      <IconComponent className={`h-5 w-5 ${
-                        insight.severity === 'alert' ? 'text-red-400' :
-                        insight.severity === 'warning' ? 'text-amber-400' :
-                        insight.severity === 'success' ? 'text-green-400' :
-                        'text-blue-400'
-                      }`} />
+                      <IconComponent className={`h-5 w-5 ${insight.severity === 'alert' ? 'text-red-400' :
+                          insight.severity === 'warning' ? 'text-amber-400' :
+                            insight.severity === 'success' ? 'text-green-400' :
+                              'text-blue-400'
+                        }`} />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className={`font-medium ${
-                            insight.severity === 'alert' ? 'text-red-400' :
-                            insight.severity === 'warning' ? 'text-amber-400' :
-                            insight.severity === 'success' ? 'text-green-400' :
-                            'text-blue-400'
-                          }`}>
+                          <h4 className={`font-medium ${insight.severity === 'alert' ? 'text-red-400' :
+                              insight.severity === 'warning' ? 'text-amber-400' :
+                                insight.severity === 'success' ? 'text-green-400' :
+                                  'text-blue-400'
+                            }`}>
                             {insight.title}
                           </h4>
                           <p className="text-sm text-muted-foreground mt-1">{insight.description}</p>
-                          
+
                           {/* Recommendation */}
                           {insight.recommendation && (
                             <div className="mt-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
@@ -252,7 +246,7 @@ const RealTimeInsights = () => {
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Action Button */}
                         {insight.actionable && !hasMeterConnected && (
                           <Button
@@ -277,21 +271,21 @@ const RealTimeInsights = () => {
             <Info className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <p className="text-muted-foreground">No insights available</p>
             <p className="text-sm text-muted-foreground mt-2">
-              {hasMeterConnected 
+              {hasMeterConnected
                 ? 'Start using energy to generate insights'
                 : energyProvider === 'Solar'
-                ? 'Connect your solar inverter to get personalized insights'
-                : `Connect your ${providerConfig.terminology.device} to get personalized insights`}
+                  ? 'Connect your solar inverter to get personalized insights'
+                  : `Connect your ${providerConfig.terminology.device} to get personalized insights`}
             </p>
           </div>
         )}
-        
+
         <div className="pt-2 text-xs text-muted-foreground border-t border-slate-700/50">
-          {hasMeterConnected 
+          {hasMeterConnected
             ? `Insights are tailored for ${getCategoryDisplayName(meterCategory, industryType).toLowerCase()} usage patterns based on your actual energy data.`
             : energyProvider === 'Solar'
-            ? 'Connect your solar inverter to get personalized insights based on your actual solar generation patterns.'
-            : `Connect your ${providerConfig.terminology.device} to get personalized insights based on your actual usage patterns.`}
+              ? 'Connect your solar inverter to get personalized insights based on your actual solar generation patterns.'
+              : `Connect your ${providerConfig.terminology.device} to get personalized insights based on your actual usage patterns.`}
         </div>
       </CardContent>
     </Card>

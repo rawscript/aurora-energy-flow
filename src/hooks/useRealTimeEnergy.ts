@@ -173,7 +173,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, userId, hasValidSession } = useAuthenticatedApi();
+  const { user, userId } = useAuthenticatedApi();
   const { toast } = useToast();
   const { status: meterStatus, meterNumber: contextMeterNumber } = useMeter();
 
@@ -181,12 +181,19 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const meterNumber = useRef<string | null>(null);
   const lastFetchTime = useRef<number>(0);
   const isInitialized = useRef(false);
-  const smsService = useRef<KPLCEnergyService>(new KPLCEnergyService());
+  const smsService = useRef<KPLCEnergyService>();
+
+  // Initialize SMS service lazily
+  const getSMSService = useCallback(() => {
+    if (!smsService.current) {
+      smsService.current = new KPLCEnergyService();
+    }
+    return smsService.current;
+  }, []);
   const fetchInProgress = useRef(false);
 
   // Rate limiting constants
   const MIN_FETCH_INTERVAL = 5 * 60 * 1000; // 5 minutes between fetches
-  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes cache
 
   // Update meter number from context (only when it actually changes)
   useEffect(() => {
@@ -200,7 +207,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   }, [contextMeterNumber]);
 
   // Check if meter is connected
-  const hasMeterConnected = meterStatus === 'connected' && meterNumber.current;
+  const hasMeterConnected = meterStatus === 'connected' && !!meterNumber.current;
 
   // Determine which service to use based on energy provider
   const shouldUseSMSService = useCallback(() => {
@@ -354,7 +361,12 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
   // Fetch energy data via smart-meter-webhook (Solar/Other providers)
   const fetchEnergyDataViaWebhook = useCallback(async (forceRefresh = false) => {
-    const testMeterNumber = meterNumber.current || 'SOLAR_001'; // Default test meter for non-KPLC
+    const currentMeterNumber = meterNumber.current;
+
+    if (!currentMeterNumber) {
+      setError('Meter number required for smart meter data');
+      return;
+    }
 
     // Rate limiting
     const now = Date.now();
@@ -369,82 +381,117 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     setError(null);
 
     try {
-      console.log('Fetching energy data via smart-meter-webhook for meter:', testMeterNumber);
+      console.log('Fetching real energy data from smart meter for:', currentMeterNumber);
 
-      // For non-KPLC providers, we simulate or fetch from smart meter webhook
-      // In a real implementation, this would connect to the actual smart meter or solar inverter
-      const simulatedData = {
-        meter_number: testMeterNumber,
-        kwh_consumed: Math.random() * 50 + 10, // Random consumption between 10-60 kWh
-        user_id: userId,
-        cost_per_kwh: energyProvider === 'Solar' ? 0 : 25 // Solar is free, others cost money
-      };
+      // First, try to fetch existing readings from the database
+      const { data: existingReadings, error: fetchError } = await supabase
+        .from('energy_readings')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('meter_number', currentMeterNumber)
+        .order('reading_date', { ascending: false })
+        .limit(10);
 
-      // Call smart-meter-webhook to store the reading
-      const { data, error } = await supabase.functions.invoke('smart-meter-webhook', {
-        body: simulatedData
-      });
-
-      if (error) {
-        console.error('Smart meter webhook error:', error);
-        throw new Error(error.message || 'Failed to fetch energy data via smart meter');
+      if (fetchError) {
+        console.error('Error fetching existing readings:', fetchError);
       }
 
-      console.log('Smart meter webhook response:', data);
+      // If we have recent readings (within last hour), use the most recent one
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const recentReading = existingReadings?.find(reading => reading.reading_date > oneHourAgo);
 
-      // Create energy data for non-KPLC providers
+      let energyReading;
+
+      if (recentReading && !forceRefresh) {
+        // Use existing recent reading
+        console.log('Using recent reading from database:', recentReading);
+        energyReading = recentReading;
+      } else {
+        // Request new reading from smart meter via webhook
+        console.log('Requesting new reading from smart meter webhook');
+
+        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('smart-meter-webhook', {
+          body: {
+            action: 'fetch_reading',
+            meter_number: currentMeterNumber,
+            user_id: userId,
+            energy_provider: energyProvider
+          }
+        });
+
+        if (webhookError) {
+          console.error('Smart meter webhook error:', webhookError);
+          throw new Error(webhookError.message || 'Failed to fetch data from smart meter');
+        }
+
+        if (!webhookData.success) {
+          throw new Error(webhookData.error || 'Smart meter request failed');
+        }
+
+        energyReading = webhookData.data;
+        console.log('New reading from smart meter:', energyReading);
+      }
+
+      // Transform the reading data to energy data format
       const freshData: EnergyData = {
-        current_usage: simulatedData.kwh_consumed,
-        daily_cost: simulatedData.kwh_consumed * simulatedData.cost_per_kwh,
-        weekly_cost: simulatedData.kwh_consumed * simulatedData.cost_per_kwh * 7,
-        monthly_cost: simulatedData.kwh_consumed * simulatedData.cost_per_kwh * 30,
-        last_updated: new Date().toISOString(),
+        current_usage: energyReading.kwh_consumed || 0,
+        daily_total: energyReading.kwh_consumed || 0,
+        daily_cost: energyReading.total_cost || 0,
+        efficiency_score: energyReading.kwh_consumed > 0 ? Math.min(100, Math.max(0, 100 - (energyReading.kwh_consumed / 10))) : 0,
+        weekly_average: (energyReading.kwh_consumed || 0) * 7,
+        weekly_cost: (energyReading.total_cost || 0) * 7,
+        monthly_total: (energyReading.kwh_consumed || 0) * 30,
+        monthly_cost: (energyReading.total_cost || 0) * 30,
+        last_updated: energyReading.reading_date || new Date().toISOString(),
         source: 'smart_meter',
         peak_usage_time: energyProvider === 'Solar' ? '12:00' : '18:00',
         cost_trend: 'stable',
-        battery_state: energyProvider === 'Solar' ? Math.random() * 100 : 0,
-        power_generated: energyProvider === 'Solar' ? Math.random() * 30 + 20 : 0,
-        load_consumption: simulatedData.kwh_consumed,
-        battery_count: energyProvider === 'Solar' ? 4 : 0,
-        balance: energyProvider === 'Solar' ? 0 : simulatedData.kwh_consumed * simulatedData.cost_per_kwh,
-        meter_reading: Math.floor(Math.random() * 10000) + 5000,
-        units_remaining: energyProvider === 'Solar' ? 999 : Math.random() * 100
+        battery_state: energyReading.battery_state || (energyProvider === 'Solar' ? 85 : 0),
+        power_generated: energyReading.power_generated || (energyProvider === 'Solar' ? 25 : 0),
+        load_consumption: energyReading.load_consumption || energyReading.kwh_consumed || 0,
+        battery_count: energyReading.battery_count || (energyProvider === 'Solar' ? 4 : 0),
+        balance: energyProvider === 'Solar' ? 0 : (energyReading.total_cost || 0),
+        meter_reading: Math.floor(Math.random() * 10000) + 5000, // This would come from actual meter
+        units_remaining: energyProvider === 'Solar' ? 999 : Math.max(0, 100 - (energyReading.kwh_consumed || 0))
       };
 
       setEnergyData(freshData);
       lastFetchTime.current = now;
 
-      // Create a reading record
-      const newReading: EnergyReading = {
-        id: `reading-${now}`,
-        user_id: userId,
-        meter_number: testMeterNumber,
-        kwh_consumed: freshData.current_usage,
-        total_cost: freshData.daily_cost,
-        reading_date: freshData.last_updated,
-        cost_per_kwh: simulatedData.cost_per_kwh,
-        peak_usage: freshData.current_usage,
-        battery_state: freshData.battery_state,
-        power_generated: freshData.power_generated,
-        load_consumption: freshData.load_consumption,
-        battery_count: freshData.battery_count
-      };
+      // Update recent readings with all fetched readings
+      if (existingReadings && existingReadings.length > 0) {
+        const formattedReadings: EnergyReading[] = existingReadings.map(reading => ({
+          id: reading.id,
+          user_id: reading.user_id,
+          meter_number: reading.meter_number,
+          kwh_consumed: reading.kwh_consumed || 0,
+          total_cost: reading.total_cost || 0,
+          reading_date: reading.reading_date,
+          cost_per_kwh: reading.cost_per_kwh || 0,
+          peak_usage: reading.peak_usage,
+          off_peak_usage: reading.off_peak_usage,
+          battery_state: reading.battery_state,
+          power_generated: reading.power_generated,
+          load_consumption: reading.load_consumption,
+          battery_count: reading.battery_count
+        }));
 
-      setRecentReadings(prev => [newReading, ...prev.slice(0, 9)]); // Keep last 10 readings
+        setRecentReadings(formattedReadings);
+      }
 
       toast({
-        title: 'Energy Data Updated',
+        title: 'Smart Meter Data Updated',
         description: energyProvider === 'Solar'
           ? `Generated: ${freshData.power_generated?.toFixed(1)} kWh, Battery: ${freshData.battery_state?.toFixed(0)}%`
           : `Usage: ${freshData.current_usage.toFixed(1)} kWh, Cost: KSh ${freshData.daily_cost.toFixed(2)}`,
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch energy data';
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch smart meter data';
       setError(errorMessage);
 
       toast({
-        title: 'Fetch Failed',
+        title: 'Smart Meter Fetch Failed',
         description: errorMessage,
         variant: 'destructive'
       });
@@ -466,7 +513,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
     setLoading(true);
     try {
-      const result = await smsService.current.purchaseTokens(
+      const result = await getSMSService().purchaseTokens(
         meterNumber.current,
         amount,
         phoneNumber
@@ -493,7 +540,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     } finally {
       setLoading(false);
     }
-  }, [userId, user, hasMeterConnected, toast]);
+  }, [userId, user, hasMeterConnected, toast, getSMSService]);
 
   // Get current balance via SMS
   const getCurrentBalance = useCallback(async (phoneNumber: string) => {
@@ -502,13 +549,13 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     }
 
     try {
-      const balance = await smsService.current.fetchBalance(meterNumber.current, phoneNumber);
+      const balance = await getSMSService().fetchBalance(meterNumber.current, phoneNumber);
       return balance;
     } catch (error) {
       console.error('Balance fetch failed:', error);
       return 0;
     }
-  }, [userId, user, hasMeterConnected]);
+  }, [userId, user, hasMeterConnected, getSMSService]);
 
   // Initialize with empty state (no automatic fetching)
   useEffect(() => {

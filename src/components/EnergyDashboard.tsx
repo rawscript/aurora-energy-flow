@@ -56,7 +56,7 @@ interface EnergyDashboardProps {
 const EnergyDashboard = () => {
   const { provider: energyProvider } = useEnergyProvider();
   const { status: meterStatus, deviceType, meterNumber } = useMeter(); // Get meter status from context
-  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(energyProvider); // Pass energy provider to hook
+  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(energyProvider || 'KPLC'); // Pass energy provider to hook
   const { profile } = useProfile();
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);

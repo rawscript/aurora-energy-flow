@@ -37,7 +37,7 @@ const generateInsights = () => {
 const EnergyInsights: React.FC<EnergyInsightsProps> = ({ onNavigateToMeter }) => {
   const { provider: energyProvider, providerConfig } = useEnergyProvider();
   const { status: meterStatus, deviceType } = useMeter(); // Get meter status from context
-  const { energyData, analytics, loading, recentReadings } = useRealTimeEnergy(energyProvider);
+  const { energyData, analytics, loading, recentReadings } = useRealTimeEnergy(energyProvider || 'KPLC');
   const isMobile = useIsMobile();
 
   // State for ML insights

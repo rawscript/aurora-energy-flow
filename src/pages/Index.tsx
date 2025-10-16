@@ -65,11 +65,14 @@ const Index = () => {
 
   // Memoize tab configuration to prevent re-renders and make it reactive to provider changes
   const tabConfig: TabConfig = useMemo(() => {
+    // Use safe provider value to avoid initialization issues
+    const safeProvider = provider || 'KPLC';
+    
     const config: TabConfig = {
       dashboard: { 
         label: isMobile ? "Home" : "Dashboard", 
         component: isMobile ? MobileDashboard : 
-                 (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' 
+                 (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar' 
                    ? SolarRealTimeDashboard 
                    : EnergyDashboard),
         visible: true
@@ -85,15 +88,15 @@ const Index = () => {
         visible: true
       },
       calculator: { 
-        label: isMobile ? (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? "Info" : "Calc") : 
-               (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? "Informatics" : "Calculator"), 
+        label: isMobile ? (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar' ? "Info" : "Calc") : 
+               (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar' ? "Informatics" : "Calculator"), 
         component: BillCalculator,
         visible: true
       },
       meter: { 
         label: isMobile 
-          ? (providerConfig.terminology.device === 'inverter' ? "Inverter" : "Meter")
-          : providerConfig.terminology.setup, 
+          ? (providerConfig?.terminology?.device === 'inverter' ? "Inverter" : "Meter")
+          : (providerConfig?.terminology?.setup || "Meter Setup"), 
         component: MeterSetup,
         visible: true
       },
@@ -110,7 +113,7 @@ const Index = () => {
     };
 
     // Add Pay as You Go tab for solar providers
-    if (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar') {
+    if (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar') {
       config.paygo = {
         label: "Pay as You Go",
         component: PayAsYouGoDashboard,
@@ -119,13 +122,13 @@ const Index = () => {
     }
 
     // Add tokens/credits tab based on provider capabilities
-    if (providerConfig.settings.supportsTokens || providerConfig.settings.supportsPayAsYouGo) {
+    if (providerConfig?.settings?.supportsTokens || providerConfig?.settings?.supportsPayAsYouGo) {
       // Don't show tokens tab for solar providers since we have Pay as You Go tab
-      if (!(provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar')) {
+      if (!(safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar')) {
         config.tokens = {
           label: isMobile
-            ? (providerConfig.terminology.credits === 'credits' ? "Credits" : "Tokens")
-            : providerConfig.terminology.dashboard,
+            ? (providerConfig?.terminology?.credits === 'credits' ? "Credits" : "Tokens")
+            : (providerConfig?.terminology?.dashboard || "Tokens"),
           component: KPLCTokenDashboard,
           visible: true
         };
@@ -193,7 +196,7 @@ const Index = () => {
     }
 
     // Use cache to prevent re-mounting, but include provider and meter number in cache key
-    const cacheKey = `${tabKey}-${isMobile}-${provider}-${meterNumber || 'no-meter'}`;
+    const cacheKey = `${tabKey}-${isMobile}-${provider || 'KPLC'}-${meterNumber || 'no-meter'}`;
     if (componentCache.has(cacheKey)) {
       return componentCache.get(cacheKey);
     }
@@ -220,7 +223,7 @@ const Index = () => {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 md:gap-6">
             <div className="lg:col-span-3">
-              {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
+              {(provider || 'KPLC') === 'Solar' || (provider || 'KPLC') === 'SunCulture' || (provider || 'KPLC') === 'M-KOPA Solar' ? (
                 <SolarRealTimeDashboard />
               ) : (
                 <EnergyDashboard />
@@ -239,10 +242,10 @@ const Index = () => {
         content = <MeterSetup />;
         break;
       case 'tokens':
-        content = <KPLCTokenDashboard energyProvider={provider as any} />;
+        content = <KPLCTokenDashboard energyProvider={(provider || 'KPLC') as any} />;
         break;
       case 'paygo':
-        content = <PayAsYouGoDashboard energyProvider={provider} />;
+        content = <PayAsYouGoDashboard energyProvider={provider || 'KPLC'} />;
         break;
       default:
         const Component = config.component;
@@ -307,7 +310,7 @@ const Index = () => {
             Aurora Energy Monitor
           </h1>
           <p className="text-sm md:text-base text-gray-400">
-            {provider ? `Real-time energy monitoring powered by ${providerConfig.name}` : 'Real-time energy monitoring'}
+            {provider ? `Real-time energy monitoring powered by ${providerConfig?.name || provider}` : 'Real-time energy monitoring'}
           </p>
         </div>
 
@@ -322,7 +325,7 @@ const Index = () => {
                 value={key} 
                 className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm relative"
                 style={{
-                  backgroundColor: activeTab === key && provider ? providerConfig.colors.primary : undefined
+                  backgroundColor: activeTab === key && provider ? providerConfig?.colors?.primary : undefined
                 }}
               >
                 {config.label}
@@ -349,7 +352,7 @@ const Index = () => {
                         : "text-gray-300 hover:text-white hover:bg-slate-700/50"
                     }`}
                     style={{
-                      backgroundColor: activeTab === key && provider ? providerConfig.colors.primary : undefined
+                      backgroundColor: activeTab === key && provider ? providerConfig?.colors?.primary : undefined
                     }}
                   >
                     {config.label}

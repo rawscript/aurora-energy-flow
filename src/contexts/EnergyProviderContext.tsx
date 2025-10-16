@@ -156,7 +156,7 @@ interface EnergyProviderProviderProps {
 }
 
 export const EnergyProviderProvider: React.FC<EnergyProviderProviderProps> = ({ children }) => {
-  const [provider, setProviderState] = useState<string>('');
+  const [provider, setProviderState] = useState<string>('KPLC');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
@@ -167,8 +167,8 @@ export const EnergyProviderProvider: React.FC<EnergyProviderProviderProps> = ({ 
     return PROVIDER_CONFIGS[providerName] || PROVIDER_CONFIGS['KPLC'];
   }, []);
 
-  // Current provider configuration
-  const providerConfig = getProviderConfig(provider);
+  // Current provider configuration - use KPLC as default if provider is empty
+  const providerConfig = getProviderConfig(provider || 'KPLC');
 
   // Available providers
   const availableProviders = Object.keys(PROVIDER_CONFIGS);
@@ -176,7 +176,7 @@ export const EnergyProviderProvider: React.FC<EnergyProviderProviderProps> = ({ 
   // Fetch current provider from database
   const refreshProvider = useCallback(async () => {
     if (!user) {
-      setProviderState('');
+      setProviderState('KPLC');
       return;
     }
 
@@ -199,12 +199,10 @@ export const EnergyProviderProvider: React.FC<EnergyProviderProviderProps> = ({ 
           setProviderState(cachedProvider);
         }
       } else {
-        const fetchedProvider = data?.energy_provider || '';
+        const fetchedProvider = data?.energy_provider || 'KPLC';
         setProviderState(fetchedProvider);
         // Cache the provider
-        if (fetchedProvider) {
-          localStorage.setItem('energyProvider', fetchedProvider);
-        }
+        localStorage.setItem('energyProvider', fetchedProvider);
       }
     } catch (error) {
       console.error('Exception fetching provider:', error);
@@ -304,7 +302,7 @@ export const EnergyProviderProvider: React.FC<EnergyProviderProviderProps> = ({ 
     if (user) {
       refreshProvider();
     } else {
-      setProviderState('');
+      setProviderState('KPLC');
       setError(null);
     }
   }, [user, refreshProvider]);
@@ -312,10 +310,10 @@ export const EnergyProviderProvider: React.FC<EnergyProviderProviderProps> = ({ 
   // Load cached provider immediately for better UX
   useEffect(() => {
     const cachedProvider = localStorage.getItem('energyProvider');
-    if (cachedProvider && !provider) {
+    if (cachedProvider && provider === 'KPLC') {
       setProviderState(cachedProvider);
     }
-  }, [provider]);
+  }, []); // Remove provider from dependency array to avoid circular dependency
 
   const contextValue: EnergyProviderContextType = {
     provider,

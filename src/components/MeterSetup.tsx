@@ -84,13 +84,16 @@ const MeterSetup = ({ }: MeterSetupProps) => {
 
   const { user, session } = useAuth();
   const { profile, loading: profileLoading, setupMeter } = useProfile();
-  const { provider, providerConfig, setProvider } = useEnergyProvider();
+  const { provider, providerConfig, setProvider, isLoading: providerLoading } = useEnergyProvider();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { hasMeterConnected, loading: energyLoading } = useRealTimeEnergy(provider || 'KPLC');
+  
+  // Wait for provider to be initialized before using it
+  const currentProvider = provider || 'KPLC';
+  const { hasMeterConnected, loading: energyLoading } = useRealTimeEnergy(currentProvider);
 
   const form = useForm<MeterFormValues>({
-    resolver: zodResolver(meterFormSchema(provider || 'KPLC')),
+    resolver: zodResolver(meterFormSchema(currentProvider)),
     defaultValues: {
       meterNumber: '',
       fullName: '',
@@ -98,7 +101,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
       location: '',
       meterCategory: 'household',
       industryType: undefined,
-      energyProvider: provider || 'KPLC',
+      energyProvider: currentProvider,
     },
   });
 
@@ -200,14 +203,14 @@ const MeterSetup = ({ }: MeterSetupProps) => {
         location: '',
         meterCategory: (profile.meter_category as 'household' | 'SME' | 'industry') || 'household',
         industryType: (profile.industry_type as 'heavyduty' | 'medium' | 'light') || undefined,
-        energyProvider: profile.energy_provider || provider || 'KPLC',
+        energyProvider: profile.energy_provider || currentProvider,
       });
 
       // Set industry type visibility
       setShowIndustryType(profile.meter_category === 'industry');
       setIsInitialized(true);
     }
-  }, [profile, user, form, isInitialized, provider]);
+  }, [profile, user, form, isInitialized, currentProvider]);
 
   // Fetch meter history when user changes - only once
   useEffect(() => {
@@ -975,7 +978,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
               </Form>
               
               {/* Test USSD Button - only for KPLC providers */}
-              {profile?.meter_number && provider === 'KPLC' && (
+              {profile?.meter_number && currentProvider === 'KPLC' && (
                 <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <h4 className="text-sm font-medium text-yellow-800 mb-2">Test USSD Integration</h4>
                   <p className="text-xs text-yellow-700 mb-3">
@@ -1032,11 +1035,11 @@ const MeterSetup = ({ }: MeterSetupProps) => {
               )}
               
               {/* Test Smart Meter Button - for Solar/Other providers */}
-              {profile?.meter_number && provider !== 'KPLC' && (
+              {profile?.meter_number && currentProvider !== 'KPLC' && (
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                   <h4 className="text-sm font-medium text-blue-800 mb-2">Test Smart Meter Integration</h4>
                   <p className="text-xs text-blue-700 mb-3">
-                    Test the smart meter webhook with your {provider} meter: {profile.meter_number}
+                    Test the smart meter webhook with your {currentProvider} meter: {profile.meter_number}
                   </p>
                   <Button
                     onClick={async () => {
@@ -1047,7 +1050,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                             meter_number: profile.meter_number,
                             kwh_consumed: Math.random() * 50 + 10, // Random test data
                             user_id: user?.id,
-                            cost_per_kwh: provider === 'Solar' ? 0 : 25
+                            cost_per_kwh: currentProvider === 'Solar' ? 0 : 25
                           }
                         });
                         
@@ -1055,7 +1058,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                         
                         toast({
                           title: "Smart Meter Test Successful",
-                          description: `Test data sent to ${provider} meter. Check your dashboard for updated readings.`,
+                          description: `Test data sent to ${currentProvider} meter. Check your dashboard for updated readings.`,
                           variant: "default"
                         });
                       } catch (error) {
@@ -1074,7 +1077,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                     size="sm"
                     className="w-full"
                   >
-                    {isLoading ? 'Testing...' : `Test ${provider} Smart Meter`}
+                    {isLoading ? 'Testing...' : `Test ${currentProvider} Smart Meter`}
                   </Button>
                 </div>
               )}

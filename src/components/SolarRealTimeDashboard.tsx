@@ -19,7 +19,7 @@ const SolarRealTimeDashboard: React.FC<SolarRealTimeDashboardProps> = ({ energyP
   const { provider: contextProvider } = useEnergyProvider();
   const provider = energyProvider || contextProvider;
   const { status: meterStatus, deviceType, meterNumber } = useMeter();
-  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(provider);
+  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(provider || 'KPLC');
   const { profile } = useProfile();
   const isMobile = useIsMobile();
 
