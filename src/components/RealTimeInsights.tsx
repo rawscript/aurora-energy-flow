@@ -10,7 +10,7 @@ import { generateMeterSpecificInsights, getCategoryDisplayName, type MeterCatego
 import { generateMLInsights, type MLInsight, type EnergyReading } from '@/utils/mlInsights';
 
 const RealTimeInsights = () => {
-  const { energyData, analytics, hasMeterConnected, error, loading, recentReadings } = useRealTimeEnergy();
+  const { energyData, analytics, hasMeterConnected, error, loading, recentReadings } = useRealTimeEnergy(energyProvider || 'KPLC');
   const { provider: energyProvider, providerConfig } = useEnergyProvider(); // Get energy provider from context
   const { profile } = useProfile();
   

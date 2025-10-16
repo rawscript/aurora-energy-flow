@@ -14,7 +14,7 @@ const TestRealTime = () => {
     refreshData, 
     getNewReading,
     hasMeterConnected 
-  } = useRealTimeEnergy();
+  } = useRealTimeEnergy('KPLC');
   
   const [subscriptionStatus, setSubscriptionStatus] = useState<string>('Unknown');
   const [lastUpdate, setLastUpdate] = useState<string>('Never');

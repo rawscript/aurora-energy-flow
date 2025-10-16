@@ -155,20 +155,21 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
       throw new Error(`Failed to send USSD: ${ussdResult.error}`);
     }
 
-    // USSD responses are immediate, no need to wait
-    const responseData = ussdResult.data?.response;
+    // USSD responses come via webhook, so we need to wait for the response
+    console.log('Waiting for USSD webhook response...');
+    const responseData = await waitForUSSDResponse(supabase, phoneNumber, 'balance', 30000); // 30 second timeout
     
     if (!responseData) {
-      // No response received from KPLC
+      // No response received from KPLC webhook
       return { 
         success: false, 
-        error: "No response received from KPLC USSD. Please try again later.",
+        error: "No response received from KPLC USSD webhook. Please try again later.",
         code: "NO_USSD_RESPONSE",
         data: null
       };
     }
 
-    console.log('KPLC USSD response:', responseData);
+    console.log('KPLC USSD webhook response:', responseData);
     
     // Parse real KPLC USSD response
     const billData = parseBalanceResponse(responseData, meterNumber);
@@ -178,7 +179,7 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
       .from('kplc_bills')
       .insert({
         user_id: userId,
-        account_name: billData.accountName || 'SMS User',
+        account_name: billData.accountName || 'USSD User',
         account_number: billData.accountNumber,
         meter_number: billData.meterNumber,
         current_reading: billData.currentReading,
@@ -198,12 +199,12 @@ async function fetchBillDataViaSMS(supabase: any, meterNumber: string, phoneNumb
       });
 
     if (storeError) {
-      console.error("Error storing SMS bill data:", storeError);
+      console.error("Error storing USSD bill data:", storeError);
     }
 
     return { success: true, data: billData };
   } catch (error) {
-    console.error('SMS bill fetch error:', error);
+    console.error('USSD bill fetch error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -224,20 +225,21 @@ async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: 
       throw new Error(`Failed to send USSD: ${ussdResult.error}`);
     }
 
-    // USSD responses are immediate
-    const responseData = ussdResult.data?.response;
+    // USSD responses come via webhook, so we need to wait for the response
+    console.log('Waiting for USSD webhook response...');
+    const responseData = await waitForUSSDResponse(supabase, phoneNumber, 'token', 45000); // 45 second timeout for token purchase
     
     if (!responseData) {
-      // No response received from KPLC
+      // No response received from KPLC webhook
       return { 
         success: false, 
-        error: "No token response received from KPLC USSD. Please try again later.",
+        error: "No token response received from KPLC USSD webhook. Please try again later.",
         code: "NO_USSD_RESPONSE",
         data: null
       };
     }
 
-    console.log('KPLC USSD token response:', responseData);
+    console.log('KPLC USSD token webhook response:', responseData);
     
     // Parse real KPLC USSD token response
     const tokenData = parseTokenResponse(responseData, amount);
@@ -258,12 +260,12 @@ async function purchaseTokensViaSMS(supabase: any, meterNumber: string, amount: 
       });
 
     if (storeError) {
-      console.error("Error storing SMS token transaction:", storeError);
+      console.error("Error storing USSD token transaction:", storeError);
     }
 
     return { success: true, data: tokenData };
   } catch (error) {
-    console.error('SMS token purchase error:', error);
+    console.error('USSD token purchase error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -295,7 +297,8 @@ async function sendUSSD(phoneNumber: string, ussdCode: string) {
         success: true, 
         data: {
           sessionId: result.sessionId,
-          response: result.response || result.message
+          // Note: USSD responses come via webhook, not immediately
+          message: 'USSD request sent, waiting for webhook response'
         }
       };
     } else {
@@ -306,6 +309,49 @@ async function sendUSSD(phoneNumber: string, ussdCode: string) {
     console.error('Error sending USSD:', error);
     return { success: false, error: error.message };
   }
+}
+
+async function waitForUSSDResponse(supabase: any, phoneNumber: string, type: string, timeout: number): Promise<string | null> {
+  const startTime = Date.now();
+  const pollInterval = 3000; // Poll every 3 seconds
+  let pollCount = 0;
+  const maxPolls = Math.floor(timeout / pollInterval);
+
+  console.log(`Waiting for USSD webhook response, max ${maxPolls} polls over ${timeout}ms`);
+
+  while (Date.now() - startTime < timeout && pollCount < maxPolls) {
+    try {
+      // Look for USSD responses in sms_responses table (where webhook stores them)
+      const { data, error } = await supabase
+        .from('sms_responses')
+        .select('message, metadata')
+        .eq('phone_number', phoneNumber)
+        .eq('type', type)
+        .eq('sender', 'USSD_KPLC')
+        .gte('created_at', new Date(startTime).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        console.log(`USSD webhook response received after ${pollCount + 1} polls`);
+        return data.message;
+      }
+
+      pollCount++;
+      console.log(`Poll ${pollCount}/${maxPolls} - no USSD response yet, waiting ${pollInterval}ms`);
+
+      // Wait before next poll
+      await delay(pollInterval);
+    } catch (error) {
+      console.error('Error polling for USSD response:', error);
+      pollCount++;
+      await delay(pollInterval);
+    }
+  }
+
+  console.log(`USSD polling timeout reached after ${pollCount} polls`);
+  return null; // Timeout reached
 }
 
 // USSD responses are immediate, no need for polling functions
@@ -328,7 +374,7 @@ function parseBalanceResponse(message: string, meterNumber: string) {
   const consumption = (currentReading && previousReading) ? currentReading - previousReading : null;
 
   return {
-    accountName: 'SMS User',
+    accountName: 'USSD User',
     accountNumber: accountNumber || meterNumber,
     meterNumber,
     currentReading: currentReading || 0,
@@ -338,11 +384,13 @@ function parseBalanceResponse(message: string, meterNumber: string) {
     outstandingBalance: balance ? parseFloat(balance) : 0,
     dueDate: dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     billingPeriod: getCurrentBillingPeriod(),
+    lastPaymentDate: null, // No payment date from USSD
+    lastPaymentAmount: null, // No payment amount from USSD
     status: balance && parseFloat(balance) > 0 ? 'active' : 'inactive',
     fetchedAt: new Date().toISOString(),
     source: 'sms',
-    address: null, // No address from SMS
-    tariff: null   // No tariff info from SMS
+    address: null, // No address from USSD
+    tariff: null   // No tariff info from USSD
   };
 }
 

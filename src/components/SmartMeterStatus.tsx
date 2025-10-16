@@ -13,7 +13,7 @@ interface SmartMeterStatusProps {
 }
 
 const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
-  const { recentReadings, hasMeterConnected, error, loading } = useRealTimeEnergy();
+  const { recentReadings, hasMeterConnected, error, loading } = useRealTimeEnergy(provider || 'KPLC');
   const { user } = useAuth();
   const { provider, providerConfig } = useEnergyProvider();
   

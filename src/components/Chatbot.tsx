@@ -32,7 +32,7 @@ const Chatbot = () => {
   const [aiStatus, setAiStatus] = useState<AIServiceStatus>(aiService.getStatus());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const { energyData } = useRealTimeEnergy();
+  const { energyData } = useRealTimeEnergy('KPLC');
 
   // Subscribe to AI service status changes
   useEffect(() => {
