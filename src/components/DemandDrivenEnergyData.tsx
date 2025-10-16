@@ -261,4 +261,5 @@ export const DemandDrivenEnergyData: React.FC<DemandDrivenEnergyDataProps> = ({ 
       )}
     </div>
   );
-};
+};export
+ default DemandDrivenEnergyData;

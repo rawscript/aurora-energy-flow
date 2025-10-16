@@ -6,7 +6,7 @@ const corsHeaders = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, x-client-info, apikey",
 };
 
 // Africa's Talking configuration

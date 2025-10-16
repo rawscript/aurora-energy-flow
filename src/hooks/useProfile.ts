@@ -41,8 +41,35 @@ export const useProfile = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user, userId, hasValidSession, callRpc, query } = useAuthenticatedApi();
-  const { toast } = useToast();
+
+  // Wrap useAuthenticatedApi in try-catch to prevent React error #306
+  let authApi;
+  try {
+    authApi = useAuthenticatedApi();
+  } catch (err) {
+    console.error('Error in useAuthenticatedApi:', err);
+    // Return safe defaults if auth API fails
+    return {
+      profile: null,
+      loading: false,
+      error: 'Authentication error',
+      updateProfile: async () => false,
+      setupMeter: async () => false,
+      checkProfileStatus: async () => null,
+      refetch: () => Promise.resolve()
+    };
+  }
+
+  const { user, userId, hasValidSession, callRpc, query } = authApi;
+
+  // Wrap useToast in try-catch to prevent errors
+  let toast;
+  try {
+    toast = useToast().toast;
+  } catch (err) {
+    console.error('Error in useToast:', err);
+    toast = () => { }; // Fallback no-op function
+  }
 
   // Control refs
   const isInitialized = useRef(false);
@@ -124,7 +151,9 @@ export const useProfile = () => {
         setProfile(completeProfile);
         setError(null);
       } else {
-        throw new Error('No profile data returned');
+        console.warn('No profile data returned from RPC call');
+        setProfile(null);
+        setError('No profile data available');
       }
 
     } catch (error: any) {
@@ -330,42 +359,52 @@ export const useProfile = () => {
 
   // Effect for initialization - only run when user ID actually changes
   useEffect(() => {
-    // Clean up on user change
-    if (lastUserIdRef.current && lastUserIdRef.current !== currentUserId) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      setProfile(null);
-      setLoading(false);
-      setError(null);
-      isInitialized.current = false;
-      fetchingRef.current = false;
-    }
-
-    // Initialize for new user
-    if (currentUserId && hasValidSession() && !isInitialized.current) {
-      const timer = setTimeout(() => {
-        if (currentUserId === userId) { // Double-check user hasn't changed
-          fetchProfile(false);
+    try {
+      // Clean up on user change
+      if (lastUserIdRef.current && lastUserIdRef.current !== currentUserId) {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
         }
-      }, 100); // Minimal delay
-
-      return () => clearTimeout(timer);
-    }
-
-    // Clear state when no user
-    if (!currentUserId) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        setProfile(null);
+        setLoading(false);
+        setError(null);
+        isInitialized.current = false;
+        fetchingRef.current = false;
       }
-      setProfile(null);
+
+      // Initialize for new user
+      if (currentUserId && hasValidSession && hasValidSession() && !isInitialized.current) {
+        const timer = setTimeout(() => {
+          if (currentUserId === userId) { // Double-check user hasn't changed
+            fetchProfile(false).catch(err => {
+              console.error('Error in fetchProfile:', err);
+              setError('Failed to load profile');
+              setLoading(false);
+            });
+          }
+        }, 100); // Minimal delay
+
+        return () => clearTimeout(timer);
+      }
+
+      // Clear state when no user
+      if (!currentUserId) {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        setProfile(null);
+        setLoading(false);
+        setError(null);
+        isInitialized.current = false;
+        fetchingRef.current = false;
+        lastUserIdRef.current = null;
+      }
+    } catch (err) {
+      console.error('Error in useProfile useEffect:', err);
+      setError('Profile initialization error');
       setLoading(false);
-      setError(null);
-      isInitialized.current = false;
-      fetchingRef.current = false;
-      lastUserIdRef.current = null;
     }
-  }, [currentUserId, hasValidSession(), userId, fetchProfile]); // Updated dependencies
+  }, [currentUserId, hasValidSession, userId, fetchProfile]); // Updated dependencies
 
   // Cleanup on unmount
   useEffect(() => {
@@ -377,9 +416,9 @@ export const useProfile = () => {
   }, []);
 
   return {
-    profile,
-    loading,
-    error,
+    profile: profile || null,
+    loading: loading || false,
+    error: error || null,
     updateProfile,
     setupMeter,
     checkProfileStatus,

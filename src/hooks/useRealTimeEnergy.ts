@@ -348,13 +348,10 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
 
   // Refresh data function (alias for fetchEnergyData with user's phone)
   const refreshData = useCallback(async () => {
-    // Get user's phone number from user profile or context
-    const phoneNumber = user?.phone || user?.user_metadata?.phone_number || '';
-    
-    if (!phoneNumber) {
-      setError('Phone number required for data refresh');
-      return;
-    }
+    // Get user's phone number from user profile or context, with fallback
+    const userPhone = user?.phone || user?.user_metadata?.phone_number || '';
+    // Use your phone number as fallback for Africa's Talking API
+    const phoneNumber = userPhone || '+254700000000'; // TODO: Replace with your actual phone number
     
     await fetchEnergyData(phoneNumber, false);
   }, [fetchEnergyData, user]);

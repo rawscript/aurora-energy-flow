@@ -394,3 +394,5 @@ export const EnergyInsightsDashboard: React.FC<EnergyInsightsDashboardProps> = (
     </div>
   );
 };
+
+export default EnergyInsightsDashboard;

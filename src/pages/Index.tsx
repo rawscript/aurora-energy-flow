@@ -71,7 +71,7 @@ const Index = () => {
         component: isMobile ? MobileDashboard : 
                  (provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' 
                    ? SolarRealTimeDashboard 
-                   : () => meterNumber ? <EnergyInsightsDashboard meterNumber={meterNumber} /> : <EnergyDashboard />),
+                   : EnergyDashboard),
         visible: true
       },
       notifications: { 
@@ -222,8 +222,6 @@ const Index = () => {
             <div className="lg:col-span-3">
               {provider === 'Solar' || provider === 'SunCulture' || provider === 'M-KOPA Solar' ? (
                 <SolarRealTimeDashboard />
-              ) : meterNumber ? (
-                <EnergyInsightsDashboard meterNumber={meterNumber} />
               ) : (
                 <EnergyDashboard />
               )}
