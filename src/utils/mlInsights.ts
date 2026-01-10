@@ -1591,11 +1591,13 @@ export class EnergyMLAnalyzer {
 }
 
 // Export the main function for generating ML insights
+// Re-export the enhanced ML insights function
+import { enhancedAIService } from '@/services/EnhancedAIService';
+
 export const generateMLInsights = async (
   category: string,
   industryType: string | undefined,
   readings: EnergyReading[]
 ): Promise<MLInsight[]> => {
-  const analyzer = new EnergyMLAnalyzer(category, industryType, readings);
-  return await analyzer.generateMLInsights();
+  return await enhancedAIService.generateMLInsights(category, industryType, readings);
 };

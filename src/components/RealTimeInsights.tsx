@@ -7,7 +7,7 @@ import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 import { useProfile } from '@/hooks/useProfile';
 import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
 import { generateMeterSpecificInsights, getCategoryDisplayName, type MeterCategory, type IndustryType } from '@/utils/meterInsights';
-import { generateMLInsights, type MLInsight, type EnergyReading } from '@/utils/mlInsights';
+import { enhancedAIService, type MLInsight, type EnergyReading } from '@/services/EnhancedAIService';
 
 const RealTimeInsights = () => {
   const { provider: energyProvider, providerConfig } = useEnergyProvider(); // Get energy provider from context
@@ -53,7 +53,7 @@ const RealTimeInsights = () => {
             frequency: 50 // Default value, would come from actual data
           }));
 
-          const generatedInsights = await generateMLInsights(
+          const generatedInsights = await enhancedAIService.generateMLInsights(
             meterCategory,
             industryType,
             energyReadings
