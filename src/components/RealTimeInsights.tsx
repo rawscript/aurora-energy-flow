@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -116,7 +116,7 @@ const RealTimeInsights = () => {
             Real-Time Energy Insights
           </CardTitle>
           {!hasMeterConnected && (
-            <Badge variant="outline" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+            <Badge  className="bg-amber-500/20 text-amber-400 border-amber-500/30">
               No Meter
             </Badge>
           )}
@@ -127,11 +127,11 @@ const RealTimeInsights = () => {
           <>
             {/* Category Badge */}
             <div className="flex items-center justify-between mb-4">
-              <Badge variant="outline" className="bg-aurora-purple/20 text-aurora-purple-light border-aurora-purple/30">
+              <Badge >
                 {getCategoryDisplayName(meterCategory, industryType)} Insights
               </Badge>
               {hasMeterConnected && (
-                <Badge variant="outline" className="bg-green-500/20 text-green-400 border-green-500/30">
+                <Badge  className="bg-green-500/20 text-green-400 border-green-500/30">
                   Live Data
                 </Badge>
               )}
@@ -145,7 +145,7 @@ const RealTimeInsights = () => {
                     <Cpu className="h-4 w-4 mr-2" />
                     AI-Powered ML Insights
                   </h3>
-                  <Badge variant="outline" className="bg-aurora-green/20 text-aurora-green-light border-aurora-green/30">
+                  <Badge  className="bg-aurora-green/20 text-aurora-green-light border-aurora-green/30">
                     {mlInsights.length} insights
                   </Badge>
                 </div>
@@ -250,8 +250,7 @@ const RealTimeInsights = () => {
                         {/* Action Button */}
                         {insight.actionable && !hasMeterConnected && (
                           <Button
-                            size="sm"
-                            variant="outline"
+              
                             className="ml-3 text-xs border-aurora-green/30 hover:bg-aurora-green/10"
                             onClick={() => window.location.hash = '#meter'}
                           >
