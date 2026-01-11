@@ -15,8 +15,9 @@ const SolarRealTimeDashboard = lazy(() => import("@/components/SolarRealTimeDash
 const PayAsYouGoDashboard = lazy(() => import("@/components/PayAsYouGoDashboard"));
 const EnergyInsights = lazy(() => import("@/components/EnergyInsights"));
 const BillCalculator = lazy(() => import("@/components/BillCalculator"));
-const ChatInterface = lazy(() => import("@/components/ChatInterface"));
-const Chatbot = lazy(() => import("@/components/Chatbot"));
+// Temporarily removed chat components due to build issues
+// const ChatInterface = lazy(() => import("@/components/ChatInterface"));
+// const Chatbot = lazy(() => import("@/components/Chatbot"));
 const Settings = lazy(() => import("@/components/Settings"));
 const SmartMeterStatus = lazy(() => import("@/components/SmartMeterStatus"));
 const MeterSetup = lazy(() => import("@/components/MeterSetup"));
@@ -42,17 +43,8 @@ const TabLoadingSpinner = () => (
 // Cache for loaded components to prevent re-mounting
 const componentCache = new Map();
 
-interface TabConfig {
-  dashboard: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement); visible: boolean };
-  paygo?: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-  notifications: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-  insights: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-  calculator: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-  meter: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement); visible: boolean };
-  chat: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-  settings: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-  tokens?: { label: string; component: React.LazyExoticComponent<React.ComponentType<any>>; visible: boolean };
-}
+type TabConfig = Record<string, { label: string; component: React.LazyExoticComponent<React.ComponentType<any>> | (() => React.ReactElement); visible: boolean }>;
+
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -68,7 +60,7 @@ const Index = () => {
     // Use safe provider value to avoid initialization issues
     const safeProvider = provider || 'KPLC';
     
-    const config: TabConfig = {
+    const config = {
       dashboard: { 
         label: isMobile ? "Home" : "Dashboard", 
         component: isMobile ? MobileDashboard : 
@@ -100,11 +92,7 @@ const Index = () => {
         component: MeterSetup,
         visible: true
       },
-      chat: { 
-        label: isMobile ? "AI Chat" : "AI Assistant", 
-        component: ChatInterface,
-        visible: !isMobile
-      },
+
       settings: { 
         label: "Settings", 
         component: Settings,
@@ -113,27 +101,27 @@ const Index = () => {
     };
 
     // Add Pay as You Go tab for solar providers
-    if (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar') {
-      config.paygo = {
-        label: "Pay as You Go",
-        component: PayAsYouGoDashboard,
-        visible: true
-      };
-    }
+    // if (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar') {
+    //   config.paygo = {
+    //     label: "Pay as You Go",
+    //     component: PayAsYouGoDashboard,
+    //     visible: true
+    //   };
+    // }
 
     // Add tokens/credits tab based on provider capabilities
-    if (providerConfig?.settings?.supportsTokens || providerConfig?.settings?.supportsPayAsYouGo) {
-      // Don't show tokens tab for solar providers since we have Pay as You Go tab
-      if (!(safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar')) {
-        config.tokens = {
-          label: isMobile
-            ? (providerConfig?.terminology?.credits === 'credits' ? "Credits" : "Tokens")
-            : (providerConfig?.terminology?.dashboard || "Tokens"),
-          component: KPLCTokenDashboard,
-          visible: true
-        };
-      }
-    }
+    // if (providerConfig?.settings?.supportsTokens || providerConfig?.settings?.supportsPayAsYouGo) {
+    //   // Don't show tokens tab for solar providers since we have Pay as You Go tab
+    //   if (!(safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar')) {
+    //     config.tokens = {
+    //       label: isMobile
+    //         ? (providerConfig?.terminology?.credits === 'credits' ? "Credits" : "Tokens")
+    //         : (providerConfig?.terminology?.dashboard || "Tokens"),
+    //       component: KPLCTokenDashboard,
+    //       visible: true
+    //     };
+    //   }
+    // }
 
     return config;
   }, [isMobile, provider, providerConfig]);
@@ -378,11 +366,7 @@ const Index = () => {
       </div>
       
       {/* Keep the floating chatbot for use outside the chat tab, but hide on mobile when chat tab is active */}
-      {(activeTab !== "chat" || !isMobile) && !isMobile && (
-        <Suspense fallback={null}>
-          <Chatbot />
-        </Suspense>
-      )}
+      {/* Chatbot temporarily disabled due to build issues */}
     </div>
   );
 };
