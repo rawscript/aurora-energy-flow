@@ -24,7 +24,10 @@ export default defineConfig(({ mode }) => {
     define: {
       __OPENAI_API_KEY__: JSON.stringify(env.VITE_OPENAI_API_KEY),
     },
+    base: "/",
     build: {
+      outDir: "dist",
+      assetsDir: "assets",
       // Mobile optimization
       target: 'es2015',
       minify: 'terser',
