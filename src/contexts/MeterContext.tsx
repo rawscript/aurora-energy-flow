@@ -171,10 +171,26 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
     await checkConnection();
   }, [checkConnection]);
 
-  // Initialize connection check when user or provider changes
+  // Initialize connection check when user changes, but preserve connection state
   useEffect(() => {
-    checkConnection();
-  }, [user, provider, checkConnection]);
+    if (user && status === 'checking') {
+      checkConnection();
+    }
+  }, [user, checkConnection]);
+
+  // Periodic connection health check (every 30 seconds) but don't reset connected state
+  useEffect(() => {
+    if (!user || status !== 'connected') return;
+    
+    const interval = setInterval(() => {
+      // Only refresh if we don't have a recent check
+      if (lastChecked && (Date.now() - lastChecked.getTime()) > 30000) {
+        checkConnection();
+      }
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [user, status, lastChecked, checkConnection]);
 
   const contextValue: MeterContextType = {
     status,

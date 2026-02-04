@@ -41,7 +41,20 @@ serve(async (req) => {
       const { meter_number, kwh_consumed, user_id, cost_per_kwh = 25.0 } = payload
 
       // Validate required fields
-      if (!meter_number || !kwh_consumed || !user_id) {
+      if (!meter_number || kwh_consumed === undefined || !user_id) {
+        console.error('Missing required fields:', { meter_number, kwh_consumed, user_id })
+        return new Response(JSON.stringify({
+          error: 'Missing required fields',
+          message: 'meter_number, kwh_consumed, and user_id are required',
+          received: { meter_number, kwh_consumed, user_id }
+        }), {
+          status: 400,
+          headers: corsHeaders
+        })
+      }
+
+      // Validate required fields
+      if (!meter_number || kwh_consumed === undefined || !user_id) {
         console.error('Missing required fields:', { meter_number, kwh_consumed, user_id })
         return new Response(JSON.stringify({
           error: 'Missing required fields',
