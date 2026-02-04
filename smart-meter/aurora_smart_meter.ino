@@ -12,7 +12,7 @@ const String DEVICE_NAME = "Aurora Smart Meter v1.0";
 // === NETWORK CONFIGURATION ===
 const char* WIFI_SSID = "WIFI_SSID";
 const char* WIFI_PASSWORD = "WIFI_PASSWORD";
-const String BACKEND_URL = "https://auroraenergy.app/api/smart-meter/data";
+const String BACKEND_URL = "https://rcthtxwzsqvwivritzln.supabase.co/functions/v1/smart-meter-webhook";
 
 // === MEASUREMENT INTERVALS ===
 const unsigned long DATA_SEND_INTERVAL = 30000; // Send data every 30 seconds
@@ -253,6 +253,8 @@ bool sendDataToBackend() {
   
   http.begin(BACKEND_URL);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM");
+  http.addHeader("x-user-id", "default-user");  // This should be configurable per installation
   
   String payload = buildJSONPayload();
   
