@@ -94,7 +94,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
   
   // Wait for provider to be initialized before using it
   const currentProvider = provider || 'KPLC';
-  const { hasMeterConnected, loading: energyLoading } = useRealTimeEnergy(currentProvider);
+  const { hasMeterConnected, loading: energyLoading, meterStatus } = useRealTimeEnergy(currentProvider);
 
   const form = useForm<MeterFormValues>({
     resolver: zodResolver(meterFormSchema(currentProvider)),
