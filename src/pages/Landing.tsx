@@ -160,31 +160,10 @@ const Landing = () => {
   const [showMeterGuide, setShowMeterGuide] = useState(false);
   const [threeDLoaded, setThreeDLoaded] = useState(false);
 
-  const features = [
-    {
-      icon: <Brain className="h-8 w-8 text-aurora-green-light" />,
-      title: "AI-Powered Insights",
-      description: "Smart algorithms predict your energy usage patterns and suggest optimizations"
-    },
-    {
-      icon: <TrendingDown className="h-8 w-8 text-aurora-blue-light" />,
-      title: "Cost Reduction",
-      description: "Reduce your electricity bills by up to 30% with intelligent monitoring"
-    },
-    {
-      icon: <Shield className="h-8 w-8 text-aurora-green" />,
-      title: "Real-time Monitoring",
-      description: "Track your energy consumption in real-time with Kenya Power integration"
-    },
-    {
-      icon: <Zap className="h-8 w-8 text-yellow-400" />,
-      title: "Smart Alerts",
-      description: "Get notified about unusual consumption patterns and maintenance needs"
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-white overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-aurora-green/10 via-slate-900/50 to-slate-950/80 pointer-events-none" />
+      
       {/* Hero Section with 3D Animation */}
       <section className="relative h-screen flex items-center justify-center">
         <div className="absolute inset-0">
@@ -201,13 +180,12 @@ const Landing = () => {
                 onCreated={({ gl }) => {
                   gl.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
                   setThreeDLoaded(true);
-                  console.log('Three.js Canvas created successfully');
                 }}
                 fallback={<LoadingFallback />}
               >
-                <ambientLight intensity={0.4} />
-                <pointLight position={[10, 10, 10]} intensity={0.8} />
-                <spotLight position={[0, 15, 0]} angle={0.2} penumbra={1} intensity={0.6} />
+                <ambientLight intensity={0.2} />
+                <pointLight position={[10, 10, 10]} intensity={0.5} />
+                <spotLight position={[0, 15, 0]} angle={0.2} penumbra={1} intensity={0.8} color="#10b981" />
                 
                 <EnergyParticles />
                 
@@ -215,9 +193,9 @@ const Landing = () => {
                   enableZoom={false} 
                   enablePan={false} 
                   autoRotate 
-                  autoRotateSpeed={0.2}
-                  maxPolarAngle={Math.PI}
-                  minPolarAngle={0}
+                  autoRotateSpeed={0.5}
+                  maxPolarAngle={Math.PI / 1.5}
+                  minPolarAngle={Math.PI / 3}
                   enableDamping
                   dampingFactor={0.05}
                 />
@@ -226,185 +204,218 @@ const Landing = () => {
           </ThreeJSErrorBoundary>
         </div>
         
-        <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
-          <div className="mb-8">
-            <h1 className="text-6xl md:text-8xl font-bold mb-6 bg-gradient-to-r from-aurora-green-light via-aurora-blue-light to-aurora-green bg-clip-text text-transparent animate-aurora-pulse">
-              Aurora Energy
+        {/* Glassmorphism Overlay Hero Content */}
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-6 pt-20">
+          <div className="glass-card p-10 sm:p-16 mb-8 text-center border-white/5 bg-slate-950/40">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card border-aurora-green/30 text-aurora-green-light text-xs font-bold uppercase tracking-widest mb-8">
+              <span className="w-2 h-2 rounded-full bg-aurora-green animate-pulse"></span>
+              Prophet Engine v2.0 Live
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-br from-white via-slate-200 to-aurora-green/80 bg-clip-text text-transparent uppercase tracking-tighter shadow-aurora-green/10">
+              The Neural Core of <br className="hidden md:block" /> Your Energy Grid.
             </h1>
-            <p className="text-2xl md:text-3xl text-gray-300 mb-8">
-              Revolutionizing Energy Management in Kenya
+            <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 font-medium leading-relaxed">
+              Ditch the archaic utility bill. Sync your KPLC smart meter or Solar Inverter directly into a localized AI core to predict costs, catch anomalies, and optimize consumption in real-time.
             </p>
-            <p className="text-lg text-gray-400 max-w-2xl mx-auto mb-12">
-              Harness the power of AI to optimize your electricity consumption, reduce costs, and contribute to a sustainable future.
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/auth">
-              <Button className="bg-aurora-green hover:bg-aurora-green-light text-white px-8 py-4 text-lg rounded-full transition-all duration-300 transform hover:scale-105">
-                Get Started <ArrowRight className="ml-2" />
+            
+            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+              <Link to="/auth">
+                <Button className="glass-button-primary h-14 px-10 text-lg uppercase tracking-widest font-bold">
+                  Initialize Uplink <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Button 
+                variant="outline" 
+                className="glass-button h-14 px-10 text-lg uppercase tracking-widest font-bold text-slate-300 hover:text-white"
+                onClick={() => setShowMeterGuide(true)}
+              >
+                <Play className="mr-2 h-5 w-5 text-aurora-blue-light" /> Hardware Preview
               </Button>
-            </Link>
-            <Button 
-              variant="outline" 
-              className="border-aurora-blue-light text-aurora-blue-light hover:bg-aurora-blue-light hover:text-white px-8 py-4 text-lg rounded-full transition-all duration-300"
-              onClick={() => setShowMeterGuide(true)}
-            >
-              <Play className="mr-2" /> View Meter Guide
-            </Button>
+            </div>
           </div>
           
           {!threeDLoaded && (
-            <div className="mt-8 text-sm text-gray-500">
+            <div className="text-sm font-bold tracking-widest uppercase text-slate-500 text-center">
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-              Loading 3D environment...
+              Initializing 3D Telemetry...
             </div>
           )}
         </div>
         
         {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-          <div className="w-6 h-10 border-2 border-aurora-green-light rounded-full flex justify-center">
-            <div className="w-1 h-3 bg-aurora-green-light rounded-full mt-2 animate-pulse"></div>
+        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 border-2 border-slate-700 rounded-full flex justify-center backdrop-blur-md bg-slate-900/30">
+            <div className="w-1 h-3 bg-aurora-green rounded-full mt-2 opacity-80"></div>
           </div>
         </div>
       </section>
 
-      {/* 3D Meter Guide Section */}
+      {/* 3D Meter Guide Section - Redesigned Modal */}
       {showMeterGuide && (
-        <section className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
-          <div className="relative w-full h-full">
-            <ThreeJSErrorBoundary>
-              <Suspense fallback={<LoadingFallback />}>
-                <Canvas 
-                  camera={{ position: [0, 0, 8], fov: 50 }}
-                  gl={{ 
-                    antialias: true, 
-                    alpha: true,
-                    powerPreference: "default"
-                  }}
-                >
-                  <ambientLight intensity={0.5} />
-                  <pointLight position={[10, 10, 10]} intensity={1} />
-                  <spotLight position={[0, 10, 0]} angle={0.3} penumbra={1} intensity={1} />
-                  
-                  <MeterBox onClick={() => {}} isActive={true} />
-                  
-                  <OrbitControls enableZoom={true} enablePan={true} enableDamping dampingFactor={0.05} />
-                </Canvas>
-              </Suspense>
-            </ThreeJSErrorBoundary>
+        <section className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" />
+          <div className="relative w-full max-w-6xl h-[80vh] glass-card border-aurora-green/20 flex flex-col md:flex-row overflow-hidden shadow-2xl shadow-aurora-green/10">
+            {/* 3D Canvas side */}
+            <div className="w-full md:w-2/3 h-1/2 md:h-full relative bg-slate-950/50">
+               <ThreeJSErrorBoundary>
+                <Suspense fallback={<LoadingFallback />}>
+                  <Canvas 
+                    camera={{ position: [0, 0, 8], fov: 50 }}
+                    gl={{ antialias: true, alpha: true }}
+                  >
+                    <ambientLight intensity={0.5} />
+                    <pointLight position={[10, 10, 10]} intensity={1} color="#10b981" />
+                    <spotLight position={[0, 10, 0]} angle={0.3} penumbra={1} intensity={1} />
+                    <MeterBox onClick={() => {}} isActive={true} />
+                    <OrbitControls enableZoom={true} enablePan={true} enableDamping dampingFactor={0.05} />
+                  </Canvas>
+                </Suspense>
+              </ThreeJSErrorBoundary>
+            </div>
             
-            <Button 
-              className="absolute top-6 right-6 bg-red-600 hover:bg-red-700 z-10"
-              onClick={() => setShowMeterGuide(false)}
-            >
-              Close Guide
-            </Button>
-            
-            <div className="absolute bottom-6 left-6 right-6 z-10">
-              <Card className="bg-slate-900/90 border-aurora-green/20 backdrop-blur-sm">
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-bold text-aurora-green-light mb-4">Understanding Your Smart Meter</h3>
-                  <div className="grid md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <h4 className="font-semibold text-aurora-blue-light mb-2">Key Components:</h4>
-                      <ul className="space-y-1 text-gray-300">
-                        <li>• Digital Display: Shows current usage</li>
-                        <li>• LED Indicators: Power and connection status</li>
-                        <li>• Connection Wires: Live and neutral lines</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-aurora-blue-light mb-2">How It Works:</h4>
-                      <ul className="space-y-1 text-gray-300">
-                        <li>• Measures electricity consumption in real-time</li>
-                        <li>• Sends data to Kenya Power automatically</li>
-                        <li>• Enables accurate billing and monitoring</li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+            {/* Info side */}
+            <div className="w-full md:w-1/3 h-1/2 md:h-full p-8 flex flex-col justify-center border-l border-white/5 bg-slate-900/40">
+              <Button 
+                className="absolute top-4 right-4 glass-button w-10 h-10 p-0 border-white/10 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"
+                onClick={() => setShowMeterGuide(false)}
+              >
+                ✕
+              </Button>
+              <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">Terminal Sync</h3>
+              <p className="text-aurora-green-light font-bold text-xs uppercase tracking-widest mb-8">Hardware Interface Guide</p>
+              
+              <div className="space-y-8">
+                <div className="glass-card p-4 border-white/5 bg-white/5">
+                   <h4 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-2 flex items-center"><Zap className="h-4 w-4 mr-2" /> Digital Handshake</h4>
+                   <p className="text-sm font-medium text-slate-300 leading-relaxed">Direct telemetry stream from your meter to the Aurora Neural Engine via secure encrypted channels.</p>
+                </div>
+                <div className="glass-card p-4 border-white/5 bg-white/5">
+                   <h4 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-2 flex items-center"><Shield className="h-4 w-4 mr-2" /> Edge Processing</h4>
+                   <p className="text-sm font-medium text-slate-300 leading-relaxed">Consumption data is instantly analyzed locally to provide sub-second latency on cost estimations.</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* Features Section */}
-      <section className="py-20 px-6">
+      {/* Bento Box Layout replacing generic features grid */}
+      <section className="py-24 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-aurora-green to-aurora-blue-light bg-clip-text text-transparent">
-              Why Choose Aurora Energy?
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-black mb-4 text-white uppercase tracking-tighter">
+              Advanced Telemetry
             </h2>
-            <p className="text-xl text-gray-400 max-w-3xl mx-auto">
-              Experience the future of energy management with cutting-edge technology designed for Kenyan households and businesses.
+            <p className="text-lg font-medium text-slate-400 max-w-2xl mx-auto">
+              Beyond simple monitoring. Access military-grade predictive analytics directly from your existing power infrastructure.
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <Card key={index} className="bg-slate-800/50 border-aurora-green/20 hover:border-aurora-green/40 transition-all duration-300 hover:transform hover:scale-105">
-                <CardContent className="p-6 text-center">
-                  <div className="mb-4 flex justify-center">
-                    {feature.icon}
-                  </div>
-                  <h3 className="text-xl font-semibold mb-3 text-white">{feature.title}</h3>
-                  <p className="text-gray-400">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[minmax(300px,auto)]">
+             {/* Bento Item 1: Prophet Engine (Large, spans 2 columns) */}
+             <div className="md:col-span-2 glass-card p-8 border-white/5 bg-gradient-to-br from-aurora-blue-light/5 to-transparent relative group overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-aurora-blue-light/10 blur-[100px] rounded-full group-hover:bg-aurora-blue-light/20 transition-all duration-700"></div>
+                <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Prophet Forecasting</h3>
+                <p className="text-slate-400 font-medium mb-8 max-w-md">Our neural network predicts your exact month-end bill based on thousands of historical micro-patterns and current grid tariffs.</p>
+                
+                {/* Telemetry Mockup */}
+                <div className="glass-card border-white/10 p-4 bg-slate-950/80 transform group-hover:-translate-y-2 transition-transform duration-500 shadow-2xl mt-auto">
+                   <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">7-Day Projection</span>
+                      <span className="text-[10px] font-bold text-aurora-green bg-aurora-green/10 px-2 py-0.5 rounded">98% CONFIDENCE</span>
+                   </div>
+                   <div className="h-20 w-full flex items-end gap-2 px-2">
+                       {[35, 45, 30, 60, 80, 50, 40].map((h, i) => (
+                           <div key={i} className="flex-1 bg-gradient-to-t from-aurora-blue-light/20 to-aurora-blue-light/60 rounded-t-sm" style={{ height: `${h}%` }}></div>
+                       ))}
+                   </div>
+                </div>
+             </div>
+
+             {/* Bento Item 2: Sentinel Alerts */}
+             <div className="glass-card p-8 border-white/5 bg-gradient-to-br from-red-500/5 to-transparent relative overflow-hidden group">
+                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-red-500/10 blur-[60px] rounded-full group-hover:bg-red-500/20 transition-all"></div>
+                <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Sentinel Ops</h3>
+                <p className="text-slate-400 font-medium text-sm mb-6">Real-time anomaly detection. We alert you instantly if specific appliances begin draining unusual power amounts.</p>
+                
+                <div className="space-y-3 mt-auto relative z-10">
+                   <div className="glass-card p-3 border-red-500/20 bg-red-500/5 flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse shrink-0"></div>
+                      <div>
+                         <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Spike Detected</p>
+                         <p className="text-xs text-slate-300 font-medium">HVAC load +45% above normal.</p>
+                      </div>
+                   </div>
+                </div>
+             </div>
+
+             {/* Bento Item 3: Hardware Agnostic */}
+             <div className="glass-card p-8 border-white/5 bg-gradient-to-br from-yellow-500/5 to-transparent flex flex-col justify-between group overflow-hidden">
+                <div>
+                  <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Hardware Agnostic</h3>
+                  <p className="text-slate-400 font-medium text-sm mb-4">Seamlessly connect regardless of infrastructure. From standard KPLC prepaid nodes to complex Solar Inverter gateways.</p>
+                </div>
+                <div className="flex gap-4">
+                   <div className="flex-1 glass-card p-3 border-white/5 text-center bg-slate-900/50">
+                      <Zap className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">KPLC Smart</span>
+                   </div>
+                   <div className="flex-1 glass-card p-3 border-white/5 text-center bg-slate-900/50">
+                      <Sun className="h-6 w-6 text-aurora-green-light mx-auto mb-2" />
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Solar Arrays</span>
+                   </div>
+                </div>
+             </div>
+
+             {/* Bento Item 4: Encryption */}
+             <div className="md:col-span-2 glass-card p-8 border-white/5 bg-gradient-to-l from-slate-800/50 to-transparent flex items-center justify-between">
+                <div>
+                   <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Encrypted Data Core</h3>
+                   <p className="text-slate-400 font-medium max-w-md">Your consumption signatures are locked behind AES-256 protocols. Your data never leaves your personal sovereign vault without explicit consent.</p>
+                </div>
+                <div className="hidden sm:flex w-24 h-24 rounded-full border border-aurora-green/20 items-center justify-center relative">
+                   <div className="absolute inset-2 border border-dashed border-aurora-green/40 rounded-full animate-[spin_10s_linear_infinite]"></div>
+                   <Shield className="h-8 w-8 text-aurora-green" />
+                </div>
+             </div>
           </div>
         </div>
       </section>
 
-      {/* Impact Section */}
-      <section className="py-20 px-6 bg-slate-800/30">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold mb-8 text-aurora-green-light">
-            Making a Real Impact in Kenya
-          </h2>
-          <div className="grid md:grid-cols-3 gap-8 mb-12">
-            <div>
-              <div className="text-4xl font-bold text-aurora-blue-light mb-2">30%</div>
-              <p className="text-gray-400">Average cost reduction</p>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-aurora-green-light mb-2">24/7</div>
-              <p className="text-gray-400">Real-time monitoring</p>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-yellow-400 mb-2">AI</div>
-              <p className="text-gray-400">Powered insights</p>
-            </div>
-          </div>
+      {/* Action Section */}
+      <section className="py-32 px-6">
+        <div className="max-w-4xl mx-auto text-center glass-card p-12 sm:p-20 border-white/10 bg-slate-900/40 relative overflow-hidden">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-aurora-green/10 to-aurora-blue-light/10 blur-[120px] rounded-full pointer-events-none"></div>
           
-          <Link to="/auth">
-            <Button className="bg-aurora-gradient text-white px-12 py-4 text-xl rounded-full hover:scale-105 transition-transform duration-300">
-              Start Your Energy Journey
+          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white uppercase tracking-tighter relative z-10">
+            Terminate The <br/> <span className="text-slate-500">Guesswork</span>
+          </h2>
+          <p className="text-xl font-medium text-slate-400 mb-12 max-w-xl mx-auto relative z-10">
+            Join the decentralized neural network of optimized energy nodes across Kenya.
+          </p>
+          
+          <Link to="/auth" className="relative z-10 inline-block">
+            <Button className="glass-button-primary h-16 px-12 text-xl uppercase tracking-widest font-black shadow-2xl shadow-aurora-green/20">
+              Initiate Registration
             </Button>
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-aurora-green/20">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className="flex justify-center items-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-aurora-gradient rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">A</span>
+      {/* Minimal Tech Footer */}
+      <footer className="py-8 px-6 border-t border-white/10 bg-slate-950">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 glass-card border-aurora-green/30 flex items-center justify-center bg-aurora-green/10">
+              <Zap className="h-4 w-4 text-aurora-green-light" />
             </div>
-            <h3 className="text-2xl font-bold bg-gradient-to-r from-aurora-green-light to-aurora-blue-light bg-clip-text text-transparent">
-              Aurora Energy
-            </h3>
+            <span className="font-black text-white tracking-widest uppercase">Aurora Grid Ops</span>
           </div>
-          <p className="text-gray-400 mb-4">
-            Empowering Kenya with intelligent energy management solutions.
-          </p>
-          <p className="text-sm text-gray-500">
-                  © 2025 Aurora Energy. 
-          </p>
+          <div className="flex items-center gap-6">
+             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 cursor-pointer transition-colors">v2.1.0 Stable</span>
+             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 cursor-pointer transition-colors">Encrypted Logs</span>
+             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 cursor-pointer transition-colors">© {new Date().getFullYear()}</span>
+          </div>
         </div>
       </footer>
     </div>
