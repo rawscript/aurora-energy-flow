@@ -13,7 +13,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useEnergyProvider } from '@/contexts/EnergyProviderContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory, Zap, AlertTriangle, Sun } from 'lucide-react';
+import { Gauge, User, Phone, MapPin, History, Plus, Check, Clock, Building, Factory, Zap, AlertTriangle, Sun, Loader2 } from 'lucide-react';
 import BatteryFull from '@/components/ui/BatteryFull';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -458,42 +458,30 @@ const MeterSetup = ({ }: MeterSetupProps) => {
         </TabsList>
 
         {/* Current Meter Tab */}
-        <TabsContent value="current" className="space-y-4">
+        <TabsContent value="current" className="space-y-6">
           {/* Show existing profile data if available */}
           {profile && (profile.full_name || profile.phone_number) && !profile.meter_number && (
-            <Card className="border-green-200 bg-green-50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-800">
+            <Card className="neo-card bg-[#10b981]/20 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-black dark:text-white uppercase font-black">
                   <Check className="h-5 w-5" />
-                  Your Saved Information
+                  SAVED METADATA FOUND
                 </CardTitle>
-                <p className="text-sm text-green-700">
-                  {providerConfig.type === 'solar'
-                    ? 'We found some information from your signup. You can edit or add to it below.'
-                    : 'We found some information from your signup. You can edit or add to it below.'}
+                <p className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                  Provisioning details detected from your account profile.
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
                 {profile.full_name && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-green-600" />
-                    <span className="font-medium">Name:</span> {profile.full_name}
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <User className="h-4 w-4" />
+                    <span>NAME:</span> {profile.full_name}
                   </div>
                 )}
                 {profile.phone_number && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-green-600" />
-                    <span className="font-medium">Phone:</span> {profile.phone_number}
-                  </div>
-                )}
-                {profile.meter_category && (
-                  <div className="flex items-center gap-2 text-sm">
-                    {providerConfig.type === 'solar' ? (
-                      <SolarPanel className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Building className="h-4 w-4 text-green-600" />
-                    )}
-                    <span className="font-medium">Category:</span> {profile.meter_category}
+                  <div className="flex items-center gap-2 text-sm font-bold">
+                    <Phone className="h-4 w-4" />
+                    <span>PHONE:</span> {profile.phone_number}
                   </div>
                 )}
               </CardContent>
@@ -526,128 +514,88 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">
-                      {providerConfig.type === 'solar' ? `${providerConfig.terminology.device} ID` : 'Meter Number'}
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-50 dark:bg-slate-900/50 p-4 border-2 border-black mb-6">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase tracking-tighter text-slate-500">
+                      {providerConfig.type === 'solar' ? `${providerConfig.terminology.device.toUpperCase()} ID` : 'METER SERIAL'}
                     </Label>
-                    <p className="font-mono text-lg text-aurora-green-light">
+                    <p className="font-black text-xl text-black dark:text-white font-mono bg-white dark:bg-black p-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
                       {profile.meter_number}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Account Holder</Label>
-                    <p className="text-lg">{profile.full_name}</p>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase tracking-tighter text-slate-500">ACCOUNT HOLDER</Label>
+                    <p className="font-black text-xl text-black dark:text-white">{profile.full_name}</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Phone Number</Label>
-                    <p className="text-lg">{profile.phone_number || 'Not set'}</p>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase tracking-tighter text-slate-500">CONTACT REF</Label>
+                    <p className="font-black text-lg text-black dark:text-white">{profile.phone_number || 'UNSET'}</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Status</Label>
-                    <div className="flex items-center space-x-2">
-                      <span className={hasMeterConnected ? 'text-green-400' : (meterStatus === 'disconnected' ? 'text-red-400' : 'text-yellow-400')}>
-                        {hasMeterConnected ? 'Connected' : (meterStatus === 'disconnected' ? 'Disconnected' : 'Connecting...')}
-                      </span>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-black uppercase tracking-tighter text-slate-500">OPERATIONAL STATUS</Label>
+                    <div className="flex items-center gap-2">
+                       <div className={`w-3 h-3 border-2 border-black ${hasMeterConnected ? 'bg-aurora-green animate-pulse' : 'bg-red-500'}`}></div>
+                       <span className="font-black text-black dark:text-white uppercase text-sm">
+                        {hasMeterConnected ? 'UPSTREAM ATTACHED' : 'OFFLINE'}
+                       </span>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">
-                      {providerConfig.type === 'solar' ? `${providerConfig.terminology.device} Category` : 'Meter Category'}
-                    </Label>
-                    <div className="flex items-center space-x-2">
-                      {providerConfig.type === 'solar' ? (
-                        <SolarPanel className="h-4 w-4 text-amber-400" />
-                      ) : (
-                        <Building className="h-4 w-4 text-amber-400" />
-                      )}
-                      <span className="text-lg">
-                        {profile.meter_category ?
-                          METER_CATEGORIES.find(c => c.value === profile.meter_category)?.label ||
-                          profile.meter_category :
-                          'Household'}
-                      </span>
-                    </div>
-                  </div>
-                  {profile.meter_category === 'industry' && profile.industry_type && (
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">Industry Type</Label>
-                      <div className="flex items-center space-x-2">
-                        <Factory className="h-4 w-4 text-orange-400" />
-                        <span className="text-lg">
-                          {INDUSTRY_TYPES.find(t => t.value === profile.industry_type)?.label ||
-                            profile.industry_type}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  {provider !== 'KPLC' && profile.battery_count && (
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">Battery Count</Label>
-                      <div className="flex items-center space-x-2">
-                        <BatteryFull className="h-4 w-4 text-amber-400" />
-                        <span className="text-lg">
-                          {profile.battery_count}
-                        </span>
-                      </div>
-                    </div>
-                  )}
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-4">
                   {hasMeterConnected ? (
                     <Button
                       onClick={handleDisconnect}
-                      variant="destructive"
-                      className="flex-1 border-red-500/30 hover:bg-red-500/10"
+                      className="neo-button bg-red-600 text-white hover:bg-black flex-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                       disabled={isLoading}
                     >
                       <AlertTriangle className="h-4 w-4 mr-2" />
-                      Disconnect {providerConfig.terminology.device}
+                      SEVER CONNECTION
                     </Button>
                   ) : (
                     <Button
                       onClick={handleReconnect}
-                      className="flex-1 bg-aurora-green hover:bg-aurora-green/80 text-black"
+                      className="neo-button bg-aurora-green text-white hover:bg-black flex-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
                       disabled={isLoading || !lastDisconnectedMeter}
                     >
                       <Zap className="h-4 w-4 mr-2" />
-                      Reconnect {providerConfig.terminology.device}
+                      RE-ESTABLISH LINK
                     </Button>
                   )}
                   <Button
                     onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
-                    variant="outline"
-                    className="flex-1 border-aurora-blue/30 hover:bg-aurora-blue/10"
+                    className="neo-button bg-white text-black hover:bg-slate-100 flex-1 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-black"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    {isMobile ? 'Change' : 'Setup Different'} {providerConfig.terminology.device}
+                    SWITCH DEVICE
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-aurora-card border-yellow-500/20">
-              <CardContent className="p-6 text-center">
-                {providerConfig.type === 'solar' ? (
-                  <SolarPanel className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-                ) : (
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-                )}
-                <h3 className="text-lg font-medium mb-2">
-                  No {providerConfig.type === 'solar' ? providerConfig.terminology.device : 'Meter'} Connected
+            <Card className="neo-card bg-[#facc15] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+              <CardContent className="p-8 text-center">
+                <div className="bg-black p-4 neo-brutal shadow-none text-[#facc15] inline-block mb-6 transform rotate-3">
+                  {providerConfig.type === 'solar' ? (
+                    <SolarPanel className="h-12 w-12" />
+                  ) : (
+                    <Zap className="h-12 w-12" />
+                  )}
+                </div>
+                <h3 className="text-2xl font-black text-black uppercase tracking-tighter mb-2">
+                  NO HARDWARE LINKED
                 </h3>
-                <p className="text-muted-foreground mb-4">
+                <p className="text-sm font-bold text-black/70 mb-8 max-w-xs mx-auto">
                   {providerConfig.type === 'solar'
-                    ? `Connect your ${providerConfig.terminology.device} to start monitoring your energy generation based on your category`
-                    : 'Connect your smart meter to start monitoring your energy usage based on your category'}
+                    ? `Your Aurora terminal is currently standalone. Attach your ${providerConfig.terminology.device} to start receiving data.`
+                    : 'System is running in simulation mode. Connect a smart meter to broadcast real consumption data.'}
                 </p>
                 <Button
                   onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
-                  className="bg-aurora-green hover:bg-aurora-green/80"
+                  className="neo-button bg-black text-white hover:bg-aurora-purple shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)] w-full sm:w-auto font-black"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Setup {providerConfig.type === 'solar' ? providerConfig.terminology.device : 'Meter'}
+                  <Plus className="h-5 w-5 mr-2" />
+                  INITIALIZE SETUP
                 </Button>
               </CardContent>
             </Card>
@@ -656,83 +604,57 @@ const MeterSetup = ({ }: MeterSetupProps) => {
 
         {/* Meter History Tab */}
         <TabsContent value="history" className="space-y-4">
-          <Card className="bg-aurora-card border-aurora-blue/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-aurora-blue-light">
-                {providerConfig.terminology.setup.replace('Setup', 'Previous')}
+          <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="pb-3 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+              <CardTitle className="text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                {providerConfig.terminology.setup.replace('Setup', 'HISTORICAL LOGS')}
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {providerConfig.terminology.setup.replace('Setup', 'Select from previously used').replace('Device', 'devices').replace('or', 'or add a new one')}
-              </p>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="p-6 space-y-4">
               {historyLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-aurora-blue mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">
-                    {providerConfig.terminology.setup.replace('Setup', 'Loading').replace('Device', 'device').replace('history', 'history...')}
-                  </p>
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-black dark:text-white" />
+                  <p className="font-black uppercase text-xs tracking-widest text-slate-500">RETRIEVING ARCHIVES...</p>
                 </div>
               ) : meterHistory.length > 0 ? (
                 <>
                   {meterHistory.map((meter) => (
                     <div
                       key={meter.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${meter.is_current
-                        ? 'bg-aurora-green/10 border-aurora-green/30 hover:border-aurora-green/50'
-                        : 'bg-slate-800/30 border-slate-700/50 hover:border-aurora-blue/30'
+                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border-2 transition-all gap-4 ${meter.is_current
+                        ? 'bg-aurora-green/10 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+                        : 'bg-white dark:bg-slate-800 border-black hover:translate-x-[1px] hover:translate-y-[1px] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
                         }`}
                     >
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          {providerConfig.type === 'solar' ? (
-                            <SolarPanel className={`h-5 w-5 ${meter.is_current ? 'text-aurora-green' : 'text-aurora-blue-light'}`} />
-                          ) : (
-                            <Gauge className={`h-5 w-5 ${meter.is_current ? 'text-aurora-green' : 'text-aurora-blue-light'}`} />
-                          )}
+                        <div className="flex items-center space-x-4">
+                          <div className={`p-2 neo-brutal shadow-none ${meter.is_current ? 'bg-black text-white' : 'bg-slate-200 text-black'}`}>
+                            {providerConfig.type === 'solar' ? <SolarPanel className="h-5 w-5" /> : <Gauge className="h-5 w-5" />}
+                          </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <p className="font-mono text-sm font-medium">
+                              <p className="font-black text-lg text-black dark:text-white font-mono">
                                 {meter.meter_number}
                               </p>
                               {meter.is_current && (
-                                <Badge className="bg-aurora-green/20 text-aurora-green border-aurora-green/30 text-xs">
-                                  <Check className="h-3 w-3 mr-1" />
-                                  Current
-                                </Badge>
+                                <div className="bg-black text-white text-[8px] font-black px-2 py-0.5 border-2 border-black uppercase">
+                                  ACTIVE
+                                </div>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] font-black uppercase text-slate-500 mt-1">
                               {meter.full_name} • {meter.phone_number}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] font-black uppercase text-slate-500">
                               {meter.location && `${meter.location} • `}
-                              {providerConfig.type === 'solar'
-                                ? 'Used: '
-                                : 'Used: '}
-                              {(() => {
+                              ATTACHED: {(() => {
                                 try {
-                                  if (!meter.created_at) return 'Unknown date';
+                                  if (!meter.created_at) return 'N/A';
                                   const date = new Date(meter.created_at);
-                                  return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleDateString();
-                                } catch (error) {
-                                  return 'Error formatting date';
-                                }
+                                  return date.toLocaleDateString('en-GB');
+                                } catch (e) { return 'N/A'; }
                               })()}
                             </p>
-                            <div className="flex items-center mt-1">
-                              {meter.meter_category && (
-                                <Badge className="mr-2 bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
-                                  {meter.meter_category === 'SME' ? 'SME' :
-                                    meter.meter_category.charAt(0).toUpperCase() + meter.meter_category.slice(1)}
-                                </Badge>
-                              )}
-                              {meter.meter_category === 'industry' && meter.industry_type && (
-                                <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">
-                                  {meter.industry_type.charAt(0).toUpperCase() + meter.industry_type.slice(1)}
-                                </Badge>
-                              )}
-                            </div>
                           </div>
                         </div>
                       </div>
@@ -740,47 +662,33 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                         <Button
                           onClick={() => selectFromHistory(meter)}
                           disabled={isLoading}
-                          size="sm"
-                          className="bg-aurora-green hover:bg-aurora-green/80"
+                          className="neo-button bg-black text-white hover:bg-aurora-green text-xs font-black shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]"
                         >
-                          {isLoading ? 'Connecting...' : 'Select'}
+                          {isLoading ? 'SWITCHING...' : 'RE-ATTACH'}
                         </Button>
-                      )}
-                      {meter.is_current && (
-                        <div className="flex items-center text-aurora-green text-sm">
-                          <Check className="h-4 w-4 mr-1" />
-                          Active
-                        </div>
                       )}
                     </div>
                   ))}
-                  <div className="pt-4 border-t border-slate-700/50">
+                  <div className="pt-4 border-t-2 border-dashed border-slate-300 dark:border-slate-700">
                     <Button
                       onClick={() => setActiveTab('new')}
-                      variant="outline"
-                      className="w-full border-aurora-green/30 hover:bg-aurora-green/10"
+                      className="neo-button w-full bg-[#facc15] text-black hover:bg-black hover:text-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-black uppercase"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      {providerConfig.type === 'solar' ? 'Add New Inverter' : 'Add New Meter'}
+                      <Plus className="h-5 w-5 mr-2" />
+                      PROVISION NEW TERMINAL
                     </Button>
                   </div>
                 </>
               ) : (
                 <div className="text-center py-8">
-                  {providerConfig.type === 'solar' ? (
-                    <SolarPanel className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  ) : (
-                    <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  )}
-                  <p className="text-muted-foreground mb-4">
-                    {providerConfig.terminology.setup.replace('Setup', 'No previous').replace('Device', 'devices found')}
-                  </p>
+                  <History className="h-12 w-12 mx-auto mb-4 text-slate-400 opacity-50" />
+                  <p className="font-black uppercase text-xs text-slate-500 mb-4 tracking-widest">NO DEPLOYMENT HISTORY FOUND</p>
                   <Button
                     onClick={() => setActiveTab('new')}
-                    className="bg-aurora-green hover:bg-aurora-green/80"
+                    className="neo-button bg-white text-black hover:bg-slate-50 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-black uppercase"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    {providerConfig.terminology.setup.replace('Setup', 'Setup First')}
+                    CREATE FIRST ENTRY
                   </Button>
                 </div>
               )}
@@ -790,33 +698,26 @@ const MeterSetup = ({ }: MeterSetupProps) => {
 
         {/* New Meter Tab */}
         <TabsContent value="new" className="space-y-4">
-          <Card className="bg-aurora-card border-aurora-purple/20">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-aurora-purple-light">
-                {providerConfig.terminology.setup.replace('Setup', 'Add New')}
+          <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="pb-3 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+              <CardTitle className="text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                {providerConfig.terminology.setup.replace('Setup', 'NEW PROVISIONING')}
               </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {providerConfig.type === 'solar'
-                  ? 'Enter your inverter details to connect a new solar inverter'
-                  : 'Enter your meter details to connect a new smart meter'}
+              <p className="text-sm font-bold text-slate-500">
+                Register a new hardware endpoint for your account.
               </p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
                     control={form.control}
                     name="energyProvider"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-aurora-purple-light">Energy Provider</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">Energy Provider</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            {providerConfig.type === 'solar' ? (
-                              <Sun className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            ) : (
-                              <Zap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            )}
                             <Select
                               value={field.value}
                               onValueChange={(value) => {
@@ -825,11 +726,11 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                               }}
                             >
                               <FormControl>
-                                <SelectTrigger className="pl-10 bg-slate-800 border-aurora-purple/30 h-11">
+                                <SelectTrigger className="neo-input pl-4 bg-white dark:bg-slate-800 border-2 border-black h-12 font-bold shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                                   <SelectValue placeholder="Select energy provider" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="bg-slate-800 border-aurora-purple/30">
+                              <SelectContent className="bg-white dark:bg-slate-800 border-2 border-black font-bold">
                                 {ENERGY_PROVIDERS.map((provider) => (
                                   <SelectItem key={provider.value} value={provider.value}>
                                     {provider.label}
@@ -839,9 +740,6 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                             </Select>
                           </div>
                         </FormControl>
-                        <FormDescription className="text-xs">
-                          Select your energy provider
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -854,169 +752,107 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                       const selectedProviderObj = ENERGY_PROVIDERS.find(p => p.value === form.watch('energyProvider')) || ENERGY_PROVIDERS[0];
                       return (
                         <FormItem>
-                          <FormLabel className="text-aurora-green-light">{selectedProviderObj.meterLabel}</FormLabel>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">{selectedProviderObj.meterLabel.toUpperCase()}</FormLabel>
                           <FormControl>
-                            <div className="relative">
-                              {providerConfig.type === 'solar' ? (
-                                <SolarPanel className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                              ) : (
-                                <Gauge className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                              )}
-                              <Input
-                                placeholder={selectedProviderObj.placeholder}
-                                className="pl-10 bg-slate-800 border-aurora-green/30 h-11"
-                                {...field}
-                              />
-                            </div>
+                            <Input
+                              placeholder={selectedProviderObj.placeholder}
+                              className="neo-input bg-white dark:bg-slate-800 border-2 border-black h-12 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                              {...field}
+                            />
                           </FormControl>
-                          <FormDescription className="text-xs">
-                            {selectedProviderObj.placeholder.includes("KPLC")
-                              ? "Find this 11-digit number on your electricity bill or meter display"
-                              : providerConfig.type === 'solar'
-                                ? "Find this ID on your inverter display or documentation"
-                                : "Find this number on your bill or device"}
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       );
                     }}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-aurora-blue-light">Full Name</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="fullName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">Account Holder</FormLabel>
+                          <FormControl>
                             <Input
-                              placeholder="Your full name as on the bill"
-                              className="pl-10 bg-slate-800 border-aurora-blue/30 h-11"
+                              placeholder="Full legal name"
+                              className="neo-input bg-white dark:bg-slate-800 border-2 border-black h-12 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                               {...field}
                             />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-aurora-purple-light">Phone Number</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <FormField
+                      control={form.control}
+                      name="phoneNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">Contact Reference</FormLabel>
+                          <FormControl>
                             <Input
                               placeholder="0700 000 000"
-                              className="pl-10 bg-slate-800 border-aurora-purple/30 h-11"
+                              className="neo-input bg-white dark:bg-slate-800 border-2 border-black h-12 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                               {...field}
                             />
-                          </div>
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Used for billing notifications and alerts
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="location"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-emerald-400">Location</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                            <Input
-                              placeholder="Nairobi, Westlands"
-                              className="pl-10 bg-slate-800 border-emerald-500/30 h-11"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Help us provide location-specific energy tips
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Meter Category Dropdown */}
                   <FormField
                     control={form.control}
                     name="meterCategory"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-amber-400">Meter Category</FormLabel>
-                        <div className="relative">
-                          <Building className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-                          <Select
-                            value={field.value}
-                            onValueChange={(value) => handleMeterCategoryChange(value)}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="pl-10 bg-slate-800 border-amber-500/30 h-11">
-                                <SelectValue placeholder="Select meter category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="bg-slate-800 border-amber-500/30">
-                              {METER_CATEGORIES.map((category) => (
-                                <SelectItem key={category.value} value={category.value}>
-                                  {category.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <FormDescription className="text-xs">
-                          Select the category that best describes your meter usage
-                        </FormDescription>
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">Meter Category</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(value) => handleMeterCategoryChange(value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="neo-input bg-white dark:bg-slate-800 border-2 border-black h-12 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                              <SelectValue placeholder="Select usage category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white dark:bg-slate-800 border-2 border-black font-black">
+                            {METER_CATEGORIES.map((category) => (
+                              <SelectItem key={category.value} value={category.value}>
+                                {category.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  {/* Industry Type Dropdown - Only shown when meter category is 'industry' */}
                   {showIndustryType && (
                     <FormField
                       control={form.control}
                       name="industryType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-orange-400">Industry Type</FormLabel>
-                          <div className="relative">
-                            <Factory className="absolute left-3 top-3 h-4 w-4 text-gray-400 z-10" />
-                            <Select
-                              value={field.value}
-                              onValueChange={field.onChange}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="pl-10 bg-slate-800 border-orange-500/30 h-11">
-                                  <SelectValue placeholder="Select industry type" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="bg-slate-800 border-orange-500/30">
-                                {INDUSTRY_TYPES.map((type) => (
-                                  <SelectItem key={type.value} value={type.value}>
-                                    {type.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <FormDescription className="text-xs">
-                            Specify your industry's energy consumption level
-                          </FormDescription>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-slate-500">Industry Scale</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger className="neo-input bg-white dark:bg-slate-800 border-2 border-black h-12 font-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                <SelectValue placeholder="Select industry scale" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-white dark:bg-slate-800 border-2 border-black font-black">
+                              {INDUSTRY_TYPES.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1026,14 +862,12 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                   <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-aurora-green to-aurora-blue hover:from-aurora-green/80 hover:to-aurora-blue/80 h-11"
+                    className="neo-button w-full bg-black text-white hover:bg-aurora-green h-12 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] font-black uppercase"
                   >
                     {isLoading ? (
-                      'Connecting...'
-                    ) : providerConfig.type === 'solar' ? (
-                      'Connect Solar Inverter'
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                      'Connect Smart Meter'
+                      'AUTHORIZE DEPLOYMENT'
                     )}
                   </Button>
                 </form>
@@ -1047,61 +881,54 @@ const MeterSetup = ({ }: MeterSetupProps) => {
       {isMobile && activeTab === 'history' && (
         <Button
           onClick={() => setActiveTab('new')}
-          className="w-full bg-aurora-green hover:bg-aurora-green/80 h-12"
+          className="neo-button w-full bg-[#facc15] text-black hover:bg-black hover:text-white h-12 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-black uppercase"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Add New {providerConfig.terminology.device}
+          <Plus className="h-5 w-5 mr-2" />
+          PROVISION NEW TERMINAL
         </Button>
       )}
 
       {/* Help Section */}
-      <Card className="bg-aurora-card border-aurora-blue/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg text-aurora-blue-light">Need Help?</CardTitle>
+      <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-[#3b82f6]/10">
+        <CardHeader className="pb-3 border-b-2 border-dashed border-black">
+          <CardTitle className="text-xl font-black uppercase text-black dark:text-white tracking-widest">
+            OPERATIONAL ASSISTANCE
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="p-6 space-y-6">
           <div className="space-y-2">
-            <h4 className="font-medium text-sm">
+            <h4 className="font-black text-xs uppercase tracking-widest text-slate-500">
               {providerConfig.type === 'solar'
-                ? 'Finding Your Inverter ID:'
-                : 'Finding Your Meter Number:'}
+                ? 'LOCATING INVERTER ID:'
+                : 'LOCATING METER SERIAL:'}
             </h4>
-            <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
+            <ul className="text-sm font-bold text-black/70 dark:text-white/70 space-y-2">
               {providerConfig.type === 'solar' ? (
                 <>
-                  <li>• Check your inverter documentation or display panel</li>
-                  <li>• Look for a serial number or device ID on your inverter</li>
-                  <li>• Contact your solar provider for assistance</li>
+                  <li className="flex gap-2"><span>[•]</span> Check inverter physical plate or system settings.</li>
+                  <li className="flex gap-2"><span>[•]</span> Lookup device UUID in your cloud management dashboard.</li>
                 </>
               ) : (
                 <>
-                  <li>• Check your latest Kenya Power bill</li>
-                  <li>• Look on the digital display of your smart meter</li>
-                  <li>• Call Kenya Power at 95551 for assistance</li>
+                  <li className="flex gap-2"><span>[•]</span> Inspect your latest KPLC digital bill.</li>
+                  <li className="flex gap-2"><span>[•]</span> Read 11-digit serial on the physical meter display.</li>
                 </>
               )}
             </ul>
           </div>
 
           <div className="space-y-2">
-            <h4 className="font-medium text-sm">Meter Categories:</h4>
-            <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
-              <li>• <span className="text-amber-400">Household:</span> For residential homes and apartments</li>
-              <li>• <span className="text-amber-400">SME:</span> For small and medium businesses</li>
-              <li>• <span className="text-amber-400">Industry:</span> For manufacturing and large operations</li>
-              <li className="pl-4">- <span className="text-orange-400">Heavy Duty:</span> High energy consumption facilities</li>
-              <li className="pl-4">- <span className="text-orange-400">Medium Duty:</span> Standard industrial usage</li>
-              <li className="pl-4">- <span className="text-orange-400">Light Duty:</span> Lower energy industrial operations</li>
-            </ul>
-          </div>
-
-          <div className="space-y-2">
-            <h4 className="font-medium text-sm">Troubleshooting:</h4>
-            <ul className="text-xs sm:text-sm text-gray-400 space-y-1">
-              <li>• Ensure your {providerConfig.type === 'solar' ? 'inverter ID' : 'meter number'} is correct</li>
-              <li>• Contact support if connection fails</li>
-              <li>• Check your internet connection</li>
-            </ul>
+            <h4 className="font-black text-xs uppercase tracking-widest text-slate-500">METER CATEGORIES:</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white dark:bg-black p-3 border-2 border-black">
+                <span className="font-black text-xs uppercase block mb-1 text-aurora-purple">Household</span>
+                <p className="text-[10px] font-bold opacity-70 uppercase">Residential units and domestic service endpoints.</p>
+              </div>
+              <div className="bg-white dark:bg-black p-3 border-2 border-black">
+                <span className="font-black text-xs uppercase block mb-1 text-aurora-blue">SME / Industry</span>
+                <p className="text-[10px] font-bold opacity-70 uppercase">Commercial enterprises and manufacturing architecture.</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
