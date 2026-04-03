@@ -24,6 +24,7 @@ const MeterSetup = lazy(() => import("@/components/MeterSetup"));
 const KPLCTokenDashboard = lazy(() => import("@/components/KPLCTokenDashboard"));
 const NotificationCenter = lazy(() => import("@/components/NotificationCenter"));
 const MobileDashboard = lazy(() => import("@/components/MobileDashboard"));
+const AccountProfile = lazy(() => import("@/components/AccountProfile").then(m => ({ default: m.AccountProfile })));
 
 // Loading component for tab content
 const TabLoadingSpinner = () => (
@@ -96,6 +97,11 @@ const Index = () => {
       settings: { 
         label: "Settings", 
         component: Settings,
+        visible: true
+      },
+      account: {
+        label: isMobile ? "Profile" : "My Account",
+        component: AccountProfile,
         visible: true
       }
     };
@@ -291,40 +297,74 @@ const Index = () => {
   const visibleTabKeys = visibleTabs.map(([key]) => key);
 
   return (
-    <div className="min-h-screen bg-aurora-dark">
-      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
-        <div className="mb-4 md:mb-8">
-          <h1 className="text-2xl md:text-4xl font-bold text-aurora-green-light mb-2">
-            Aurora Energy Monitor
-          </h1>
-          <p className="text-sm md:text-base text-gray-400">
-            {provider ? `Real-time energy monitoring powered by ${providerConfig?.name || provider}` : 'Real-time energy monitoring'}
-          </p>
+    <div className="min-h-screen bg-aurora-dark flex flex-col font-mono">
+      {/* Neobrutalist Cockpit Header */}
+      <header className="sticky top-0 z-50 bg-[#facc15] border-b-4 border-black p-4 mb-6 shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-black p-2 neo-brutal shadow-none transform -rotate-1">
+              <div className="bg-aurora-green w-8 h-8 flex items-center justify-center">
+                 <div className="bg-white w-4 h-4 rounded-sm"></div>
+              </div>
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black text-black tracking-tighter uppercase">
+                AURORA <span className="text-aurora-purple">ENERGY</span>
+              </h1>
+              <p className="text-[10px] md:text-xs font-black text-black/70 flex items-center gap-1 uppercase">
+                <span className="inline-block w-2 h-2 bg-black rounded-full animate-pulse"></span>
+                SYSTEM STATUS: {meterStatus === 'connected' ? 'OPTIMIZED' : 'CHECKING...'} • {provider || 'KPLC'} DATA FEED
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleTabChange('account')} 
+              className={`neo-button flex items-center gap-2 py-1.5 px-4 h-auto text-xs md:text-sm ${
+                activeTab === 'account' ? 'bg-black text-white' : 'bg-white text-black'
+              }`}
+            >
+              <User className="h-4 w-4" />
+              {user?.user_metadata?.full_name?.split(' ')[0] || 'ACCOUNT'}
+            </button>
+            <button 
+              onClick={() => useAuth().signOut()} 
+              className="neo-button bg-red-600 text-white flex items-center gap-2 py-1.5 px-4 h-auto text-xs md:text-sm hover:bg-black"
+            >
+              <LogOut className="h-4 w-4" />
+              {isMobile ? '' : 'EXIT'}
+            </button>
+          </div>
         </div>
+      </header>
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 md:space-y-6">
-          <TabsList 
-            className={`grid w-full bg-aurora-card border border-aurora-green/20`}
-            style={{ gridTemplateColumns: `repeat(${Math.min(visibleTabKeys.length, isMobile ? 5 : 8)}, minmax(0, 1fr))` }}
-          >
-            {visibleTabs.slice(0, isMobile ? 5 : 8).map(([key, config]) => (
-              <TabsTrigger 
-                key={key}
-                value={key} 
-                className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs md:text-sm relative"
-                style={{
-                  backgroundColor: activeTab === key && provider ? providerConfig?.colors?.primary : undefined
-                }}
-              >
-                {config.label}
-                {key === 'notifications' && unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </div>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+      <div className="container mx-auto px-2 md:px-4 flex-1">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <div className="overflow-x-auto pb-2 scrollbar-hide">
+            <TabsList 
+              className="inline-flex w-auto bg-transparent border-none gap-2 p-0 h-auto"
+            >
+              {visibleTabs.filter(([key]) => key !== 'account').slice(0, isMobile ? 5 : 8).map(([key, config]) => (
+                <TabsTrigger 
+                  key={key}
+                  value={key} 
+                  className={`neo-button text-xs md:text-sm h-11 px-4 md:px-8 data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:translate-x-[2px] data-[state=active]:translate-y-[2px] data-[state=active]:shadow-none transition-all`}
+                  style={{
+                    backgroundColor: activeTab === key ? 'black' : 'white',
+                    color: activeTab === key ? 'white' : 'black'
+                  }}
+                >
+                  {config.label}
+                  {key === 'notifications' && unreadCount > 0 && (
+                    <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black neo-border px-1.5 min-w-[20px] h-5 flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </div>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           {/* Mobile bottom navigation for hidden tabs */}
           {isMobile && visibleTabKeys.length > 5 && (
