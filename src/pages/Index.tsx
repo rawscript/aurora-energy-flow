@@ -79,6 +79,11 @@ const Index = () => {
         component: EnergyInsights,
         visible: true
       },
+      aiAnalysis: {
+        label: isMobile ? "AI" : "AI Analysis",
+        component: lazy(() => import("@/components/DeepDiveAnalysis").then(m => ({ default: m.DeepDiveAnalysis }))),
+        visible: true
+      },
       calculator: { 
         label: isMobile ? (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar' ? "Info" : "Calc") : 
                (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar' ? "Informatics" : "Calculator"), 

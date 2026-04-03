@@ -167,21 +167,50 @@ class KPLCEnergyService implements SMSEnergyService {
   }
 }
 
-export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
-  const [energyData, setEnergyData] = useState<EnergyData>(EMPTY_ENERGY_DATA);
-  const [recentReadings, setRecentReadings] = useState<EnergyReading[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// Define a global cache to persist state across component mounts/unmounts
+interface GlobalEnergyCache {
+  [key: string]: {
+    data: EnergyData;
+    readings: EnergyReading[];
+    lastFetchTime: number;
+  };
+}
+const globalCache: GlobalEnergyCache = {};
 
+export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   const { user, userId } = useAuthenticatedApi();
   const { toast } = useToast();
   const { status: meterStatus, meterNumber: contextMeterNumber } = useMeter();
 
+  // Create a unique cache key based on user and meter
+  const cacheKey = `${userId}-${energyProvider}-${contextMeterNumber || 'no-meter'}`;
+
+  // Initialize state from global cache if available
+  const [energyData, setEnergyData] = useState<EnergyData>(() => 
+    globalCache[cacheKey]?.data || EMPTY_ENERGY_DATA
+  );
+  const [recentReadings, setRecentReadings] = useState<EnergyReading[]>(() => 
+    globalCache[cacheKey]?.readings || []
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   // Refs to prevent loops and manage state
-  const meterNumber = useRef<string | null>(null);
-  const lastFetchTime = useRef<number>(0);
+  const meterNumber = useRef<string | null>(contextMeterNumber);
+  const lastFetchTime = useRef<number>(globalCache[cacheKey]?.lastFetchTime || 0);
   const isInitialized = useRef(false);
   const smsService = useRef<KPLCEnergyService>();
+
+  // Synchronize state changes to global cache
+  useEffect(() => {
+    if (energyData !== EMPTY_ENERGY_DATA || recentReadings.length > 0) {
+      globalCache[cacheKey] = {
+        data: energyData,
+        readings: recentReadings,
+        lastFetchTime: lastFetchTime.current,
+      };
+    }
+  }, [energyData, recentReadings, cacheKey]);
 
   // Initialize SMS service lazily
   const getSMSService = useCallback(() => {
@@ -199,12 +228,21 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   useEffect(() => {
     if (contextMeterNumber !== meterNumber.current) {
       meterNumber.current = contextMeterNumber;
-      // Clear cache when meter changes
-      setEnergyData(EMPTY_ENERGY_DATA);
-      setRecentReadings([]);
+      
+      const newCacheKey = `${userId}-${energyProvider}-${contextMeterNumber || 'no-meter'}`;
+      if (globalCache[newCacheKey]) {
+        setEnergyData(globalCache[newCacheKey].data);
+        setRecentReadings(globalCache[newCacheKey].readings);
+        lastFetchTime.current = globalCache[newCacheKey].lastFetchTime;
+      } else {
+        setEnergyData(EMPTY_ENERGY_DATA);
+        setRecentReadings([]);
+        lastFetchTime.current = 0;
+      }
+      
       setError(null);
     }
-  }, [contextMeterNumber]);
+  }, [contextMeterNumber, energyProvider, userId]);
 
   // Check if meter is connected
   const hasMeterConnected = meterStatus === 'connected' && !!meterNumber.current;
@@ -557,14 +595,11 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     }
   }, [userId, user, hasMeterConnected, getSMSService]);
 
-  // Initialize with empty state (no automatic fetching)
+  // Clear initialization behavior since we rely on cache now
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
-
-    // Always set empty state, never make automatic API calls
-    setEnergyData(EMPTY_ENERGY_DATA);
-    setRecentReadings([]);
+    // We already initialized state from cache during setup.
   }, []);
 
   // Clear error when meter status changes
@@ -617,7 +652,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index] || `Day ${index + 1}`,
         usage: reading.kwh_consumed || 0,
         efficiency: Math.min(100, Math.max(0, (reading.kwh_consumed || 0) > 0 ? Math.max(0, 100 - (reading.kwh_consumed || 0) / 5) : 0))
-      })),
+      })).reverse(), // Reverse so it's chronological if recent first
       peakHours: recentReadings.length > 0 ? [
         { hour: 18, usage: Math.max(...recentReadings.map(r => r.kwh_consumed || 0)) },
         { hour: 19, usage: Math.max(...recentReadings.map(r => r.kwh_consumed || 0)) * 0.9 },
