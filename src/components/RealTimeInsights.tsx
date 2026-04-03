@@ -292,7 +292,3 @@ const RealTimeInsights = () => {
 };
 
 export default RealTimeInsights;
-  );
-};
-
-export default RealTimeInsights;
