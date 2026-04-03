@@ -244,6 +244,18 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     }
   }, [contextMeterNumber, energyProvider, userId]);
 
+  // Handle explicit disconnection
+  useEffect(() => {
+    if (meterStatus === 'disconnected') {
+      setEnergyData(EMPTY_ENERGY_DATA);
+      setRecentReadings([]);
+      lastFetchTime.current = 0;
+      if (globalCache[cacheKey]) {
+        delete globalCache[cacheKey];
+      }
+    }
+  }, [meterStatus, cacheKey]);
+
   // Check if meter is connected
   const hasMeterConnected = meterStatus === 'connected' && !!meterNumber.current;
 

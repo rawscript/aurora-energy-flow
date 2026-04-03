@@ -9,6 +9,7 @@ import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Z
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEnergyProvider, PROVIDER_CONFIGS } from '@/contexts/EnergyProviderContext';
+import { useMeter } from '@/contexts/MeterContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -35,6 +36,7 @@ const Settings = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { profile, loading, error, updateProfile } = useProfile();
+  const { status: meterStatus, disconnectMeter } = useMeter();
   const { 
     provider, 
     setProvider, 
@@ -78,6 +80,13 @@ const Settings = () => {
   }, [provider, rate]);
 
   const handleProviderChange = async (newProvider: string) => {
+    // Automatically disconnect current meter when provider changes
+    // This prevents "Failed to fetch" errors caused by trying to use the old meter with the new provider
+    if (meterStatus === 'connected') {
+      console.log("Disconnecting current meter due to provider change...");
+      await disconnectMeter();
+    }
+
     const success = await setProvider(newProvider);
     if (success) {
       // Update rate to provider default if current rate is default

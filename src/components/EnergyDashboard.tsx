@@ -1,6 +1,7 @@
 import React, { memo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Battery, House, Sun, Monitor, Zap, TrendingUp, TrendingDown, Minus, AlertCircle, Loader2 } from 'lucide-react';
 import SolarPanel from '@/components/ui/SolarPanel';
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
@@ -54,7 +55,7 @@ interface EnergyDashboardProps {
 }
 
 const EnergyDashboard = () => {
-  const { provider: energyProvider } = useEnergyProvider();
+  const { provider: energyProvider, providerConfig } = useEnergyProvider();
   const { status: meterStatus, deviceType, meterNumber } = useMeter(); // Get meter status from context
   const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(energyProvider || 'KPLC'); // Pass energy provider to hook
   const { profile } = useProfile();
@@ -439,24 +440,53 @@ const EnergyDashboard = () => {
       {!loading && meterConnectionChecked && hasMeterConnected && (
         <div className="space-y-6 animate-fade-in">
           {/* Real-time Status Banner */}
-          <Card className="bg-aurora-card border-aurora-green/20 aurora-glow">
+          <Card 
+            className="bg-aurora-card/80 backdrop-blur-md aurora-glow transition-all duration-500"
+            style={{ 
+              borderColor: `${providerConfig.colors.primary}40`,
+              boxShadow: `0 0 20px ${providerConfig.colors.primary}15`
+            }}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full animate-pulse ${hasMeterConnected ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                  <span className="text-sm text-aurora-green-light">
-                    {hasMeterConnected ? energyProvider === 'Solar' ? 'Live Solar Data' : 'Live Smart Meter Data' : 'Demo Smart Meter Data'}
-                  </span>
-                  {safeEnergyData.daily_total === 0 && hasMeterConnected && (
-                    <span className="text-xs text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-full">
-                      No recent data
+                <div className="flex items-center space-x-3">
+                  <div className="relative">
+                    <div 
+                      className="w-3 h-3 rounded-full animate-pulse"
+                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : '#f59e0b' }}
+                    ></div>
+                    <div 
+                      className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-75"
+                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : '#f59e0b' }}
+                    ></div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span 
+                      className="text-sm font-semibold tracking-tight"
+                      style={{ color: providerConfig.colors.primary }}
+                    >
+                      {hasMeterConnected ? `Live ${providerConfig.name} Connection` : `Connecting to ${providerConfig.name}...`}
                     </span>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                      {hasMeterConnected ? 'System Operational' : 'Establishing Secure Link'}
+                    </span>
+                  </div>
+                  {safeEnergyData.daily_total === 0 && hasMeterConnected && (
+                    <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500 bg-amber-500/10">
+                      Waiting for Data
+                    </Badge>
                   )}
                 </div>
                 <Button
                   onClick={getNewReading}
                   size="sm"
-                  className="bg-aurora-green hover:bg-aurora-green/80"
+                  variant="outline"
+                  className="transition-all hover:scale-105 active:scale-95"
+                  style={{ 
+                    backgroundColor: `${providerConfig.colors.primary}15`,
+                    borderColor: `${providerConfig.colors.primary}40`,
+                    color: providerConfig.colors.primary
+                  }}
                   disabled={!hasMeterConnected || loading}
                 >
                   {loading ? (
@@ -464,7 +494,7 @@ const EnergyDashboard = () => {
                   ) : (
                     <Zap className="h-4 w-4 mr-2" />
                   )}
-                  {hasMeterConnected ? energyProvider === 'Solar' ? 'Get Solar Reading' : 'Get Reading' : 'Setup Required'}
+                  {hasMeterConnected ? `Refresh ${providerConfig.terminology.device}` : 'Reconnect'}
                 </Button>
               </div>
             </CardContent>

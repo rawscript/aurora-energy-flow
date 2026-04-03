@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useMeter } from '@/contexts/MeterContext';
 import { useRealTimeEnergy } from '@/hooks/useRealTimeEnergy';
 
 interface MeterSetupProps {
@@ -85,6 +86,7 @@ const MeterSetup = ({ }: MeterSetupProps) => {
   const { user, session } = useAuth();
   const { profile, loading: profileLoading, setupMeter } = useProfile();
   const { provider, providerConfig, setProvider, isLoading: providerLoading } = useEnergyProvider();
+  const { disconnectMeter } = useMeter();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
@@ -104,6 +106,28 @@ const MeterSetup = ({ }: MeterSetupProps) => {
       energyProvider: currentProvider,
     },
   });
+
+  const handleDisconnect = async () => {
+    try {
+      setIsLoading(true);
+      await disconnectMeter();
+      toast({
+        title: "Device Disconnected",
+        description: `Successfully disconnected your ${providerConfig.terminology.device}.`,
+      });
+      // Refresh history to ensure UI is in sync
+      await fetchMeterHistory();
+    } catch (error) {
+      console.error("Disconnect failed:", error);
+      toast({
+        title: "Disconnect Failed",
+        description: "An error occurred while disconnecting the device.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Handle meter category change to show/hide industry type field
   const handleMeterCategoryChange = (value: string) => {
@@ -554,14 +578,25 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                     </div>
                   )}
                 </div>
-                <Button
-                  onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
-                  variant="outline"
-                  className="w-full border-aurora-blue/30 hover:bg-aurora-blue/10"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {isMobile ? 'Change' : 'Setup Different'} {providerConfig.type === 'solar' ? providerConfig.terminology.device : 'Meter'}
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    onClick={handleDisconnect}
+                    variant="destructive"
+                    className="flex-1 border-red-500/30 hover:bg-red-500/10"
+                    disabled={isLoading}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Disconnect {providerConfig.terminology.device}
+                  </Button>
+                  <Button
+                    onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
+                    variant="outline"
+                    className="flex-1 border-aurora-blue/30 hover:bg-aurora-blue/10"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {isMobile ? 'Change' : 'Setup Different'} {providerConfig.terminology.device}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (

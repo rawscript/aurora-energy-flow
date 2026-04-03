@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DollarSign, Calculator, Sun, Battery, Zap, Lightbulb, TrendingDown } from 'lucide-react';
+import { DollarSign, Calculator, Sun, Battery, Zap, Lightbulb, TrendingDown, Clock } from 'lucide-react';
 import { calculateKenyanElectricityBill, formatKES, formatKwh } from '@/utils/kenyanBillCalculator';
 import { useEnergyProvider } from '@/contexts/EnergyProviderContext'; // Import energy provider context
 
@@ -50,128 +50,158 @@ const BillCalculator = () => {
     calculateBill();
   }, [usage, rate, days, provider, isSolarProvider, calculateBill]);
 
-  // Render information content for Solar providers
+  const [creditAmount, setCreditAmount] = useState<string>('500');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Render Credits & Top-up content for Solar providers
   if (isSolarProvider) {
+    const handleTopUp = () => {
+      setIsProcessing(true);
+      setTimeout(() => {
+        setIsProcessing(false);
+        // In a real app, this would trigger a payment gateway or API call
+        alert(`Successfully topped up KSh ${creditAmount} to your ${providerConfig.name} account!`);
+      }, 1500);
+    };
+
     return (
       <div className="space-y-6 animate-fade-in">
+        {/* Credits Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-aurora-card border-aurora-green/20 aurora-glow">
+            <CardContent className="p-6 text-center">
+              <Zap className="h-8 w-8 text-aurora-green-light mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Current Balance</p>
+              <p className="text-2xl font-bold text-aurora-green-light">KSh 1,240.00</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-aurora-card border-aurora-blue/20">
+            <CardContent className="p-6 text-center">
+              <Clock className="h-8 w-8 text-aurora-blue-light mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Est. Days Remaining</p>
+              <p className="text-2xl font-bold text-aurora-blue-light">14 Days</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-aurora-card border-aurora-purple/20">
+            <CardContent className="p-6 text-center">
+              <Battery className="h-8 w-8 text-aurora-purple-light mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">System Health</p>
+              <p className="text-2xl font-bold text-aurora-purple-light">Optimal</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Top-up Form */}
         <Card className="bg-aurora-card border-aurora-green/20">
           <CardHeader>
             <CardTitle className="text-xl text-aurora-green-light flex items-center space-x-2">
-              <Sun className="h-6 w-6" />
-              <span>Solar Energy Information</span>
+              <DollarSign className="h-6 w-6" />
+              <span>{providerConfig.name} Credit Top-up</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="text-center py-8">
-              <Sun className="h-16 w-16 text-aurora-green-light mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-aurora-green-light mb-2">Harness the Power of the Sun</h3>
-              <p className="text-muted-foreground mb-6">
-                Solar energy provides clean, renewable power for your home or business.
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {['200', '500', '1000', '2000'].map((amt) => (
+                  <Button
+                    key={amt}
+                    variant={creditAmount === amt ? 'default' : 'outline'}
+                    className={creditAmount === amt ? 'bg-aurora-green hover:bg-aurora-green/90' : 'border-aurora-green/30 text-aurora-green-light'}
+                    onClick={() => setCreditAmount(amt)}
+                  >
+                    KSh {amt}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="custom-amount">Custom Amount (KSh)</Label>
+                <Input
+                  id="custom-amount"
+                  type="number"
+                  placeholder="Enter amount"
+                  value={creditAmount}
+                  onChange={(e) => setCreditAmount(e.target.value)}
+                  className="bg-slate-800 border-aurora-green/30"
+                />
+              </div>
+
+              <Button
+                onClick={handleTopUp}
+                disabled={isProcessing || !creditAmount}
+                className="w-full bg-aurora-green hover:bg-aurora-green/80 h-12 text-lg font-semibold"
+              >
+                {isProcessing ? (
+                  <>
+                    <Zap className="mr-2 h-5 w-5 animate-spin" />
+                    Processing Payment...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-5 w-5" />
+                    Top up Now
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="p-4 bg-slate-800/50 rounded-lg border border-aurora-green/20">
+              <h4 className="text-sm font-medium text-aurora-green-light mb-2 flex items-center">
+                <Lightbulb className="h-4 w-4 mr-2" />
+                PAYGO Information
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                Your {providerConfig.name} account is currently active. To avoid power interruption, ensure your balance remains above KSh 100. Credits are typically applied within 5-10 minutes of purchase.
               </p>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="bg-slate-800/50 border-aurora-green/30">
-                <CardContent className="p-4 text-center">
-                  <Battery className="h-8 w-8 text-aurora-green-light mx-auto mb-2" />
-                  <h4 className="font-semibold text-aurora-green-light">Energy Independence</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Generate your own electricity and reduce reliance on the grid
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-aurora-blue/30">
-                <CardContent className="p-4 text-center">
-                  <TrendingDown className="h-8 w-8 text-aurora-blue-light mx-auto mb-2" />
-                  <h4 className="font-semibold text-aurora-blue-light">Cost Savings</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Significantly reduce or eliminate your electricity bills
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-aurora-purple/30">
-                <CardContent className="p-4 text-center">
-                  <Zap className="h-8 w-8 text-aurora-purple-light mx-auto mb-2" />
-                  <h4 className="font-semibold text-aurora-purple-light">Environmental Impact</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Reduce your carbon footprint and contribute to a cleaner environment
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-aurora-green-light mb-4 flex items-center">
-                <Lightbulb className="h-5 w-5 mr-2" />
-                Solar Energy Benefits
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-aurora-green-light rounded-full mt-2"></div>
-                    <div>
-                      <p className="font-medium">Reduced Electricity Bills</p>
-                      <p className="text-sm text-muted-foreground">Save up to 90% on your electricity costs</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-aurora-blue-light rounded-full mt-2"></div>
-                    <div>
-                      <p className="font-medium">Low Maintenance</p>
-                      <p className="text-sm text-muted-foreground">Solar panels require minimal maintenance</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-aurora-purple-light rounded-full mt-2"></div>
-                    <div>
-                      <p className="font-medium">Increased Property Value</p>
-                      <p className="text-sm text-muted-foreground">Homes with solar systems have higher resale values</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-emerald-400 rounded-full mt-2"></div>
-                    <div>
-                      <p className="font-medium">Energy Security</p>
-                      <p className="text-sm text-muted-foreground">Protection against power outages with battery storage</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Card className="bg-slate-800/50 border-aurora-green/30">
-              <CardHeader>
-                <CardTitle className="text-lg text-aurora-green-light">Solar System Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-medium text-aurora-blue-light mb-2">System Components</h4>
-                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                      <li>Solar panels for energy generation</li>
-                      <li>Inverter to convert DC to AC power</li>
-                      <li>Battery storage for energy independence</li>
-                      <li>Monitoring system for performance tracking</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-aurora-purple-light mb-2">Maintenance Tips</h4>
-                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                      <li>Clean panels regularly for optimal performance</li>
-                      <li>Check connections and wiring periodically</li>
-                      <li>Monitor system performance through your app</li>
-                      <li>Schedule annual professional inspections</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </CardContent>
         </Card>
+
+        {/* Benefits Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="bg-aurora-card border-aurora-blue/20">
+            <CardHeader>
+              <CardTitle className="text-lg text-aurora-blue-light">Inverter Performance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Total Generation:</span>
+                  <span className="font-medium">428.5 kWh</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Self-Consumption:</span>
+                  <span className="font-medium">85%</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">CO2 Saved:</span>
+                  <span className="font-medium text-emerald-400">12.4 kg</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-aurora-card border-aurora-purple/20">
+            <CardHeader>
+              <CardTitle className="text-lg text-aurora-purple-light">Recent Top-ups</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { date: '2026-03-28', amount: 'KSh 500' },
+                  { date: '2026-03-15', amount: 'KSh 1,000' }
+                ].map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">{item.date}</span>
+                    <span className="font-medium">{item.amount}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
