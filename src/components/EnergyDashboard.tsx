@@ -23,25 +23,27 @@ const StatCard = memo(({ icon: Icon, title, value, color, trend, isEmpty = false
   trend?: 'up' | 'down' | 'stable';
   isEmpty?: boolean;
 }) => {
-  // Ensure color is always a string to prevent "Cannot convert object to primitive value" error
+  // Ensure color is always a string
   const safeColor = typeof color === 'string' ? color : 'gray';
 
   return (
-    <Card className={`bg-aurora-card border-${safeColor}/20 aurora-glow ${isEmpty ? 'opacity-60' : ''}`}>
+    <Card className={`neo-card border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all ${isEmpty ? 'opacity-40' : ''}`}>
       <CardContent className="p-4 sm:p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Icon className={`h-6 w-6 sm:h-8 sm:w-8 text-${safeColor} ${isEmpty ? 'opacity-50' : ''}`} />
+          <div className="flex items-center space-x-3">
+             <div className={`p-2 bg-black neo-brutal shadow-none`}>
+               <Icon className={`h-5 w-5 sm:h-7 sm:w-7 text-white`} />
+             </div>
             <div>
-              <p className="text-xs sm:text-sm text-muted-foreground">{title}</p>
-              <p className={`text-lg sm:text-2xl font-bold text-${safeColor} ${isEmpty ? 'opacity-50' : ''}`}>{value}</p>
+              <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{title}</p>
+              <p className={`text-xl sm:text-3xl font-black tracking-tighter text-black dark:text-white`}>{value}</p>
             </div>
           </div>
           {trend && !isEmpty && (
-            <div className="flex items-center">
-              {trend === 'up' && <TrendingUp className="h-4 w-4 text-red-500" />}
-              {trend === 'down' && <TrendingDown className="h-4 w-4 text-green-500" />}
-              {trend === 'stable' && <Minus className="h-4 w-4 text-gray-500" />}
+            <div className={`flex items-center justify-center w-8 h-8 rounded-none border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
+              {trend === 'up' && <TrendingUp className="h-4 w-4 text-red-600" />}
+              {trend === 'down' && <TrendingDown className="h-4 w-4 text-green-600" />}
+              {trend === 'stable' && <Minus className="h-4 w-4 text-slate-600" />}
             </div>
           )}
         </div>
@@ -173,37 +175,37 @@ const EnergyDashboard = () => {
       {!loading && meterConnectionChecked && !hasMeterConnected && (
         <div className="space-y-6 animate-fade-in">
           {/* No Meter Connected Banner */}
-          <Card className="bg-aurora-card border-yellow-500/20">
+          <Card className="neo-card bg-[#facc15] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
             <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-yellow-500/20 rounded-full flex items-center justify-center">
-                    <AlertCircle className="h-6 w-6 text-yellow-500" />
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
+                  <div className="w-16 h-16 bg-black neo-brutal shadow-none flex items-center justify-center transform -rotate-2">
+                    <AlertCircle className="h-10 w-10 text-[#facc15]" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold">
-                      {energyProvider === 'Solar' ? 'No Solar Inverter Connected' : 'No Smart Meter Connected'}
+                    <h3 className="text-xl font-black text-black uppercase tracking-tight">
+                      {energyProvider === 'Solar' ? 'NO INVERTER DETECTED' : 'NO SMART METER FOUND'}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm font-bold text-black/70">
                       {energyProvider === 'Solar'
-                        ? 'Connect your solar inverter to start monitoring real solar energy generation'
-                        : 'Connect your Kenya Power smart meter to start monitoring real energy usage'}
+                        ? 'Connect your solar inverter to unlock live generation insights and power flow metrics.'
+                        : 'Link your Kenya Power smart meter to start tracking real-time energy consumption.'}
                     </p>
                   </div>
                 </div>
                 <Button
                   onClick={() => window.location.hash = '#meter'}
-                  className="bg-aurora-green hover:bg-aurora-green/80"
+                  className="neo-button bg-black text-white hover:bg-aurora-purple shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)] w-full md:w-auto"
                 >
                   {energyProvider === 'Solar' ? (
                     <>
-                      <Sun className="h-4 w-4 mr-2" />
-                      Setup Inverter
+                      <Sun className="h-5 w-5 mr-2" />
+                      CONFIGURE INVERTER
                     </>
                   ) : (
                     <>
-                      <Zap className="h-4 w-4 mr-2" />
-                      Setup Meter
+                      <Zap className="h-5 w-5 mr-2" />
+                      SETUP SMART METER
                     </>
                   )}
                 </Button>
@@ -282,26 +284,26 @@ const EnergyDashboard = () => {
           </div>
 
           {/* Empty Chart */}
-          <Card className="bg-aurora-card border-aurora-green/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
-                {energyProvider === 'Solar' ? 'Real-time Solar Generation' : 'Real-time Energy Usage'}
+          <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900">
+            <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+              <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                {energyProvider === 'Solar' ? 'LIVE SOLAR GENERATION' : 'REAL-TIME ENERGY USAGE'}
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className={`${isMobile ? 'h-48' : 'h-64'} flex items-center justify-center`}>
-                <div className="text-center">
+            <CardContent className="pt-6">
+              <div className={`${isMobile ? 'h-48' : 'h-64'} flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50`}>
+                <div className="text-center p-6 bg-white dark:bg-black neo-brutal shadow-none transform rotate-1">
                   {energyProvider === 'Solar' ? (
                     <>
-                      <Sun className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No solar data available</p>
-                      <p className="text-sm text-muted-foreground mt-2">Connect your solar inverter to see real-time generation</p>
+                      <Sun className="h-12 w-12 mx-auto mb-4 text-aurora-purple" />
+                      <p className="font-black text-black dark:text-white uppercase">Waiting for Solar...</p>
+                      <p className="text-xs text-slate-500 font-bold mt-2">Connect inverter to see live sun metrics</p>
                     </>
                   ) : (
                     <>
-                      <Zap className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                      <p className="text-muted-foreground">No usage data available</p>
-                      <p className="text-sm text-muted-foreground mt-2">Connect your smart meter to see real-time usage</p>
+                      <Zap className="h-12 w-12 mx-auto mb-4 text-aurora-green" />
+                      <p className="font-black text-black dark:text-white uppercase">Data Feed Offline</p>
+                      <p className="text-xs text-slate-500 font-bold mt-2">Link meter to visualize consumption</p>
                     </>
                   )}
                 </div>
