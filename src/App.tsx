@@ -26,10 +26,6 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const TestEnv = lazy(() => import("./test-env"));
-const TestRealTime = lazy(() => import("./pages/TestRealTime"));
-const TestSolarProvider = lazy(() => import("./pages/TestSolarProvider"));
-const TestKPLCPuppeteer = lazy(() => import("./pages/TestKPLCPuppeteer"));
-const MLTestComponent = lazy(() => import("./components/MLTestComponent"));
 
 
 
@@ -84,34 +80,6 @@ const AppContent = () => (
                 <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/auth" element={<Auth />} />
-
-                  <Route path="/test-env" element={<TestEnv />} />
-                  <Route path="/test-realtime" element={<TestRealTime />} />
-                  <Route
-                    path="/test-solar"
-                    element={
-                      <ProtectedRoute>
-                        <TestSolarProvider />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/test-kplc-puppeteer"
-                    element={
-                      <ProtectedRoute>
-                        <TestKPLCPuppeteer />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/test-ml"
-                    element={
-                      <ProtectedRoute>
-                        <MLTestComponent />
-                      </ProtectedRoute>
-                    }
-                  />
-
                   <Route
                     path="/dashboard"
                     element={
@@ -183,11 +151,11 @@ const App = () => {
               <p className="text-sm text-gray-400">Application failed to load</p>
             </div>
           </div>
-          
+
           <p className="text-gray-300 mb-4">
             An error occurred while loading the application. Please try refreshing the page.
           </p>
-          
+
           {errorDetails && (
             <details className="mb-4">
               <summary className="cursor-pointer text-sm text-gray-400 hover:text-gray-300">
@@ -198,7 +166,7 @@ const App = () => {
               </pre>
             </details>
           )}
-          
+
           <div className="flex gap-3">
             <button
               onClick={() => {
