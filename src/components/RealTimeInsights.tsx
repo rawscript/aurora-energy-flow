@@ -88,22 +88,24 @@ const RealTimeInsights = () => {
 
   if (loading) {
     return (
-      <Card className="neo-card bg-[#facc15] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-black uppercase text-black flex items-center gap-2">
-            <div className="p-1.5 bg-black text-[#facc15] neo-brutal shadow-none">
-              <Lightbulb className="h-5 w-5" />
+      <Card className="overflow-hidden animate-pulse">
+        <CardHeader className="pb-6 border-b border-white/5 bg-white/5">
+          <CardTitle className="text-xl font-bold text-white flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-aurora-green/10 border border-aurora-green/20">
+              <Lightbulb className="h-5 w-5 text-aurora-green-light" />
             </div>
-            NEURAL ANALYSIS
+            AI ANALYSIS
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-12 w-12 border-4 border-black border-t-transparent"></div>
-              <Cpu className="h-6 w-6 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-black" />
+        <CardContent className="pt-8">
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 bg-aurora-green/20 rounded-full blur-xl animate-pulse"></div>
+              <div className="relative p-4 bg-white/5 rounded-full border border-white/10">
+                <Cpu className="h-8 w-8 text-aurora-green-light animate-spin-slow" />
+              </div>
             </div>
-            <p className="mt-4 font-black uppercase text-xs tracking-widest text-black">DECODING ENERGY VECTORS...</p>
+            <p className="font-bold text-xs tracking-widest text-slate-400 uppercase">Synchronizing neural pathways...</p>
           </div>
         </CardContent>
       </Card>
@@ -111,169 +113,184 @@ const RealTimeInsights = () => {
   }
 
   return (
-    <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
-      <CardHeader className="pb-3 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+    <Card className="overflow-hidden border-white/10">
+      <CardHeader className="pb-6 border-b border-white/5 bg-white/5">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl font-black uppercase text-black dark:text-white flex items-center gap-2 tracking-tight">
-            <div className="p-2 bg-black text-white neo-brutal shadow-none">
-              <Lightbulb className="h-5 w-5" />
+          <CardTitle className="text-xl font-bold text-white flex items-center gap-3 tracking-tight">
+            <div className="p-2 rounded-xl bg-aurora-green/10 border border-aurora-green/20">
+              <Lightbulb className="h-5 w-5 text-aurora-green-light transition-transform hover:scale-110" />
             </div>
-            REAL-TIME INTELLIGENCE
+            NEURAL INTELLIGENCE
           </CardTitle>
           {!hasMeterConnected && (
-            <div className="bg-[#facc15] text-black text-[10px] font-black px-2 py-0.5 border-2 border-black uppercase rotate-2">
-              SIMULATION MODE
-            </div>
+            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 font-bold text-[10px] uppercase tracking-widest px-3 py-1">
+              SIMULATION
+            </Badge>
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-6 space-y-6">
+      <CardContent className="p-6 space-y-8">
         {insights.length > 0 || mlInsights.length > 0 ? (
           <>
-            {/* Category Badge & Status */}
+            {/* Context Header */}
             <div className="flex flex-wrap items-center gap-3">
-              <div className="bg-black text-white text-[10px] font-black px-3 py-1 border-2 border-black uppercase">
-                {getCategoryDisplayName(meterCategory, industryType).toUpperCase()} CONTEXT
-              </div>
+              <Badge variant="secondary" className="bg-white/5 text-slate-300 border-white/10 font-bold text-[10px] uppercase tracking-widest px-3 py-1">
+                {getCategoryDisplayName(meterCategory, industryType).toUpperCase()} NODE
+              </Badge>
               {hasMeterConnected && (
-                <div className="bg-aurora-green text-white text-[10px] font-black px-3 py-1 border-2 border-black uppercase flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                <Badge variant="secondary" className="bg-aurora-green/10 text-aurora-green-light border-aurora-green/20 font-bold text-[10px] uppercase tracking-widest px-3 py-1 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-aurora-green-light rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
                   LIVE FEED
-                </div>
+                </Badge>
               )}
             </div>
 
-            {/* AI/ML Insights Section */}
+            {/* AI/ML Predictions Section */}
             {mlInsights.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center">
-                    <Cpu className="h-4 w-4 mr-2" />
-                    AI-POWERED PREDICTIONS
+              <div className="space-y-6">
+                <div className="flex items-center space-x-3">
+                   <div className="w-8 h-[1px] bg-aurora-green/30"></div>
+                   <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                    <Cpu className="h-4 w-4 mr-2 text-aurora-green-light" />
+                    PREDICTIVE VECTORS
                   </h3>
                 </div>
 
-                {mlInsights.map((insight) => {
+                <div className="grid grid-cols-1 gap-4">
+                  {mlInsights.map((insight) => {
+                    const IconComponent = insight.icon;
+                    const severityStyles = {
+                      alert: 'bg-red-500/10 border-red-500/20 text-red-400',
+                      warning: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+                      success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+                      info: 'bg-blue-500/10 border-blue-500/20 text-blue-400'
+                    };
+
+                    return (
+                      <div
+                        key={`ml-${insight.id}`}
+                        className="rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden group hover:border-white/10 transition-all duration-300"
+                      >
+                        <div className={`p-4 border-b border-white/5 flex items-center justify-between ${severityStyles[insight.severity] || severityStyles.info}`}>
+                           <div className="flex items-center gap-3">
+                             <IconComponent className="h-5 w-5" />
+                             <span className="font-bold text-xs uppercase tracking-widest">{insight.title}</span>
+                           </div>
+                           <Badge variant="outline" className="text-[10px] font-bold uppercase border-current/20 bg-current/5">
+                             {insight.confidence.toFixed(0)}% MATCH
+                           </Badge>
+                        </div>
+                        <div className="p-5">
+                          <p className="font-medium text-sm text-slate-300 leading-relaxed mb-6">
+                            {insight.description}
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-6 mb-6">
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-bold uppercase text-slate-500 tracking-wider block">Neural Model</span>
+                              <span className="font-bold text-xs text-white uppercase tracking-tight">{insight.mlModel}</span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-bold uppercase text-slate-500 tracking-wider block">Protocol</span>
+                              <span className="font-bold text-xs text-white uppercase tracking-tight">Active Sync</span>
+                            </div>
+                          </div>
+
+                          {insight.recommendation && (
+                            <div className="bg-aurora-green/5 p-4 rounded-xl border border-aurora-green/10 relative overflow-hidden group-hover:bg-aurora-green/10 transition-colors">
+                               <div className="absolute top-0 right-0 p-2 opacity-10">
+                                 <Cpu className="h-8 w-8 text-aurora-green-light" />
+                               </div>
+                               <p className="text-[10px] font-bold text-aurora-green-light uppercase tracking-widest mb-2">OPTIMIZATION PROTOCOL:</p>
+                               <p className="font-medium text-xs text-slate-200 italic leading-relaxed">
+                                 "{insight.recommendation}"
+                               </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Observations Section */}
+            <div className="space-y-6">
+               <div className="flex items-center space-x-3">
+                  <div className="w-8 h-[1px] bg-slate-700"></div>
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 flex items-center">
+                    <Info className="h-4 w-4 mr-2" />
+                    PATTERN RECOGNITION
+                  </h3>
+               </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {insights.map((insight) => {
                   const IconComponent = insight.icon;
-                  const severityColors = {
-                    alert: 'bg-red-500 text-white',
-                    warning: 'bg-[#facc15] text-black',
-                    success: 'bg-aurora-green text-white',
-                    info: 'bg-aurora-blue text-white'
+                  const severityStyles = {
+                    alert: 'bg-red-500/10 border-red-500/20 text-red-400',
+                    warning: 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400',
+                    success: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+                    info: 'bg-white/5 border-white/10 text-white'
                   };
 
                   return (
                     <div
-                      key={`ml-${insight.id}`}
-                      className="border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-800 p-0 overflow-hidden"
+                      key={insight.id}
+                      className={`p-5 rounded-2xl border transition-all duration-300 hover:bg-white/[0.05] group ${severityStyles[insight.severity] || severityStyles.info}`}
                     >
-                      <div className={`p-2 border-b-2 border-black flex items-center gap-2 ${severityColors[insight.severity] || severityColors.info}`}>
-                         <IconComponent className="h-4 w-4" />
-                         <span className="font-black text-[10px] uppercase tracking-tighter">{insight.title}</span>
-                      </div>
-                      <div className="p-4">
-                        <p className="font-bold text-sm text-black dark:text-white leading-tight mb-3">
-                          {insight.description}
-                        </p>
-
-                        {/* Model Specs */}
-                        <div className="flex flex-wrap items-center gap-4 mb-3">
-                          <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Confidence</span>
-                            <span className="font-black text-xs text-black dark:text-white">{insight.confidence.toFixed(1)}%</span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Model Architecture</span>
-                            <span className="font-black text-xs text-black dark:text-white uppercase">{insight.mlModel}</span>
-                          </div>
+                      <div className="flex items-start gap-5">
+                        <div className="p-3 rounded-xl bg-black/20 border border-white/10 group-hover:scale-110 transition-transform">
+                          <IconComponent className="h-5 w-5" />
                         </div>
-
-                        {/* Recommendation */}
-                        {insight.recommendation && (
-                          <div className="bg-slate-100 dark:bg-black p-3 border-2 border-black border-dashed">
-                             <p className="text-[10px] font-black text-slate-500 uppercase mb-1">AI STRATEGY:</p>
-                             <p className="font-bold text-xs text-black dark:text-white italic">
-                               "{insight.recommendation}"
-                             </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-bold text-sm uppercase tracking-tight text-white truncate mr-4">
+                              {insight.title}
+                            </h4>
+                            {insight.actionable && !hasMeterConnected && (
+                              <Button
+                                onClick={() => window.location.hash = '#meter'}
+                                variant="outline"
+                                className="h-7 px-3 border-current/30 hover:bg-current/10 text-[10px] font-bold uppercase tracking-widest"
+                              >
+                                RESOLVE
+                              </Button>
+                            )}
                           </div>
-                        )}
+                          <p className="font-medium text-xs text-slate-400 leading-relaxed mb-4">
+                            {insight.description}
+                          </p>
+                          {insight.recommendation && (
+                            <Badge variant="outline" className="bg-white/5 text-[9px] font-bold uppercase tracking-widest px-3 py-1 border-white/5 text-slate-300">
+                               STRATEGY: {insight.recommendation}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
-
-            {/* Traditional Rule-Based Insights */}
-            <div className="space-y-4">
-               {mlInsights.length > 0 && <div className="h-[2px] bg-black dark:bg-slate-700 border-dashed border-b border-black"></div>}
-               <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center">
-                  <Info className="h-4 w-4 mr-2" />
-                  HEURISTIC OBSERVATIONS
-               </h3>
-
-              {insights.map((insight) => {
-                const IconComponent = insight.icon;
-                const severityBorders = {
-                  alert: 'border-red-600 bg-red-50 dark:bg-red-900/10',
-                  warning: 'border-[#facc15] bg-yellow-50 dark:bg-[#facc15]/5',
-                  success: 'border-aurora-green bg-green-50 dark:bg-green-900/10',
-                  info: 'border-black bg-white dark:bg-slate-800'
-                };
-
-                return (
-                  <div
-                    key={insight.id}
-                    className={`p-4 border-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none ${severityBorders[insight.severity] || severityBorders.info}`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 bg-black text-white neo-brutal shadow-none shrink-0">
-                        <IconComponent className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-start justify-between">
-                          <h4 className="font-black text-sm uppercase tracking-tight text-black dark:text-white">
-                            {insight.title}
-                          </h4>
-                          {insight.actionable && !hasMeterConnected && (
-                            <Button
-                              onClick={() => window.location.hash = '#meter'}
-                              className="neo-button h-6 px-2 bg-black text-white text-[8px] font-black shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]"
-                            >
-                              RESOLVE
-                            </Button>
-                          )}
-                        </div>
-                        <p className="font-bold text-xs text-slate-600 dark:text-slate-400">
-                          {insight.description}
-                        </p>
-                        {insight.recommendation && (
-                          <div className="mt-2 text-[10px] font-black uppercase py-1 px-2 bg-black/5 dark:bg-white/5 inline-block">
-                             ACTION: {insight.recommendation}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </>
         ) : (
-          <div className="text-center py-12 border-2 border-dashed border-slate-300 dark:border-slate-700">
-            <div className="bg-slate-100 dark:bg-slate-800 p-4 neo-brutal shadow-none text-slate-400 inline-block mb-4">
-              <Info className="h-10 w-10" />
+          <div className="text-center py-24 px-6 rounded-3xl bg-white/[0.02] border border-dashed border-white/10">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6 mx-auto relative">
+              <div className="absolute inset-0 bg-slate-500/10 rounded-full blur-2xl"></div>
+              <Info className="h-10 w-10 text-slate-500 relative z-10" />
             </div>
-            <p className="font-black uppercase text-sm text-black dark:text-white mb-2">TELEMETRY SILENCE</p>
-            <p className="text-xs font-bold text-slate-500 max-w-xs mx-auto mb-6">
+            <h3 className="text-lg font-bold text-white mb-3 uppercase tracking-widest">Telemetry Silence</h3>
+            <p className="text-sm font-medium text-slate-400 max-w-sm mx-auto mb-10 leading-relaxed">
               {hasMeterConnected
-                ? 'Awaiting more data packets to generate high-fidelity behavioral projections.'
-                : 'Connect your upstream hardware to broadcast live energy vectors into the neural engine.'}
+                ? 'The neural engine is accumulating data packets. Pattern manifestation will occur shortly.'
+                : 'Neural downlink inactive. Establish a connection to broadcast real-time energy vectors into the core.'}
             </p>
             {!hasMeterConnected && (
                <Button
                  onClick={() => window.location.hash = '#meter'}
-                 className="neo-button bg-[#facc15] text-black hover:bg-black hover:text-white font-black uppercase text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]"
+                 className="h-12 px-10 font-bold uppercase tracking-widest rounded-2xl"
                >
                  LINK HARDWARE
                </Button>
@@ -281,10 +298,13 @@ const RealTimeInsights = () => {
           </div>
         )}
 
-        <div className="pt-4 border-t-2 border-black border-dashed">
-          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 leading-relaxed italic">
-            [NOTICE] These projections are synthesized via real-time vector analysis and historical usage patterns. Logic is calibrated for {getCategoryDisplayName(meterCategory, industryType).toUpperCase()} architecture.
-          </p>
+        <div className="pt-8 border-t border-white/5">
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+            <Cpu className="h-4 w-4 text-slate-500 mt-0.5" />
+            <p className="text-[10px] font-medium uppercase tracking-[0.05em] text-slate-500 leading-relaxed italic">
+              AI PROTOCOL ADVISORY: THESE PROJECTIONS ARE SYNTHESIZED VIA REAL-TIME VECTOR ANALYSIS. CALIBRATION TARGET: {getCategoryDisplayName(meterCategory, industryType).toUpperCase()} ARCHITECTURE.
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
