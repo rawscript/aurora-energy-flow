@@ -610,14 +610,29 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
   }, [hasMeterConnected, error]);
 
   // Refresh data function (alias for fetchEnergyData with user's phone)
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (force = false) => {
     // Get user's phone number from user profile or context, with fallback
     const userPhone = user?.phone || user?.user_metadata?.phone_number || '';
     // Use your phone number as fallback for Africa's Talking API
     const phoneNumber = userPhone || '+254114841437'; // Your phone number for Africa's Talking API requests
 
-    await fetchEnergyData(phoneNumber, false);
+    await fetchEnergyData(phoneNumber, force);
   }, [fetchEnergyData, user]);
+
+  // Automatically fetch data when meter is connected and periodically thereafter
+  useEffect(() => {
+    if (hasMeterConnected) {
+      // Fetch immediately if we are past the fetch interval
+      refreshData();
+
+      // Set up an interval to fetch data periodically
+      const interval = setInterval(() => {
+        refreshData();
+      }, MIN_FETCH_INTERVAL + 5000); // Poll slightly after the interval expires
+
+      return () => clearInterval(interval);
+    }
+  }, [hasMeterConnected, refreshData, MIN_FETCH_INTERVAL]);
 
   // Get new reading function (alias for refreshData)
   const getNewReading = useCallback(async () => {

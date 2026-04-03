@@ -74,11 +74,6 @@ const Index = () => {
         component: NotificationCenter,
         visible: true
       },
-      insights: { 
-        label: "Insights", 
-        component: EnergyInsights,
-        visible: true
-      },
       aiAnalysis: {
         label: isMobile ? "AI" : "AI Analysis",
         component: lazy(() => import("@/components/DeepDiveAnalysis").then(m => ({ default: m.DeepDiveAnalysis }))),
