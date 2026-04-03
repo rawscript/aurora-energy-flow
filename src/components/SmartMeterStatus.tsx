@@ -41,48 +41,52 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
   };
 
   return (
-    <Card className="bg-aurora-card border-aurora-green/20">
-      <CardHeader>
-        <CardTitle className="text-lg flex items-center space-x-2">
-          {isConnected ? (
-            isSolarProvider ? (
-              <Sun className="h-5 w-5 text-aurora-green-light" />
+    <Card className="overflow-hidden border-white/5 bg-white/5 backdrop-blur-md">
+      <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+        <CardTitle className="text-lg flex items-center space-x-3 text-white font-bold">
+          <div className="p-2 rounded-xl bg-white/5 border border-white/10">
+            {isConnected ? (
+              isSolarProvider ? (
+                <Sun className="h-5 w-5 text-aurora-green-light" />
+              ) : (
+                <Wifi className="h-5 w-5 text-aurora-green-light" />
+              )
+            ) : isSolarProvider ? (
+              <AlertTriangle className="h-5 w-5 text-amber-400" />
             ) : (
-              <Wifi className="h-5 w-5 text-aurora-green-light" />
-            )
-          ) : isSolarProvider ? (
-            <AlertTriangle className="h-5 w-5 text-yellow-400" />
-          ) : (
-            <WifiOff className="h-5 w-5 text-red-400" />
-          )}
+              <WifiOff className="h-5 w-5 text-red-400" />
+            )}
+          </div>
           <span>{statusTitle}</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5 pt-6">
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Connection Status</span>
+          <span className="text-sm text-slate-400 font-medium">Connection Status</span>
           <Badge 
             variant={isConnected ? "default" : "destructive"}
-            className={isConnected ? "bg-green-500" : ""}
+            className={isConnected 
+              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 font-bold" 
+              : "bg-red-500/20 text-red-400 border-red-500/30 font-bold"}
           >
             {isConnected ? "Connected" : "Disconnected"}
           </Badge>
         </div>
         
         {lastReading && (
-          <>
+          <div className="space-y-4 rounded-2xl bg-white/5 border border-white/10 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-slate-400 font-medium">
                 {isSolarProvider ? 'Inverter ID' : 'Meter Number'}
               </span>
-              <span className="text-sm font-mono">{lastReading.meter_number}</span>
+              <span className="text-sm font-mono text-white bg-white/5 px-2 py-1 rounded-lg border border-white/10">{lastReading.meter_number}</span>
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Last Reading</span>
-              <div className="flex items-center space-x-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
+              <span className="text-sm text-slate-400 font-medium">Last Reading</span>
+              <div className="flex items-center space-x-2 text-white">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span className="text-sm font-medium">
                   {(() => {
                     try {
                       if (!lastReading.reading_date) return 'Unknown time';
@@ -97,39 +101,39 @@ const SmartMeterStatus = ({ onNavigateToMeter }: SmartMeterStatusProps) => {
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-slate-400 font-medium">
                 {isSolarProvider ? 'Latest Generation' : 'Latest Consumption'}
               </span>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 text-emerald-400">
                 {isSolarProvider ? (
-                  <Sun className="h-4 w-4 text-aurora-green-light" />
+                  <Sun className="h-4 w-4" />
                 ) : (
-                  <Zap className="h-4 w-4 text-aurora-green-light" />
+                  <Zap className="h-4 w-4" />
                 )}
-                <span className="text-sm font-semibold">
+                <span className="text-sm font-bold">
                   {Number(lastReading.kwh_consumed).toFixed(2)} kWh
                 </span>
               </div>
             </div>
-          </>
+          </div>
         )}
         
         {user && (
-          <div className="pt-2 pb-1">
+          <div className="pt-2">
             <Button 
               variant="outline" 
               size="sm" 
-              className="w-full border-aurora-green/30 hover:bg-aurora-green/20"
+              className="w-full"
               onClick={handleSetupMeter}
             >
               <Link className="h-4 w-4 mr-2" />
-              {isSolarProvider ? 'Connect Real Solar Inverter' : 'Connect Real Smart Meter'}
+              {isSolarProvider ? 'Connect Real Inverter' : 'Connect Real Meter'}
             </Button>
           </div>
         )}
         
-        <div className="pt-2 border-t border-slate-700">
-          <div className="text-xs text-muted-foreground">
+        <div className="pt-4 border-t border-white/5">
+          <div className="text-xs text-slate-500 font-medium leading-relaxed">
             {loading 
               ? `Loading ${connectionLabel.toLowerCase()} status...`
               : error 

@@ -53,70 +53,72 @@ export const AccountProfile = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900">
-        <CardHeader className="bg-aurora-green/10 border-b-2 border-black">
-          <CardTitle className="text-2xl font-black text-black dark:text-white flex items-center gap-2">
-            <User className="h-6 w-6" />
-            MY ACCOUNT
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in py-6">
+      <Card>
+        <CardHeader className="pb-6 border-b border-white/5 bg-white/5">
+          <CardTitle className="text-3xl font-bold text-white flex items-center gap-4">
+            <div className="p-3 rounded-2xl bg-white/10 border border-white/20">
+              <User className="h-8 w-8 text-aurora-green-light" />
+            </div>
+            MY PROFILE
           </CardTitle>
-          <CardDescription className="text-slate-600 dark:text-slate-400 font-bold">
-            Manage your personal information and account settings
+          <CardDescription className="text-slate-400 font-medium text-base mt-2">
+            Manage your mission-critical energy credentials
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email" className="font-black text-xs uppercase tracking-widest">Email Address</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+        <CardContent className="pt-8 space-y-8">
+          <div className="space-y-6">
+            <div className="grid gap-3">
+              <Label htmlFor="email" className="font-bold text-xs uppercase tracking-[0.2em] text-slate-500">Email Identity</Label>
+              <div className="relative group">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-aurora-green-light transition-colors" />
                 <Input 
                   id="email" 
                   value={user?.email || ''} 
                   disabled 
-                  className="pl-10 neo-input border-2 border-black bg-slate-50 dark:bg-slate-800 font-bold"
+                  className="pl-12 h-12 bg-white/5 border-white/10 text-slate-400 font-medium cursor-not-allowed"
                 />
               </div>
-              <p className="text-[10px] text-slate-500 font-bold uppercase">Email cannot be changed</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest px-1">Immutable identity reference</p>
             </div>
             
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="full_name" className="font-black text-xs uppercase tracking-widest text-aurora-purple font-black">Full Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+            <form onSubmit={handleUpdate} className="space-y-6 border-t border-white/5 pt-8">
+              <div className="grid gap-3">
+                <Label htmlFor="full_name" className="font-bold text-xs uppercase tracking-[0.2em] text-aurora-purple">Display Name</Label>
+                <div className="relative group">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-aurora-purple transition-colors" />
                   <Input 
                     id="full_name" 
                     placeholder="Enter your full name" 
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="pl-10 neo-input border-2 border-black font-bold"
+                    className="pl-12 h-12 glass-input font-bold"
                   />
                 </div>
               </div>
               
-              <div className="grid gap-2">
-                <Label htmlFor="phone" className="font-black text-xs uppercase tracking-widest text-aurora-green-light">Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <div className="grid gap-3">
+                <Label htmlFor="phone" className="font-bold text-xs uppercase tracking-[0.2em] text-aurora-green-light">Communication Path</Label>
+                <div className="relative group">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-aurora-green-light transition-colors" />
                   <Input 
                     id="phone" 
                     placeholder="Enter your phone number" 
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="pl-10 neo-input border-2 border-black font-bold"
+                    className="pl-12 h-12 glass-input font-bold"
                   />
                 </div>
               </div>
 
-              <div className="pt-4">
+              <div className="pt-6">
                 <Button 
                   type="submit" 
                   disabled={isUpdating || profileLoading}
-                  className="w-full neo-button bg-aurora-green hover:bg-aurora-green-light text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-black"
+                  className="w-full h-14 text-base font-bold tracking-wider"
                 >
-                  <Save className="h-4 w-4 mr-2" />
-                  {isUpdating ? 'SAVING...' : 'SAVE CHANGES'}
+                  <Save className="h-5 w-5 mr-3" />
+                  {isUpdating ? 'INITIALIZING SYNC...' : 'COMMIT CHANGES'}
                 </Button>
               </div>
             </form>
@@ -124,33 +126,35 @@ export const AccountProfile = () => {
         </CardContent>
       </Card>
 
-      <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 border-red-500/50 overflow-hidden">
-        <CardHeader className="bg-red-500/5 border-b-2 border-black">
-          <CardTitle className="text-xl font-black text-red-600 flex items-center gap-2">
+      <Card className="border-red-500/20 bg-red-500/5 hover:border-red-500/40 transition-all duration-300">
+        <CardHeader className="pb-6 border-b border-red-500/10">
+          <CardTitle className="text-xl font-bold text-red-400 flex items-center gap-3">
             <Shield className="h-5 w-5" />
-            SECURITY
+            SECURITY PROTOCOLS
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-6">
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 font-bold">
-            Ready to end your session? You can sign out here. All your data will be safely persisted for your next visit.
+        <CardContent className="pt-8">
+          <p className="text-base text-slate-400 mb-8 font-medium leading-relaxed">
+            Ready to terminate your current session? You can sign out here. All your localized data will be safely persisted for your next visit.
           </p>
           <Button 
             onClick={() => signOut()}
             variant="destructive"
-            className="w-full neo-button bg-red-600 hover:bg-red-700 text-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none font-black"
+            className="w-full h-14 text-base font-bold tracking-wider bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400"
           >
-            <LogOut className="h-4 w-4 mr-2" />
-            SIGN OUT OF AURORA
+            <LogOut className="h-5 w-5 mr-3" />
+            TERMINATE SESSION
           </Button>
         </CardContent>
       </Card>
       
-      <div className="text-center pb-8">
-        <p className="text-xs text-slate-500 font-black uppercase tracking-tighter">
-          Aurora Energy Monitor v2.4.0 • Built with Neobrutalism
+      <div className="text-center pt-8 pb-12">
+        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">
+          Aurora Energy Control v2.4.0 • Optimized for Glassmorphism
         </p>
       </div>
     </div>
   );
 };
+
+export default AccountProfile;
