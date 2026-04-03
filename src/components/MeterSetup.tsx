@@ -80,6 +80,8 @@ const MeterSetup = ({ }: MeterSetupProps) => {
   const [showIndustryType, setShowIndustryType] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [lastDisconnectedMeter, setLastDisconnectedMeter] = useState<string | null>(null);
+
 
   const fetchingRef = useRef(false);
 
@@ -110,7 +112,14 @@ const MeterSetup = ({ }: MeterSetupProps) => {
   const handleDisconnect = async () => {
     try {
       setIsLoading(true);
+      const currentMeter = profile?.meter_number;
       await disconnectMeter();
+      
+      // Store the meter number so we can reconnect easily
+      if (currentMeter) {
+        setLastDisconnectedMeter(currentMeter);
+      }
+
       toast({
         title: "Device Disconnected",
         description: `Successfully disconnected your ${providerConfig.terminology.device}.`,
@@ -124,6 +133,33 @@ const MeterSetup = ({ }: MeterSetupProps) => {
         description: "An error occurred while disconnecting the device.",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReconnect = async () => {
+    if (!lastDisconnectedMeter) return;
+    
+    try {
+      setIsLoading(true);
+      const success = await setupMeter({
+        meter_number: lastDisconnectedMeter,
+        meter_category: profile?.meter_category as any || 'household',
+        energy_provider: provider || 'KPLC',
+        industry_type: profile?.industry_type as any
+      });
+
+      if (success) {
+        toast({
+          title: "Device Reconnected",
+          description: `Successfully reconnected your ${providerConfig.terminology.device}.`,
+        });
+        setLastDisconnectedMeter(null);
+        await fetchMeterHistory();
+      }
+    } catch (error) {
+      console.error("Reconnect failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -488,9 +524,9 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                           {profile.industry_type.charAt(0).toUpperCase() + profile.industry_type.slice(1)}
                         </Badge>
                       )}
-                      <Badge className={`${hasMeterConnected ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                      <Badge className={`${hasMeterConnected ? 'bg-green-500/20 text-green-400 border-green-500/30' : (meterStatus === 'disconnected' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30')}`}>
                         <Zap className="h-3 w-3 mr-1" />
-                        {hasMeterConnected ? 'Real-time' : 'Connecting...'}
+                        {hasMeterConnected ? 'Real-time' : (meterStatus === 'disconnected' ? 'Disconnected' : 'Connecting...')}
                       </Badge>
                     </div>
                   </div>
@@ -499,6 +535,11 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                       <>
                         <Check className="h-3 w-3 mr-1" />
                         Active
+                      </>
+                    ) : meterStatus === 'disconnected' ? (
+                      <>
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Disconnected
                       </>
                     ) : (
                       <>
@@ -530,9 +571,8 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                   <div className="space-y-2">
                     <Label className="text-sm text-muted-foreground">Status</Label>
                     <div className="flex items-center space-x-2">
-                      <div className={`w-2 h-2 rounded-full ${hasMeterConnected ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
-                      <span className={hasMeterConnected ? 'text-green-400' : 'text-yellow-400'}>
-                        {hasMeterConnected ? 'Connected' : 'Connecting...'}
+                      <span className={hasMeterConnected ? 'text-green-400' : (meterStatus === 'disconnected' ? 'text-red-400' : 'text-yellow-400')}>
+                        {hasMeterConnected ? 'Connected' : (meterStatus === 'disconnected' ? 'Disconnected' : 'Connecting...')}
                       </span>
                     </div>
                   </div>
@@ -579,15 +619,26 @@ const MeterSetup = ({ }: MeterSetupProps) => {
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    onClick={handleDisconnect}
-                    variant="destructive"
-                    className="flex-1 border-red-500/30 hover:bg-red-500/10"
-                    disabled={isLoading}
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    Disconnect {providerConfig.terminology.device}
-                  </Button>
+                  {hasMeterConnected ? (
+                    <Button
+                      onClick={handleDisconnect}
+                      variant="destructive"
+                      className="flex-1 border-red-500/30 hover:bg-red-500/10"
+                      disabled={isLoading}
+                    >
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      Disconnect {providerConfig.terminology.device}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleReconnect}
+                      className="flex-1 bg-aurora-green hover:bg-aurora-green/80 text-black"
+                      disabled={isLoading || !lastDisconnectedMeter}
+                    >
+                      <Zap className="h-4 w-4 mr-2" />
+                      Reconnect {providerConfig.terminology.device}
+                    </Button>
+                  )}
                   <Button
                     onClick={() => setActiveTab(isMobile ? 'history' : 'new')}
                     variant="outline"

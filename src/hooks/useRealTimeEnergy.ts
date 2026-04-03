@@ -658,6 +658,7 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
     loading,
     error,
     hasMeterConnected,
+    meterStatus,
     meterConnectionChecked: true, // Always true since we check meter status
 
     // Actions (all demand-driven)

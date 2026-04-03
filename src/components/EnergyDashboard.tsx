@@ -452,23 +452,23 @@ const EnergyDashboard = () => {
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <div 
-                      className="w-3 h-3 rounded-full animate-pulse"
-                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : '#f59e0b' }}
+                      className={`w-3 h-3 rounded-full ${hasMeterConnected ? 'animate-pulse' : ''}`}
+                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b') }}
                     ></div>
                     <div 
-                      className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-75"
-                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : '#f59e0b' }}
+                      className={`absolute inset-0 w-3 h-3 rounded-full ${hasMeterConnected ? 'animate-ping' : ''} opacity-75`}
+                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b') }}
                     ></div>
                   </div>
                   <div className="flex flex-col">
                     <span 
                       className="text-sm font-semibold tracking-tight"
-                      style={{ color: providerConfig.colors.primary }}
+                      style={{ color: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary) }}
                     >
-                      {hasMeterConnected ? `Live ${providerConfig.name} Connection` : `Connecting to ${providerConfig.name}...`}
+                      {hasMeterConnected ? `Live ${providerConfig.name} Connection` : (meterStatus === 'disconnected' ? `${providerConfig.name} Disconnected` : `Connecting to ${providerConfig.name}...`)}
                     </span>
                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                      {hasMeterConnected ? 'System Operational' : 'Establishing Secure Link'}
+                      {hasMeterConnected ? 'System Operational' : (meterStatus === 'disconnected' ? 'Offline Mode' : 'Establishing Secure Link')}
                     </span>
                   </div>
                   {safeEnergyData.daily_total === 0 && hasMeterConnected && (
@@ -478,23 +478,23 @@ const EnergyDashboard = () => {
                   )}
                 </div>
                 <Button
-                  onClick={getNewReading}
+                  onClick={hasMeterConnected ? getNewReading : () => window.location.hash = '#meter'}
                   size="sm"
                   variant="outline"
                   className="transition-all hover:scale-105 active:scale-95"
                   style={{ 
-                    backgroundColor: `${providerConfig.colors.primary}15`,
-                    borderColor: `${providerConfig.colors.primary}40`,
-                    color: providerConfig.colors.primary
+                    backgroundColor: `${hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary)}15`,
+                    borderColor: `${hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary)}40`,
+                    color: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary)
                   }}
-                  disabled={!hasMeterConnected || loading}
+                  disabled={loading}
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Zap className="h-4 w-4 mr-2" />
                   )}
-                  {hasMeterConnected ? `Refresh ${providerConfig.terminology.device}` : 'Reconnect'}
+                  {hasMeterConnected ? `Refresh ${providerConfig.terminology.device}` : (meterStatus === 'disconnected' ? 'Reconnect Device' : 'Establishing...')}
                 </Button>
               </div>
             </CardContent>
