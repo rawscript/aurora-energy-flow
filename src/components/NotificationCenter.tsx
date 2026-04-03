@@ -203,72 +203,57 @@ const NotificationCenter = () => {
   const isEmptyState = status?.status === 'empty' || notifications.length === 0;
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in py-4">
       {/* Header */}
-      <Card className="bg-aurora-card border-aurora-green/20">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-6 border-b border-white/5 bg-white/5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
               <div className="relative">
-                {isEmptyState ? (
-                  <BellOff className="h-6 w-6 text-muted-foreground" />
-                ) : (
-                  <>
-                    <Bell className="h-6 w-6 text-aurora-green-light" />
-                    {unreadCount > 0 && (
-                      <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </div>
-                    )}
-                  </>
+                <div className="p-3 rounded-2xl bg-aurora-green/10 border border-aurora-green/20 relative z-10">
+                  {isEmptyState ? (
+                    <BellOff className="h-7 w-7 text-slate-400" />
+                  ) : (
+                    <Bell className="h-7 w-7 text-aurora-green-light" />
+                  )}
+                </div>
+                {!isEmptyState && unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-[#0f172a] z-20 animate-pulse">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </div>
                 )}
               </div>
               <div>
-                <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
-                  {providerConfig.name} Notifications
+                <CardTitle className="text-2xl text-white font-bold tracking-tight">
+                  Notification Hub
                 </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {isEmptyState ? 'No notifications yet' : `${unreadCount} unread • ${notifications.length} total`}
-                </p>
+                <CardDescription className="text-slate-400 font-medium">
+                  {isEmptyState ? 'Neural bridge clear' : `Syncing ${notifications.length} alerts • ${unreadCount} unread`}
+                </CardDescription>
               </div>
             </div>
             
             <div className="flex items-center space-x-2">
               <Button
                 onClick={handleRefresh}
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="text-xs"
+                className="h-10 px-4 border-white/10 hover:bg-white/5 text-slate-300 font-bold text-xs uppercase tracking-widest"
                 disabled={loading}
               >
-                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                REFRESH
               </Button>
               
-              {unreadCount > 0 && (
+              {!isEmptyState && unreadCount > 0 && (
                 <Button
                   onClick={markAllAsRead}
                   variant="outline"
                   size="sm"
-                  className="text-xs border-aurora-green/30 hover:bg-aurora-green/10"
+                  className="h-10 px-4 border-aurora-green/30 hover:bg-aurora-green/10 text-aurora-green-light font-bold text-xs uppercase tracking-widest"
                 >
-                  <CheckCheck className="h-4 w-4 mr-1" />
-                  Mark All Read
-                </Button>
-              )}
-              
-              {hasReadNotifications && (
-                <Button
-                  onClick={() => {
-                    setDeleteTarget('all-read');
-                    setShowDeleteDialog(true);
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs border-red-500/30 hover:bg-red-500/10 text-red-400"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Clear Read
+                  <CheckCheck className="h-4 w-4 mr-2" />
+                  MARK READ
                 </Button>
               )}
             </div>
@@ -277,134 +262,130 @@ const NotificationCenter = () => {
       </Card>
 
       {/* Notifications List or Empty State */}
-      <Card className="bg-aurora-card border-aurora-blue/20">
+      <Card className="overflow-hidden border-white/10">
         <CardContent className="p-0">
           <ScrollArea className={`${isMobile ? 'h-96' : 'h-[600px]'} w-full`}>
             {isEmptyState ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <BellOff className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-                <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                  No Notifications Yet
+              <div className="flex flex-col items-center justify-center py-24 text-center px-6">
+                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6 relative">
+                  <div className="absolute inset-0 bg-aurora-green/10 rounded-full blur-2xl"></div>
+                  <BellOff className="h-10 w-10 text-slate-500 relative z-10" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-3">
+                  Neural Bridge Clear
                 </h3>
-                <p className="text-sm text-muted-foreground max-w-md mb-6">
-                  You haven't received any notifications yet. Once you set up your {providerConfig.terminology.device} and start using the {providerConfig.name} system, 
-                  you'll receive energy alerts, {providerConfig.terminology.credits} notifications, and helpful insights here.
+                <p className="text-slate-400 max-w-sm mb-12 font-medium leading-relaxed">
+                  The {providerConfig.name} sync stream is currently idle. Alerts and efficiency reports will manifest here once your hardware is active.
                 </p>
                 
-                {/* Setup encouragement */}
-                <div className="bg-slate-800/30 rounded-lg p-4 max-w-md">
-                  <h4 className="text-sm font-medium mb-3 text-aurora-green-light">Get Started with {providerConfig.name} Notifications</h4>
-                  <div className="space-y-2 text-xs text-muted-foreground">
-                    <div className="flex items-center space-x-2">
-                      <Settings className="h-4 w-4 text-orange-500" />
-                      <span>Set up your {providerConfig.terminology.device} to receive {providerConfig.terminology.credits} alerts</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {providerConfig.type === 'solar' ? (
-                        <Sun className="h-4 w-4 text-yellow-500" />
-                      ) : (
-                        <Zap className="h-4 w-4 text-yellow-500" />
-                      )}
-                      <span>Get low balance warnings and usage insights</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <CreditCard className="h-4 w-4 text-green-500" />
-                      <span>Receive {providerConfig.terminology.credits} purchase confirmations</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <TrendingUp className="h-4 w-4 text-blue-500" />
-                      <span>Get efficiency tips and energy-saving recommendations</span>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl px-4">
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group">
+                    <Settings className="h-8 w-8 text-orange-500 mb-4 group-hover:scale-110 transition-transform" />
+                    <h4 className="text-sm font-bold text-white mb-2 uppercase tracking-wider">Device Sync</h4>
+                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Link your {providerConfig.terminology.device} to activate real-time telemetry.</p>
+                  </div>
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors group">
+                    <TrendingUp className="h-8 w-8 text-blue-500 mb-4 group-hover:scale-110 transition-transform" />
+                    <h4 className="text-sm font-bold text-white mb-2 uppercase tracking-wider">Neural Insights</h4>
+                    <p className="text-xs text-slate-400 font-medium leading-relaxed">Optimization protocols will generate saving recommendations here.</p>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2 mt-6">
+                <div className="flex flex-col sm:flex-row gap-4 mt-12 w-full max-w-md px-4">
                   <Button
                     onClick={() => {
-                      // Dispatch a custom event to navigate to settings
                       window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
                     }}
-                    className="bg-aurora-green hover:bg-aurora-green/80"
+                    className="flex-1 h-12 font-bold tracking-wider"
                   >
                     <Settings className="h-4 w-4 mr-2" />
-                    Setup {providerConfig.name} {providerConfig.terminology.device}
-                  </Button>
-                  <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Check for Notifications
+                    INITIALIZE SYNC
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-slate-700/50">
+              <div className="divide-y divide-white/5">
                 {notifications.map((notification) => {
                   const actions = getNotificationActions(notification);
                   
                   return (
                     <div
                       key={notification.id}
-                      className={`p-4 hover:bg-slate-800/30 transition-colors border-l-4 ${
-                        getNotificationBorderColor(notification.type, notification.isRead)
-                      } ${!notification.isRead ? 'bg-slate-800/20' : ''}`}
+                      className={`p-6 hover:bg-white/5 transition-all duration-300 relative group cursor-default ${
+                        !notification.isRead ? 'bg-aurora-green/[0.03]' : ''
+                      }`}
                     >
-                      <div className="flex items-start space-x-3">
-                        <div className="flex-shrink-0 mt-1">
+                      {/* Read/Unread indicator bar */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all ${
+                        !notification.isRead ? 'bg-aurora-green animate-pulse' : 'bg-transparent'
+                      }`} />
+
+                      <div className="flex items-start space-x-5">
+                        <div className={`p-3 rounded-xl flex-shrink-0 transition-transform group-hover:scale-110 ${
+                          !notification.isRead ? 'bg-aurora-green/10 border border-aurora-green/20' : 'bg-white/5 border border-white/10'
+                        }`}>
                           {getNotificationIcon(notification.type)}
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className={`text-sm font-medium ${
-                              !notification.isRead ? 'text-white' : 'text-gray-300'
-                            }`}>
-                              {notification.title}
-                            </h4>
-                            <div className="flex items-center space-x-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-3 overflow-hidden">
+                              <h4 className={`text-base font-bold truncate ${
+                                !notification.isRead ? 'text-white' : 'text-slate-300'
+                              }`}>
+                                {notification.title}
+                              </h4>
                               <Badge
                                 variant="outline"
-                                className={`text-xs ${getSeverityColor(notification.severity)}`}
+                                className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0 h-5 ${getSeverityColor(notification.severity)} border-none`}
                               >
                                 {notification.severity}
                               </Badge>
-                              {!notification.isRead && (
-                                <div className="w-2 h-2 bg-aurora-green-light rounded-full animate-pulse"></div>
-                              )}
-                              
-                              {/* Quick Actions Dropdown */}
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 ml-4">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest hidden sm:block">
+                                {(() => {
+                                  try {
+                                    const date = notification.createdAt ? new Date(notification.createdAt) : new Date();
+                                    return isNaN(date.getTime()) ? 'NOW' : formatDistanceToNow(date, { addSuffix: true }).toUpperCase();
+                                  } catch (error) {
+                                    return 'NOW';
+                                  }
+                                })()}
+                              </span>
+
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-slate-700/50"
+                                    className="h-8 w-8 p-0 hover:bg-white/10 rounded-lg"
                                   >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    <MoreHorizontal className="h-4 w-4 text-slate-400" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                                <DropdownMenuContent align="end" className="bg-[#1a1f2c]/95 border-white/10 backdrop-blur-xl">
                                   {actions.map((action, index) => (
                                     <React.Fragment key={action.id}>
                                       <DropdownMenuItem
                                         onClick={() => handleQuickAction(action)}
-                                        className={`cursor-pointer ${
+                                        className={`cursor-pointer font-bold text-xs p-3 ${
                                           action.variant === 'destructive' 
-                                            ? 'text-red-400 hover:bg-red-500/10' 
-                                            : 'hover:bg-slate-700'
+                                            ? 'text-red-400 focus:bg-red-500/10' 
+                                            : 'text-slate-300 focus:bg-white/10 focus:text-white'
                                         }`}
                                       >
-                                        {action.id === 'mark-read' && <Check className="h-4 w-4 mr-2" />}
-                                        {action.id === 'buy-tokens' && <CreditCard className="h-4 w-4 mr-2" />}
-                                        {action.id === 'copy-code' && <Copy className="h-4 w-4 mr-2" />}
-                                        {action.id === 'view-insights' && <Eye className="h-4 w-4 mr-2" />}
-                                        {action.id === 'setup-meter' && <Settings className="h-4 w-4 mr-2" />}
-                                        {action.id === 'delete' && <Trash2 className="h-4 w-4 mr-2" />}
-                                        {action.label}
+                                        {action.id === 'mark-read' && <Check className="h-4 w-4 mr-3" />}
+                                        {action.id === 'buy-tokens' && <CreditCard className="h-4 w-4 mr-3" />}
+                                        {action.id === 'copy-code' && <Copy className="h-4 w-4 mr-3" />}
+                                        {action.id === 'view-insights' && <Eye className="h-4 w-4 mr-3" />}
+                                        {action.id === 'setup-meter' && <Settings className="h-4 w-4 mr-3" />}
+                                        {action.id === 'delete' && <Trash2 className="h-4 w-4 mr-3" />}
+                                        {action.label.toUpperCase()}
                                       </DropdownMenuItem>
                                       {index < actions.length - 1 && action.id === 'copy-code' && (
-                                        <DropdownMenuSeparator className="bg-slate-700" />
+                                        <DropdownMenuSeparator className="bg-white/5" />
                                       )}
                                     </React.Fragment>
                                   ))}
@@ -413,116 +394,45 @@ const NotificationCenter = () => {
                             </div>
                           </div>
                           
-                          <p className={`text-sm ${
-                            !notification.isRead ? 'text-gray-300' : 'text-gray-400'
-                          } mb-2 leading-relaxed`}>
+                          <p className={`text-sm mb-4 leading-relaxed font-medium ${
+                            !notification.isRead ? 'text-slate-300' : 'text-slate-400'
+                          }`}>
                             {notification.message}
                           </p>
                           
-                          {/* Token-specific information */}
-                          {(notification.tokenBalance !== undefined || notification.estimatedDays !== undefined) && (
-                            <div className="flex flex-wrap gap-2 mb-2">
-                              {notification.tokenBalance !== undefined && (
-                                <Badge variant="secondary" className="text-xs bg-slate-700/50">
-                                  {providerConfig.type === 'solar' ? (
-                                    <Sun className="h-3 w-3 mr-1" />
-                                  ) : (
-                                    <Zap className="h-3 w-3 mr-1" />
-                                  )}
-                                  {providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Balance: KSh {notification.tokenBalance.toFixed(2)}
-                                </Badge>
-                              )}
-                              {notification.estimatedDays !== undefined && (
-                                <Badge variant="secondary" className="text-xs bg-slate-700/50">
-                                  <Calendar className="h-3 w-3 mr-1" />
-                                  {notification.estimatedDays} days remaining
-                                </Badge>
-                              )}
-                            </div>
-                          )}
+                          <div className="flex flex-wrap items-center gap-3">
+                            {(notification.tokenBalance !== undefined || notification.estimatedDays !== undefined) && (
+                              <>
+                                {notification.tokenBalance !== undefined && (
+                                  <Badge variant="secondary" className="bg-white/5 text-white border-white/5 font-bold text-[10px] uppercase tracking-widest px-3 py-1">
+                                    {providerConfig.terminology.credits}: KSh {notification.tokenBalance.toFixed(2)}
+                                  </Badge>
+                                )}
+                                {notification.estimatedDays !== undefined && (
+                                  <Badge variant="secondary" className="bg-white/5 text-white border-white/5 font-bold text-[10px] uppercase tracking-widest px-3 py-1">
+                                    HORIZON: {notification.estimatedDays} DAYS
+                                  </Badge>
+                                )}
+                              </>
+                            )}
 
-                          {/* Token code for purchase notifications */}
-                          {notification.metadata?.token_code && (
-                            <div className="mb-2 p-2 bg-slate-800/50 rounded border border-aurora-green/20">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="text-xs text-muted-foreground mb-1">
-                                    {providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Code:
-                                  </p>
-                                  <p className="text-sm font-mono text-aurora-green-light bg-slate-900/50 p-1 rounded">
-                                    {notification.metadata.token_code}
-                                  </p>
-                                </div>
+                            {notification.metadata?.token_code && (
+                              <div className="flex items-center space-x-2 bg-aurora-green-light/10 p-1.5 px-3 rounded-lg border border-aurora-green/20">
+                                <span className="text-[10px] font-bold text-aurora-green-light uppercase tracking-widest mr-2">TOKEN:</span>
+                                <span className="text-xs font-mono font-bold text-white tracking-widest">{notification.metadata.token_code}</span>
                                 <Button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(notification.metadata.token_code);
-                                  }}
+                                  onClick={() => navigator.clipboard.writeText(notification.metadata.token_code)}
                                   variant="ghost"
                                   size="sm"
-                                  className="h-6 w-6 p-0"
+                                  className="h-6 w-6 p-0 hover:bg-aurora-green/20 text-aurora-green-light"
                                 >
                                   <Copy className="h-3 w-3" />
                                 </Button>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Reference number for transactions */}
-                          {notification.metadata?.reference_number && (
-                            <div className="mb-2">
-                              <Badge variant="outline" className="text-xs">
-                                Ref: {notification.metadata.reference_number}
-                              </Badge>
-                            </div>
-                          )}
-
-                          {/* Source table indicator for debugging */}
-                          {notification.sourceTable && (
-                            <div className="mb-2">
-                              <Badge variant="outline" className="text-xs opacity-50">
-                                Source: {notification.sourceTable}
-                              </Badge>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              {(() => {
-                                try {
-                                  const date = notification.createdAt ? new Date(notification.createdAt) : new Date();
-                                  return isNaN(date.getTime()) ? 'Just now' : formatDistanceToNow(date, { addSuffix: true });
-                                } catch (error) {
-                                  return 'Just now';
-                                }
-                              })()}
-                            </span>
+                            )}
                             
-                            {/* Quick action buttons for mobile */}
-                            {isMobile && (
-                              <div className="flex items-center space-x-1">
-                                {!notification.isRead && (
-                                  <Button
-                                    onClick={() => markAsRead(notification.id)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-xs h-6 px-2 hover:bg-aurora-green/20"
-                                  >
-                                    <Check className="h-3 w-3" />
-                                  </Button>
-                                )}
-                                <Button
-                                  onClick={() => {
-                                    setSelectedNotification(notification);
-                                    setDeleteTarget('single');
-                                    setShowDeleteDialog(true);
-                                  }}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-xs h-6 px-2 hover:bg-red-500/20 text-red-400"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
+                            {notification.metadata?.reference_number && (
+                              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest bg-white/5 px-2 py-1 rounded">REF: {notification.metadata.reference_number}</span>
                             )}
                           </div>
                         </div>
@@ -536,101 +446,60 @@ const NotificationCenter = () => {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="bg-aurora-card border-red-500/20">
-          <DialogHeader>
-            <DialogTitle className="text-red-400">Confirm Deletion</DialogTitle>
-            <DialogDescription>
-              {deleteTarget === 'single' 
-                ? 'Are you sure you want to delete this notification? This action cannot be undone.'
-                : 'Are you sure you want to delete all read notifications? This action cannot be undone.'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDeleteDialog(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Notification Preferences Card */}
       {preferences && (
-        <Card className="bg-aurora-card border-aurora-purple/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg text-aurora-purple-light flex items-center space-x-2">
-              <Settings className="h-5 w-5" />
-              <span>{providerConfig.name} Notification Preferences</span>
+        <Card className="overflow-hidden border-white/10">
+          <CardHeader className="pb-6 border-b border-white/5 bg-white/5">
+            <CardTitle className="text-lg text-white font-bold flex items-center space-x-4">
+              <div className="p-1.5 rounded-lg bg-aurora-purple/10 border border-aurora-purple/20">
+                <Settings className="h-5 w-5 text-aurora-purple-light" />
+              </div>
+              <span>Protocol Preferences</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="pt-8">
+            <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {Object.entries(preferences.preferences).map(([key, pref]: [string, any]) => (
-                  <div key={key} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      {key === 'token_alerts' && <Zap className="h-4 w-4 text-yellow-500" />}
-                      {key === 'usage_alerts' && <TrendingUp className="h-4 w-4 text-blue-500" />}
-                      {key === 'bill_reminders' && <Calendar className="h-4 w-4 text-purple-500" />}
-                      {key === 'system_updates' && <Settings className="h-4 w-4 text-orange-500" />}
-                      {key === 'purchase_confirmations' && <CreditCard className="h-4 w-4 text-green-500" />}
+                  <div key={key} className="flex items-center justify-between p-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      <div className={`p-2 rounded-lg ${pref.enabled ? 'bg-white/10' : 'opacity-40'}`}>
+                        {key === 'token_alerts' && <Zap className="h-4 w-4 text-yellow-500" />}
+                        {key === 'usage_alerts' && <TrendingUp className="h-4 w-4 text-blue-500" />}
+                        {key === 'bill_reminders' && <Calendar className="h-4 w-4 text-purple-500" />}
+                        {key === 'system_updates' && <Settings className="h-4 w-4 text-orange-500" />}
+                        {key === 'purchase_confirmations' && <CreditCard className="h-4 w-4 text-green-500" />}
+                      </div>
                       <div>
-                        <span className="text-sm capitalize">
-                          {key === 'token_alerts' 
-                            ? `${providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Alerts`
-                            : key === 'purchase_confirmations'
-                            ? `${providerConfig.terminology.credits.charAt(0).toUpperCase() + providerConfig.terminology.credits.slice(1)} Purchase Confirmations`
-                            : key.replace('_', ' ')}
+                        <span className="text-sm font-bold text-white block uppercase tracking-wider">
+                          {key.replace(/_/g, ' ')}
                         </span>
-                        {pref.setup_required && (
-                          <p className="text-xs text-muted-foreground">Setup required</p>
-                        )}
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${pref.enabled ? 'text-emerald-400' : 'text-slate-500'}`}>
+                          {pref.enabled ? 'Protocol Active' : 'Protocol Suspended'}
+                        </span>
                       </div>
                     </div>
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs ${
-                        pref.enabled 
-                          ? 'text-green-400 border-green-400/50' 
-                          : 'text-gray-400 border-gray-400/50'
-                      }`}
-                    >
-                      {pref.enabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
+                    <div className={`h-2 w-2 rounded-full ${pref.enabled ? 'bg-emerald-400 shadow-[0_0_8px_#10b981]' : 'bg-slate-700'}`} />
                   </div>
                 ))}
               </div>
               
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2">
+              <div className="text-center pt-4">
+                <p className="text-xs font-medium text-slate-500 mb-6 max-w-md mx-auto leading-relaxed">
                   {preferences.has_meter 
-                    ? `Your ${providerConfig.terminology.device} is connected and ${providerConfig.name} notifications are active.`
-                    : `Connect your ${providerConfig.terminology.device} to activate all ${providerConfig.name} notification types.`
+                    ? `Neural downlink with ${providerConfig.terminology.device} is stable. All protocol streams are active.`
+                    : `Link your secondary ${providerConfig.terminology.device} to unlock full protocol telemetry.`
                   }
                 </p>
                 {!preferences.has_meter && (
                   <Button
                     onClick={() => {
-                      // Dispatch a custom event to navigate to settings
                       window.dispatchEvent(new CustomEvent('navigate-to-tab', { detail: 'settings' }));
                     }}
-                    size="sm"
-                    className="bg-aurora-green hover:bg-aurora-green/80"
+                    variant="outline"
+                    className="h-12 px-8 font-bold tracking-widest border-aurora-green/30 text-aurora-green-light hover:bg-aurora-green/10"
                   >
-                    <Settings className="h-4 w-4 mr-2" />
-                    Setup {providerConfig.name} {providerConfig.terminology.device}
+                    LINK HARDWARE
                   </Button>
                 )}
               </div>
@@ -638,6 +507,42 @@ const NotificationCenter = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="bg-[#1a1f2c]/95 border-white/10 backdrop-blur-xl">
+          <DialogHeader className="space-y-4">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-2 border border-red-500/20">
+              <Trash2 className="h-8 w-8 text-red-500" />
+            </div>
+            <DialogTitle className="text-2xl font-bold text-white text-center">Terminate Logs?</DialogTitle>
+            <DialogDescription className="text-slate-400 text-center font-medium leading-relaxed">
+              {deleteTarget === 'single' 
+                ? 'Are you certain you wish to purge this specific record from the neural memory?'
+                : 'Are you certain you wish to purge all read records from the neural memory?'
+              }
+              <br />
+              <span className="text-red-400/80 text-xs font-bold uppercase tracking-widest mt-2 block">This action is irreversible.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center gap-3 pt-6">
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+              className="px-8 h-12 font-bold tracking-widest border-white/10 hover:bg-white/5 text-slate-300"
+            >
+              ABORT
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              className="px-8 h-12 font-bold tracking-widest bg-red-600 hover:bg-red-700"
+            >
+              CONFIRM DELETION
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
