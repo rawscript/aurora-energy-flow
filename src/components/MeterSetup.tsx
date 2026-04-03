@@ -406,51 +406,53 @@ const MeterSetup = ({ }: MeterSetupProps) => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <Card className="bg-aurora-card border-aurora-green/20">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg sm:text-xl text-aurora-green-light flex items-center gap-2">
-            {providerConfig.type === 'solar' ? (
-              <>
-                <SolarPanel className="h-5 w-5 sm:h-6 sm:w-6" />
+      <Card className="neo-card bg-[#facc15] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+        <CardHeader className="pb-3 px-6 pt-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-black p-3 neo-brutal shadow-none transform -rotate-2">
+              {providerConfig.type === 'solar' ? (
+                <SolarPanel className="h-6 w-6 sm:h-8 sm:w-8 text-[#facc15]" />
+              ) : (
+                <Gauge className="h-6 w-6 sm:h-8 sm:w-8 text-[#facc15]" />
+              )}
+            </div>
+            <div>
+              <CardTitle className="text-xl sm:text-2xl font-black uppercase text-black tracking-tight">
                 {providerConfig.terminology.setup}
-              </>
-            ) : (
-              <>
-                <Gauge className="h-5 w-5 sm:h-6 sm:w-6" />
-                {providerConfig.terminology.setup}
-              </>
-            )}
-          </CardTitle>
-          <p className="text-sm text-gray-400">
-            {providerConfig.type === 'solar'
-              ? `Connect your ${providerConfig.terminology.device} to start monitoring your solar energy generation.`
-              : `Connect your Kenya Power smart meter to start monitoring your real energy usage.`}
-          </p>
-          <div className="mt-2 p-2 bg-aurora-green/10 border border-aurora-green/20 rounded-md">
-            <p className="text-xs text-aurora-green-light flex items-center">
-              <Check className="h-4 w-4 mr-1 flex-shrink-0" />
-              {providerConfig.type === 'solar'
-                ? `Setting up your ${providerConfig.terminology.device} enables real-time solar generation data collection and personalized insights`
-                : 'Setting up your meter enables real-time data collection and personalized insights'}
-            </p>
+              </CardTitle>
+              <p className="text-sm font-bold text-black/70">
+                {providerConfig.type === 'solar'
+                  ? `Connect your ${providerConfig.terminology.device} to unlock real-time solar harvest data.`
+                  : `Connect your Kenya Power smart meter to start tracking live consumption architecture.`}
+              </p>
+            </div>
           </div>
         </CardHeader>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2' : 'grid-cols-3'} bg-aurora-card border border-aurora-green/20`}>
-          <TabsTrigger value="current" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs sm:text-sm">
-            <Gauge className="h-4 w-4 mr-1" />
-            {isMobile ? 'Current' : providerConfig.terminology.setup.replace('Setup', 'Current')}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className={`grid w-full h-auto p-0 ${isMobile ? 'grid-cols-2' : 'grid-cols-3'} bg-transparent gap-2`}>
+          <TabsTrigger 
+            value="current" 
+            className="neo-button h-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs sm:text-sm font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] data-[state=active]:shadow-none data-[state=active]:translate-x-[2px] data-[state=active]:translate-y-[2px]"
+          >
+            <Gauge className="h-4 w-4 mr-2" />
+            {isMobile ? 'DEVICE' : `ACTIVE ${providerConfig.terminology.device.toUpperCase()}`}
           </TabsTrigger>
-          <TabsTrigger value="history" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs sm:text-sm">
-            <History className="h-4 w-4 mr-1" />
-            {isMobile ? 'History' : providerConfig.terminology.setup.replace('Setup', 'History')}
+          <TabsTrigger 
+            value="history" 
+            className="neo-button h-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs sm:text-sm font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] data-[state=active]:shadow-none data-[state=active]:translate-x-[2px] data-[state=active]:translate-y-[2px]"
+          >
+            <History className="h-4 w-4 mr-2" />
+            {isMobile ? 'LOGS' : 'HANDOFF HISTORY'}
           </TabsTrigger>
           {!isMobile && (
-            <TabsTrigger value="new" className="data-[state=active]:bg-aurora-green data-[state=active]:text-black text-xs sm:text-sm">
-              <Plus className="h-4 w-4 mr-1" />
-              Add New
+            <TabsTrigger 
+              value="new" 
+              className="neo-button h-12 data-[state=active]:bg-black data-[state=active]:text-white text-xs sm:text-sm font-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] data-[state=active]:shadow-none data-[state=active]:translate-x-[2px] data-[state=active]:translate-y-[2px]"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              PROVISION NEW
             </TabsTrigger>
           )}
         </TabsList>
@@ -499,54 +501,28 @@ const MeterSetup = ({ }: MeterSetupProps) => {
           )}
 
           {profile?.meter_number ? (
-            <Card className="bg-aurora-card border-aurora-green/20">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg text-aurora-green-light">
-                      {providerConfig.type === 'solar' ? `Connected ${providerConfig.terminology.device}` : 'Connected Meter'}
-                    </CardTitle>
-                    <div className="flex mt-1 space-x-2">
-                      {profile?.meter_category && (
-                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-                          {providerConfig.type === 'solar' ? (
-                            <SolarPanel className="h-3 w-3 mr-1" />
-                          ) : (
-                            <Building className="h-3 w-3 mr-1" />
-                          )}
-                          {profile.meter_category === 'SME' ? 'SME' :
-                            profile.meter_category.charAt(0).toUpperCase() + profile.meter_category.slice(1)}
-                        </Badge>
-                      )}
-                      {profile?.meter_category === 'industry' && profile?.industry_type && (
-                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
-                          <Factory className="h-3 w-3 mr-1" />
-                          {profile.industry_type.charAt(0).toUpperCase() + profile.industry_type.slice(1)}
-                        </Badge>
-                      )}
-                      <Badge className={`${hasMeterConnected ? 'bg-green-500/20 text-green-400 border-green-500/30' : (meterStatus === 'disconnected' ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30')}`}>
-                        <Zap className="h-3 w-3 mr-1" />
-                        {hasMeterConnected ? 'Real-time' : (meterStatus === 'disconnected' ? 'Disconnected' : 'Connecting...')}
-                      </Badge>
+            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+              <CardHeader className="pb-3 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-black neo-brutal shadow-none text-white">
+                      {providerConfig.type === 'solar' ? <SolarPanel className="h-5 w-5" /> : <Gauge className="h-5 w-5" />}
                     </div>
-                  </div>
-                  <div className={`flex items-center text-sm ${hasMeterConnected ? 'text-aurora-green' : 'text-yellow-400'}`}>
-                    {hasMeterConnected ? (
-                      <>
-                        <Check className="h-3 w-3 mr-1" />
-                        Active
-                      </>
-                    ) : meterStatus === 'disconnected' ? (
-                      <>
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Disconnected
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="h-3 w-3 mr-1" />
-                        Connecting
-                      </>
-                    )}
+                    <div>
+                      <CardTitle className="text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                        {providerConfig.type === 'solar' ? `CONNECTED ${providerConfig.terminology.device.toUpperCase()}` : 'ACTIVE SMART METER'}
+                      </CardTitle>
+                      <div className="flex flex-wrap mt-1 gap-2">
+                        {profile?.meter_category && (
+                          <div className="bg-aurora-purple text-white text-[10px] font-black px-2 py-0.5 border-2 border-black uppercase">
+                            {profile.meter_category === 'SME' ? 'SME' : profile.meter_category}
+                          </div>
+                        )}
+                        <div className={`text-[10px] font-black px-2 py-0.5 border-2 border-black uppercase ${hasMeterConnected ? 'bg-aurora-green text-white' : 'bg-[#facc15] text-black animate-pulse'}`}>
+                          {hasMeterConnected ? 'UPSTREAM ATTACHED' : 'SEARCHING...'}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardHeader>

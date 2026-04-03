@@ -443,52 +443,36 @@ const EnergyDashboard = () => {
         <div className="space-y-6 animate-fade-in">
           {/* Real-time Status Banner */}
           <Card 
-            className="bg-aurora-card/80 backdrop-blur-md aurora-glow transition-all duration-500"
-            style={{ 
-              borderColor: `${providerConfig.colors.primary}40`,
-              boxShadow: `0 0 20px ${providerConfig.colors.primary}15`
-            }}
+            className="neo-card bg-white dark:bg-slate-900 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-500"
           >
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
                   <div className="relative">
                     <div 
-                      className={`w-3 h-3 rounded-full ${hasMeterConnected ? 'animate-pulse' : ''}`}
-                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b') }}
-                    ></div>
-                    <div 
-                      className={`absolute inset-0 w-3 h-3 rounded-full ${hasMeterConnected ? 'animate-ping' : ''} opacity-75`}
-                      style={{ backgroundColor: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b') }}
+                      className={`w-4 h-4 border-2 border-black ${hasMeterConnected ? 'animate-pulse' : ''}`}
+                      style={{ backgroundColor: hasMeterConnected ? '#10b981' : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b') }}
                     ></div>
                   </div>
                   <div className="flex flex-col">
                     <span 
-                      className="text-sm font-semibold tracking-tight"
-                      style={{ color: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary) }}
+                      className="text-sm font-black uppercase tracking-tight text-black dark:text-white"
                     >
-                      {hasMeterConnected ? `Live ${providerConfig.name} Connection` : (meterStatus === 'disconnected' ? `${providerConfig.name} Disconnected` : `Connecting to ${providerConfig.name}...`)}
+                      {hasMeterConnected ? `LIVE CONNECTION: ${providerConfig.name}` : (meterStatus === 'disconnected' ? `${providerConfig.name} OFFLINE` : `LINKING ${providerConfig.name}...`)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                      {hasMeterConnected ? 'System Operational' : (meterStatus === 'disconnected' ? 'Offline Mode' : 'Establishing Secure Link')}
+                    <span className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
+                      {hasMeterConnected ? 'SYSTEM ARMED & OPERATIONAL' : (meterStatus === 'disconnected' ? 'MANUAL MODE ACTIVE' : 'ESTABLISHING SECURE PROTOCOLS')}
                     </span>
                   </div>
                   {safeEnergyData.daily_total === 0 && hasMeterConnected && (
-                    <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-500 bg-amber-500/10">
-                      Waiting for Data
-                    </Badge>
+                    <div className="bg-black text-[#facc15] text-[10px] font-black px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase">
+                      Syncing...
+                    </div>
                   )}
                 </div>
                 <Button
                   onClick={hasMeterConnected ? getNewReading : () => window.location.hash = '#meter'}
-                  size="sm"
-                  variant="outline"
-                  className="transition-all hover:scale-105 active:scale-95"
-                  style={{ 
-                    backgroundColor: `${hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary)}15`,
-                    borderColor: `${hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary)}40`,
-                    color: hasMeterConnected ? providerConfig.colors.primary : (meterStatus === 'disconnected' ? '#f87171' : providerConfig.colors.primary)
-                  }}
+                  className="neo-button bg-black text-white hover:bg-aurora-green shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] w-full md:w-auto"
                   disabled={loading}
                 >
                   {loading ? (
@@ -496,7 +480,7 @@ const EnergyDashboard = () => {
                   ) : (
                     <Zap className="h-4 w-4 mr-2" />
                   )}
-                  {hasMeterConnected ? `Refresh ${providerConfig.terminology.device}` : (meterStatus === 'disconnected' ? 'Reconnect Device' : 'Establishing...')}
+                  {hasMeterConnected ? `PING ${providerConfig.terminology.device.toUpperCase()}` : (meterStatus === 'disconnected' ? 'RETRY LINK' : 'NEGOTIATING...')}
                 </Button>
               </div>
             </CardContent>
@@ -602,13 +586,13 @@ const EnergyDashboard = () => {
           )}
 
           {/* Real-time Usage Chart - Mobile Optimized */}
-          <Card className="bg-aurora-card border-aurora-green/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg sm:text-xl text-aurora-green-light">
-                {energyProvider === 'Solar' ? 'Real-time Solar Generation' : 'Real-time Energy Usage'}
+          <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+              <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                {energyProvider === 'Solar' ? 'FLOW DYNAMICS' : 'LIVESTREAM METRICS'}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
                 {chartData.some(d => d.usage > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -664,13 +648,13 @@ const EnergyDashboard = () => {
 
           {/* Hourly Pattern Chart - Only show if we have data */}
           {safeAnalytics.hourlyPattern.length > 0 && (
-            <Card className="bg-aurora-card border-aurora-blue/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-                  {energyProvider === 'Solar' ? '24-Hour Solar Generation Pattern' : '24-Hour Usage Pattern'}
+            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+              <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+                <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                  {energyProvider === 'Solar' ? '24-HOUR GENERATION HARVEST' : '24-HOUR USAGE ARCHITECTURE'}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={safeAnalytics.hourlyPattern}>
@@ -706,13 +690,13 @@ const EnergyDashboard = () => {
 
           <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'lg:grid-cols-2 gap-6'}`}>
             {/* Device Usage Breakdown */}
-            <Card className="bg-aurora-card border-aurora-blue/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg sm:text-xl text-aurora-blue-light">
-                  {energyProvider === 'Solar' ? 'Solar Load Breakdown' : 'Device Usage Breakdown'}
+            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+              <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+                <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                  {energyProvider === 'Solar' ? 'LOAD DISTRIBUTION' : 'HARDWARE CONSUMPTION'}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {safeAnalytics.deviceBreakdown.some(d => d.cost > 0) ? (
                   <>
                     <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
@@ -811,13 +795,13 @@ const EnergyDashboard = () => {
             </Card>
 
             {/* Weekly Trend Analysis */}
-            <Card className="bg-aurora-card border-aurora-purple/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg sm:text-xl text-aurora-purple-light">
-                  {energyProvider === 'Solar' ? 'Solar Weekly Trend' : 'Weekly Trend'}
+            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
+              <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
+                <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+                  {energyProvider === 'Solar' ? 'WEEKLY PERFORMANCE' : 'WEEKLY VELOCITY'}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {safeAnalytics.weeklyTrend.length > 0 && safeAnalytics.weeklyTrend.some(d => d.usage > 0) ? (
                   <div className={`${isMobile ? 'h-48' : 'h-64'}`}>
                     <ResponsiveContainer width="100%" height="100%">
