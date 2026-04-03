@@ -5,7 +5,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnergyProvider } from "@/contexts/EnergyProviderContext";
 import { useMeter } from "@/contexts/MeterContext";
-import { Info } from "lucide-react";
+import { Info, User, LogOut } from "lucide-react";
 
 // Lazy load components for better performance
 const EnergyDashboard = lazy(() => import("@/components/EnergyDashboard"));
@@ -368,20 +368,17 @@ const Index = () => {
 
           {/* Mobile bottom navigation for hidden tabs */}
           {isMobile && visibleTabKeys.length > 5 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-aurora-card border-t border-aurora-green/20 px-2 py-2 z-50">
-              <div className="grid grid-cols-4 gap-1">
+            <div className="fixed bottom-0 left-0 right-0 bg-[#facc15] border-t-4 border-black px-2 py-4 z-50 shadow-[0px_-4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="grid grid-cols-4 gap-2">
                 {visibleTabs.slice(5, 9).map(([key, config]) => (
                   <button
                     key={key}
                     onClick={() => handleTabChange(key)}
-                    className={`text-xs p-2 rounded transition-colors ${
+                    className={`text-[10px] font-black uppercase p-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all ${
                       activeTab === key
-                        ? "bg-aurora-green text-black"
-                        : "text-gray-300 hover:text-white hover:bg-slate-700/50"
+                        ? "bg-black text-white"
+                        : "bg-white text-black"
                     }`}
-                    style={{
-                      backgroundColor: activeTab === key && provider ? providerConfig?.colors?.primary : undefined
-                    }}
                   >
                     {config.label}
                   </button>
@@ -395,18 +392,17 @@ const Index = () => {
             <TabsContent
               key={tabKey}
               value={tabKey}
-              className={isMobile ? "pb-20" : ""}
+              className={`${isMobile ? "pb-32" : "pb-12"} animate-fade-in`}
             >
               <Suspense fallback={<TabLoadingSpinner />}>
-                {renderTabContent(tabKey)}
+                <div className="neo-card bg-white/5 dark:bg-slate-900/50 backdrop-blur-sm border-2 border-black p-1 md:p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                  {renderTabContent(tabKey)}
+                </div>
               </Suspense>
             </TabsContent>
           ))}
         </Tabs>
       </div>
-      
-      {/* Keep the floating chatbot for use outside the chat tab, but hide on mobile when chat tab is active */}
-      {/* Chatbot temporarily disabled due to build issues */}
     </div>
   );
 };
