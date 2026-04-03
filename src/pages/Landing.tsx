@@ -209,19 +209,19 @@ const Landing = () => {
           <div className="glass-card p-10 sm:p-16 mb-8 text-center border-white/5 bg-slate-950/40">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card border-aurora-green/30 text-aurora-green-light text-xs font-bold uppercase tracking-widest mb-8">
               <span className="w-2 h-2 rounded-full bg-aurora-green animate-pulse"></span>
-              Prophet Engine v2.0 Live
+              Platform Status: Optimal
             </div>
-            <h1 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-br from-white via-slate-200 to-aurora-green/80 bg-clip-text text-transparent uppercase tracking-tighter shadow-aurora-green/10">
-              The Neural Core of <br className="hidden md:block" /> Your Energy Grid.
+            <h1 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-br from-white via-slate-200 to-aurora-green/80 bg-clip-text text-transparent tracking-tight shadow-aurora-green/10">
+              Enterprise-Grade <br className="hidden md:block" /> Energy Intelligence
             </h1>
             <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 font-medium leading-relaxed">
-              Ditch the archaic utility bill. Sync your KPLC smart meter or Solar Inverter directly into a localized AI core to predict costs, catch anomalies, and optimize consumption in real-time.
+              Modernize your power tracking. Seamlessly integrate your existing smart meters or solar inverters with our analytics platform to forecast expenses, detect anomalies, and optimize efficiency.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
               <Link to="/auth">
-                <Button className="glass-button-primary h-14 px-10 text-lg uppercase tracking-widest font-bold">
-                  Initialize Uplink <ArrowRight className="ml-2 h-5 w-5" />
+                <Button className="glass-button-primary h-14 px-10 text-lg font-bold">
+                  Get Started <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
               <Button 
@@ -281,13 +281,13 @@ const Landing = () => {
               >
                 ✕
               </Button>
-              <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">Terminal Sync</h3>
+              <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Hardware Integration</h3>
               <p className="text-aurora-green-light font-bold text-xs uppercase tracking-widest mb-8">Hardware Interface Guide</p>
               
               <div className="space-y-8">
                 <div className="glass-card p-4 border-white/5 bg-white/5">
-                   <h4 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-2 flex items-center"><Zap className="h-4 w-4 mr-2" /> Digital Handshake</h4>
-                   <p className="text-sm font-medium text-slate-300 leading-relaxed">Direct telemetry stream from your meter to the Aurora Neural Engine via secure encrypted channels.</p>
+                   <h4 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-2 flex items-center"><Zap className="h-4 w-4 mr-2" /> Direct Connectivity</h4>
+                   <p className="text-sm font-medium text-slate-300 leading-relaxed">Direct telemetry stream from your meter to the Aurora platform via secure encrypted channels.</p>
                 </div>
                 <div className="glass-card p-4 border-white/5 bg-white/5">
                    <h4 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-2 flex items-center"><Shield className="h-4 w-4 mr-2" /> Edge Processing</h4>
@@ -315,8 +315,8 @@ const Landing = () => {
              {/* Bento Item 1: Prophet Engine (Large, spans 2 columns) */}
              <div className="md:col-span-2 glass-card p-8 border-white/5 bg-gradient-to-br from-aurora-blue-light/5 to-transparent relative group overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-aurora-blue-light/10 blur-[100px] rounded-full group-hover:bg-aurora-blue-light/20 transition-all duration-700"></div>
-                <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Prophet Forecasting</h3>
-                <p className="text-slate-400 font-medium mb-8 max-w-md">Our neural network predicts your exact month-end bill based on thousands of historical micro-patterns and current grid tariffs.</p>
+                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Predictive Analytics</h3>
+                <p className="text-slate-400 font-medium mb-8 max-w-md">Our algorithm predicts your exact month-end bill based on historical micro-patterns and current grid tariffs.</p>
                 
                 {/* Telemetry Mockup */}
                 <div className="glass-card border-white/10 p-4 bg-slate-950/80 transform group-hover:-translate-y-2 transition-transform duration-500 shadow-2xl mt-auto">
@@ -335,8 +335,8 @@ const Landing = () => {
              {/* Bento Item 2: Sentinel Alerts */}
              <div className="glass-card p-8 border-white/5 bg-gradient-to-br from-red-500/5 to-transparent relative overflow-hidden group">
                 <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-red-500/10 blur-[60px] rounded-full group-hover:bg-red-500/20 transition-all"></div>
-                <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Sentinel Ops</h3>
-                <p className="text-slate-400 font-medium text-sm mb-6">Real-time anomaly detection. We alert you instantly if specific appliances begin draining unusual power amounts.</p>
+                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Anomaly Detection</h3>
+                <p className="text-slate-400 font-medium text-sm mb-6">Real-time usage monitoring. We alert you instantly if specific appliances begin consuming unusual power amounts.</p>
                 
                 <div className="space-y-3 mt-auto relative z-10">
                    <div className="glass-card p-3 border-red-500/20 bg-red-500/5 flex items-start gap-3">
@@ -352,7 +352,7 @@ const Landing = () => {
              {/* Bento Item 3: Hardware Agnostic */}
              <div className="glass-card p-8 border-white/5 bg-gradient-to-br from-yellow-500/5 to-transparent flex flex-col justify-between group overflow-hidden">
                 <div>
-                  <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Hardware Agnostic</h3>
+                  <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Hardware Agnostic</h3>
                   <p className="text-slate-400 font-medium text-sm mb-4">Seamlessly connect regardless of infrastructure. From standard KPLC prepaid nodes to complex Solar Inverter gateways.</p>
                 </div>
                 <div className="flex gap-4">
@@ -370,7 +370,7 @@ const Landing = () => {
              {/* Bento Item 4: Encryption */}
              <div className="md:col-span-2 glass-card p-8 border-white/5 bg-gradient-to-l from-slate-800/50 to-transparent flex items-center justify-between">
                 <div>
-                   <h3 className="text-2xl font-black uppercase text-white mb-2 tracking-tight">Encrypted Data Core</h3>
+                   <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Enterprise Security</h3>
                    <p className="text-slate-400 font-medium max-w-md">Your consumption signatures are locked behind AES-256 protocols. Your data never leaves your personal sovereign vault without explicit consent.</p>
                 </div>
                 <div className="hidden sm:flex w-24 h-24 rounded-full border border-aurora-green/20 items-center justify-center relative">
@@ -387,16 +387,16 @@ const Landing = () => {
         <div className="max-w-4xl mx-auto text-center glass-card p-12 sm:p-20 border-white/10 bg-slate-900/40 relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-aurora-green/10 to-aurora-blue-light/10 blur-[120px] rounded-full pointer-events-none"></div>
           
-          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white uppercase tracking-tighter relative z-10">
-            Terminate The <br/> <span className="text-slate-500">Guesswork</span>
+          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white tracking-tight relative z-10">
+            Take Control of Your <br/> <span className="text-aurora-green">Energy Operations</span>
           </h2>
           <p className="text-xl font-medium text-slate-400 mb-12 max-w-xl mx-auto relative z-10">
-            Join the decentralized neural network of optimized energy nodes across Kenya.
+            Join thousands of modern households and businesses optimizing their power consumption across Kenya.
           </p>
           
           <Link to="/auth" className="relative z-10 inline-block">
-            <Button className="glass-button-primary h-16 px-12 text-xl uppercase tracking-widest font-black shadow-2xl shadow-aurora-green/20">
-              Initiate Registration
+            <Button className="glass-button-primary h-16 px-12 text-xl font-bold shadow-2xl shadow-aurora-green/20">
+              Create Free Account
             </Button>
           </Link>
         </div>
@@ -409,7 +409,7 @@ const Landing = () => {
             <div className="w-8 h-8 glass-card border-aurora-green/30 flex items-center justify-center bg-aurora-green/10">
               <Zap className="h-4 w-4 text-aurora-green-light" />
             </div>
-            <span className="font-black text-white tracking-widest uppercase">Aurora Grid Ops</span>
+            <span className="font-black text-white tracking-widest uppercase">Aurora Energy</span>
           </div>
           <div className="flex items-center gap-6">
              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-300 cursor-pointer transition-colors">v2.1.0 Stable</span>

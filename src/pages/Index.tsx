@@ -52,7 +52,7 @@ const Index = () => {
   const [loadedTabs, setLoadedTabs] = useState(new Set(["dashboard"])); // Pre-load dashboard
   const isMobile = useIsMobile();
   const { unreadCount } = useNotifications();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { provider, providerConfig, isLoading: providerLoading } = useEnergyProvider();
   const { meterNumber, status: meterStatus } = useMeter();
 
@@ -329,7 +329,7 @@ const Index = () => {
               <span className="ml-2">{user?.user_metadata?.full_name?.split(' ')[0] || 'ACCOUNT'}</span>
             </button>
             <button 
-              onClick={() => useAuth().signOut()} 
+              onClick={() => signOut()} 
               className="glass-button bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400 text-xs md:text-sm px-4 py-2"
             >
               <LogOut className="h-4 w-4" />
