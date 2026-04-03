@@ -27,23 +27,23 @@ const StatCard = memo(({ icon: Icon, title, value, color, trend, isEmpty = false
   const safeColor = typeof color === 'string' ? color : 'gray';
 
   return (
-    <Card className={`neo-card border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] transition-all ${isEmpty ? 'opacity-40' : ''}`}>
+    <Card className={`group transition-all duration-500 hover:scale-[1.02] ${isEmpty ? 'opacity-40' : ''}`}>
       <CardContent className="p-4 sm:p-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-             <div className={`p-2 bg-black neo-brutal shadow-none`}>
-               <Icon className={`h-5 w-5 sm:h-7 sm:w-7 text-white`} />
+          <div className="flex items-center space-x-4">
+             <div className="p-3 rounded-2xl bg-white/5 border border-white/10 group-hover:bg-white/10 transition-colors shadow-inner">
+               <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
              </div>
             <div>
-              <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{title}</p>
-              <p className={`text-xl sm:text-3xl font-black tracking-tighter text-black dark:text-white`}>{value}</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest text-slate-400 mb-1">{title}</p>
+              <p className="text-xl sm:text-3xl font-bold tracking-tight text-white">{value}</p>
             </div>
           </div>
           {trend && !isEmpty && (
-            <div className={`flex items-center justify-center w-8 h-8 rounded-none border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
-              {trend === 'up' && <TrendingUp className="h-4 w-4 text-red-600" />}
-              {trend === 'down' && <TrendingDown className="h-4 w-4 text-green-600" />}
-              {trend === 'stable' && <Minus className="h-4 w-4 text-slate-600" />}
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              {trend === 'up' && <TrendingUp className="h-5 w-5 text-red-400 drop-shadow-[0_0_8px_rgba(248,113,113,0.5)]" />}
+              {trend === 'down' && <TrendingDown className="h-5 w-5 text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />}
+              {trend === 'stable' && <Minus className="h-5 w-5 text-slate-400" />}
             </div>
           )}
         </div>
@@ -175,18 +175,19 @@ const EnergyDashboard = () => {
       {!loading && meterConnectionChecked && !hasMeterConnected && (
         <div className="space-y-6 animate-fade-in">
           {/* No Meter Connected Banner */}
-          <Card className="neo-card bg-[#facc15] border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-black neo-brutal shadow-none flex items-center justify-center transform -rotate-2">
-                    <AlertCircle className="h-10 w-10 text-[#facc15]" />
+          <Card className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border-amber-500/30 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl group-hover:bg-amber-500/20 transition-all duration-700"></div>
+            <CardContent className="p-6 relative z-10">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center space-x-5">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-500/20 backdrop-blur-md border border-amber-500/30 flex items-center justify-center shadow-lg">
+                    <AlertCircle className="h-10 w-10 text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-black text-black uppercase tracking-tight">
+                    <h3 className="text-xl font-bold text-white uppercase tracking-tight mb-1">
                       {energyProvider === 'Solar' ? 'NO INVERTER DETECTED' : 'NO SMART METER FOUND'}
                     </h3>
-                    <p className="text-sm font-bold text-black/70">
+                    <p className="text-sm font-medium text-slate-300">
                       {energyProvider === 'Solar'
                         ? 'Connect your solar inverter to unlock live generation insights and power flow metrics.'
                         : 'Link your Kenya Power smart meter to start tracking real-time energy consumption.'}
@@ -195,7 +196,7 @@ const EnergyDashboard = () => {
                 </div>
                 <Button
                   onClick={() => window.location.hash = '#meter'}
-                  className="neo-button bg-black text-white hover:bg-aurora-purple shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)] w-full md:w-auto"
+                  className="bg-white/10 hover:bg-white/20 border-white/10 text-white w-full md:w-auto px-8"
                 >
                   {energyProvider === 'Solar' ? (
                     <>
@@ -284,26 +285,26 @@ const EnergyDashboard = () => {
           </div>
 
           {/* Empty Chart */}
-          <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900">
-            <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
-              <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+          <Card>
+            <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+              <CardTitle className="text-lg sm:text-xl font-bold uppercase text-white tracking-tight">
                 {energyProvider === 'Solar' ? 'LIVE SOLAR GENERATION' : 'REAL-TIME ENERGY USAGE'}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <div className={`${isMobile ? 'h-48' : 'h-64'} flex items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50`}>
-                <div className="text-center p-6 bg-white dark:bg-black neo-brutal shadow-none transform rotate-1">
+              <div className={`${isMobile ? 'h-48' : 'h-64'} flex items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/5`}>
+                <div className="text-center p-8 glass-card border-white/20">
                   {energyProvider === 'Solar' ? (
                     <>
-                      <Sun className="h-12 w-12 mx-auto mb-4 text-aurora-purple" />
-                      <p className="font-black text-black dark:text-white uppercase">Waiting for Solar...</p>
-                      <p className="text-xs text-slate-500 font-bold mt-2">Connect inverter to see live sun metrics</p>
+                      <Sun className="h-12 w-12 mx-auto mb-4 text-aurora-purple animate-pulse" />
+                      <p className="font-bold text-white uppercase tracking-wider">Waiting for Solar...</p>
+                      <p className="text-xs text-slate-400 font-medium mt-2">Connect inverter to see live sun metrics</p>
                     </>
                   ) : (
                     <>
-                      <Zap className="h-12 w-12 mx-auto mb-4 text-aurora-green" />
-                      <p className="font-black text-black dark:text-white uppercase">Data Feed Offline</p>
-                      <p className="text-xs text-slate-500 font-bold mt-2">Link meter to visualize consumption</p>
+                      <Zap className="h-12 w-12 mx-auto mb-4 text-aurora-green animate-pulse" />
+                      <p className="font-bold text-white uppercase tracking-wider">Data Feed Offline</p>
+                      <p className="text-xs text-slate-400 font-medium mt-2">Link meter to visualize consumption</p>
                     </>
                   )}
                 </div>
@@ -443,36 +444,39 @@ const EnergyDashboard = () => {
         <div className="space-y-6 animate-fade-in">
           {/* Real-time Status Banner */}
           <Card 
-            className="neo-card bg-white dark:bg-slate-900 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all duration-500"
+            className="border-white/5 bg-white/5 backdrop-blur-md overflow-hidden relative"
           >
             <CardContent className="p-4">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center space-x-4">
                   <div className="relative">
                     <div 
-                      className={`w-4 h-4 border-2 border-black ${hasMeterConnected ? 'animate-pulse' : ''}`}
-                      style={{ backgroundColor: hasMeterConnected ? '#10b981' : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b') }}
+                      className={`w-3 h-3 rounded-full ${hasMeterConnected ? 'animate-pulse' : ''}`}
+                      style={{ 
+                        backgroundColor: hasMeterConnected ? '#10b981' : (meterStatus === 'disconnected' ? '#f87171' : '#f59e0b'),
+                        boxShadow: hasMeterConnected ? '0 0 10px #10b981' : 'none'
+                      }}
                     ></div>
                   </div>
                   <div className="flex flex-col">
                     <span 
-                      className="text-sm font-black uppercase tracking-tight text-black dark:text-white"
+                      className="text-sm font-bold uppercase tracking-wide text-white"
                     >
                       {hasMeterConnected ? `LIVE CONNECTION: ${providerConfig.name}` : (meterStatus === 'disconnected' ? `${providerConfig.name} OFFLINE` : `LINKING ${providerConfig.name}...`)}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">
+                    <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
                       {hasMeterConnected ? 'SYSTEM ARMED & OPERATIONAL' : (meterStatus === 'disconnected' ? 'MANUAL MODE ACTIVE' : 'ESTABLISHING SECURE PROTOCOLS')}
                     </span>
                   </div>
                   {safeEnergyData.daily_total === 0 && hasMeterConnected && (
-                    <div className="bg-black text-[#facc15] text-[10px] font-black px-2 py-0.5 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] uppercase">
+                    <div className="bg-aurora-green/20 text-aurora-green-light text-[10px] font-bold px-2 py-0.5 rounded-full border border-aurora-green/30 uppercase">
                       Syncing...
                     </div>
                   )}
                 </div>
                 <Button
                   onClick={hasMeterConnected ? getNewReading : () => window.location.hash = '#meter'}
-                  className="neo-button bg-black text-white hover:bg-aurora-green shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] w-full md:w-auto"
+                  className="bg-white/10 hover:bg-white/20 border-white/10 text-white w-full md:w-auto"
                   disabled={loading}
                 >
                   {loading ? (
@@ -586,9 +590,9 @@ const EnergyDashboard = () => {
           )}
 
           {/* Real-time Usage Chart - Mobile Optimized */}
-          <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
-              <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+          <Card>
+            <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+              <CardTitle className="text-lg sm:text-xl font-bold uppercase text-white tracking-tight">
                 {energyProvider === 'Solar' ? 'FLOW DYNAMICS' : 'LIVESTREAM METRICS'}
               </CardTitle>
             </CardHeader>
@@ -648,9 +652,9 @@ const EnergyDashboard = () => {
 
           {/* Hourly Pattern Chart - Only show if we have data */}
           {safeAnalytics.hourlyPattern.length > 0 && (
-            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
-              <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
-                <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+            <Card>
+              <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+                <CardTitle className="text-lg sm:text-xl font-bold uppercase text-white tracking-tight">
                   {energyProvider === 'Solar' ? '24-HOUR GENERATION HARVEST' : '24-HOUR USAGE ARCHITECTURE'}
                 </CardTitle>
               </CardHeader>
@@ -690,9 +694,9 @@ const EnergyDashboard = () => {
 
           <div className={`grid grid-cols-1 ${isMobile ? 'gap-4' : 'lg:grid-cols-2 gap-6'}`}>
             {/* Device Usage Breakdown */}
-            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
-              <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
-                <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+            <Card>
+              <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+                <CardTitle className="text-lg sm:text-xl font-bold uppercase text-white tracking-tight">
                   {energyProvider === 'Solar' ? 'LOAD DISTRIBUTION' : 'HARDWARE CONSUMPTION'}
                 </CardTitle>
               </CardHeader>
@@ -795,9 +799,9 @@ const EnergyDashboard = () => {
             </Card>
 
             {/* Weekly Trend Analysis */}
-            <Card className="neo-card border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] bg-white dark:bg-slate-900 overflow-hidden">
-              <CardHeader className="pb-2 border-b-2 border-black bg-slate-50 dark:bg-slate-800">
-                <CardTitle className="text-lg sm:text-xl font-black uppercase text-black dark:text-white tracking-tight">
+            <Card>
+              <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+                <CardTitle className="text-lg sm:text-xl font-bold uppercase text-white tracking-tight">
                   {energyProvider === 'Solar' ? 'WEEKLY PERFORMANCE' : 'WEEKLY VELOCITY'}
                 </CardTitle>
               </CardHeader>

@@ -297,43 +297,43 @@ const Index = () => {
   const visibleTabKeys = visibleTabs.map(([key]) => key);
 
   return (
-    <div className="min-h-screen bg-aurora-dark flex flex-col font-mono">
-      {/* Neobrutalist Cockpit Header */}
-      <header className="sticky top-0 z-50 bg-[#facc15] border-b-4 border-black p-4 mb-6 shadow-[0px_4px_0px_0px_rgba(0,0,0,1)]">
+    <div className="min-h-screen flex flex-col">
+      {/* Glassmorphism Header */}
+      <header className="glass-header mb-6">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
-            <div className="bg-black p-2 neo-brutal shadow-none transform -rotate-1">
-              <div className="bg-aurora-green w-8 h-8 flex items-center justify-center">
-                 <div className="bg-white w-4 h-4 rounded-sm"></div>
+            <div className="p-2 glass-card border-none bg-gradient-to-br from-aurora-green to-blue-500/50">
+              <div className="bg-white/20 backdrop-blur-md w-8 h-8 rounded-lg flex items-center justify-center">
+                 <div className="bg-white w-3 h-3 rounded-sm shadow-[0_0_10px_rgba(255,255,255,0.5)]"></div>
               </div>
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black text-black tracking-tighter uppercase">
-                AURORA <span className="text-aurora-purple">ENERGY</span>
+              <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+                AURORA <span className="text-transparent bg-clip-text bg-gradient-to-r from-aurora-green-light to-blue-400">ENERGY</span>
               </h1>
-              <p className="text-[10px] md:text-xs font-black text-black/70 flex items-center gap-1 uppercase">
-                <span className="inline-block w-2 h-2 bg-black rounded-full animate-pulse"></span>
-                SYSTEM STATUS: {meterStatus === 'connected' ? 'OPTIMIZED' : 'CHECKING...'} • {provider || 'KPLC'} DATA FEED
+              <p className="text-[10px] md:text-xs font-medium text-slate-400 flex items-center gap-2 uppercase tracking-widest">
+                <span className="inline-block w-2 h-2 bg-aurora-green rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                SYSTEM: {meterStatus === 'connected' ? 'OPTIMIZED' : 'CHECKING...'} • {provider || 'KPLC'}
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <button 
               onClick={() => handleTabChange('account')} 
-              className={`neo-button flex items-center gap-2 py-1.5 px-4 h-auto text-xs md:text-sm ${
-                activeTab === 'account' ? 'bg-black text-white' : 'bg-white text-black'
+              className={`glass-button text-xs md:text-sm px-4 py-2 ${
+                activeTab === 'account' ? 'bg-white/20 border-white/30' : ''
               }`}
             >
               <User className="h-4 w-4" />
-              {user?.user_metadata?.full_name?.split(' ')[0] || 'ACCOUNT'}
+              <span className="ml-2">{user?.user_metadata?.full_name?.split(' ')[0] || 'ACCOUNT'}</span>
             </button>
             <button 
               onClick={() => useAuth().signOut()} 
-              className="neo-button bg-red-600 text-white flex items-center gap-2 py-1.5 px-4 h-auto text-xs md:text-sm hover:bg-black"
+              className="glass-button bg-red-500/10 border-red-500/20 hover:bg-red-500/20 text-red-400 text-xs md:text-sm px-4 py-2"
             >
               <LogOut className="h-4 w-4" />
-              {isMobile ? '' : 'EXIT'}
+              <span>{isMobile ? '' : 'EXIT'}</span>
             </button>
           </div>
         </div>
@@ -349,15 +349,11 @@ const Index = () => {
                 <TabsTrigger 
                   key={key}
                   value={key} 
-                  className={`neo-button text-xs md:text-sm h-11 px-4 md:px-8 data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:translate-x-[2px] data-[state=active]:translate-y-[2px] data-[state=active]:shadow-none transition-all`}
-                  style={{
-                    backgroundColor: activeTab === key ? 'black' : 'white',
-                    color: activeTab === key ? 'white' : 'black'
-                  }}
+                  className="glass-button text-xs md:text-sm h-11 px-6 md:px-8 data-[state=active]:bg-white/10 data-[state=active]:border-white/20 data-[state=active]:text-white transition-all duration-300"
                 >
                   {config.label}
                   {key === 'notifications' && unreadCount > 0 && (
-                    <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-black neo-border px-1.5 min-w-[20px] h-5 flex items-center justify-center">
+                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center shadow-lg border border-white/20">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </div>
                   )}
@@ -368,16 +364,16 @@ const Index = () => {
 
           {/* Mobile bottom navigation for hidden tabs */}
           {isMobile && visibleTabKeys.length > 5 && (
-            <div className="fixed bottom-0 left-0 right-0 bg-[#facc15] border-t-4 border-black px-2 py-4 z-50 shadow-[0px_-4px_0px_0px_rgba(0,0,0,1)]">
-              <div className="grid grid-cols-4 gap-2">
+            <div className="fixed bottom-0 left-0 right-0 bg-slate-950/80 backdrop-blur-2xl border-t border-white/10 px-4 py-6 z-50">
+              <div className="grid grid-cols-4 gap-3">
                 {visibleTabs.slice(5, 9).map(([key, config]) => (
                   <button
                     key={key}
                     onClick={() => handleTabChange(key)}
-                    className={`text-[10px] font-black uppercase p-2 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all ${
+                    className={`text-[10px] font-bold uppercase p-3 glass-button ${
                       activeTab === key
-                        ? "bg-black text-white"
-                        : "bg-white text-black"
+                        ? "bg-white/20 border-white/30"
+                        : "bg-white/5"
                     }`}
                   >
                     {config.label}
@@ -395,7 +391,7 @@ const Index = () => {
               className={`${isMobile ? "pb-32" : "pb-12"} animate-fade-in`}
             >
               <Suspense fallback={<TabLoadingSpinner />}>
-                <div className="neo-card bg-white/5 dark:bg-slate-900/50 backdrop-blur-sm border-2 border-black p-1 md:p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <div className="glass-card p-4 md:p-6 min-h-[500px]">
                   {renderTabContent(tabKey)}
                 </div>
               </Suspense>

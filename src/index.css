@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -32,7 +33,7 @@
   
   /* Reduce blur effects on mobile */
   .backdrop-blur-sm {
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(4px);
   }
   
   /* Optimize card shadows */
@@ -67,13 +68,13 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
+    --background: 240 10% 4%;
     --foreground: 0 0% 98%;
 
-    --card: 240 10% 3.9%;
+    --card: 240 10% 6%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 3.9%;
+    --popover: 240 10% 4%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 142.1 76.2% 36.3%;
@@ -91,11 +92,11 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 3.7% 15.9%;
+    --border: 240 3.7% 20%;
     --input: 240 3.7% 15.9%;
     --ring: 142.4 71.8% 29.2%;
 
-    --radius: 0.75rem;
+    --radius: 1.25rem;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -110,14 +111,7 @@
     --aurora-green: 142.1 76.2% 36.3%;
     --aurora-green-light: 142.1 71.8% 45%;
     --aurora-blue-light: 220 100% 70%;
-
-    /* Neobrutalist tokens */
-    --neo-border-width: 2px;
-    --neo-shadow-offset: 4px;
-    --neo-border-color: 0 0% 0%;
-    --neo-yellow: 47.9 95.8% 53.1%;
-    --neo-purple: 262.1 83.3% 57.8%;
-    --neo-green: 142.1 76.2% 36.3%;
+    --aurora-purple: 262.1 83.3% 57.8%;
   }
 }
 
@@ -127,8 +121,13 @@
   }
 
   body {
-    @apply bg-background text-foreground min-h-screen;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    @apply bg-background text-foreground min-h-screen text-slate-200;
+    font-family: 'Outfit', sans-serif;
+    background: radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 50% 100%, rgba(124, 58, 237, 0.1) 0%, transparent 40%),
+                #020617;
+    background-attachment: fixed;
   }
 
   /* Mobile-specific styles */
@@ -149,7 +148,7 @@
     }
     
     .container {
-      @apply px-2;
+      @apply px-4;
     }
     
     /* Touch-friendly sizing */
@@ -184,41 +183,26 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
-    animation: aurora-sweep 3s infinite;
+    background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent);
+    animation: aurora-sweep 4s infinite linear;
   }
 
   .aurora-gradient {
-    background: linear-gradient(135deg, rgb(16 185 129) 0%, rgb(59 130 246) 100%);
+    background: linear-gradient(135deg, hsl(var(--aurora-green)) 0%, #3b82f6 100%);
   }
 
   .bg-aurora-gradient {
-    background: linear-gradient(135deg, rgb(16 185 129) 0%, rgb(59 130 246) 100%);
+    background: linear-gradient(135deg, hsl(var(--aurora-green)) 0%, #3b82f6 100%);
   }
 
-  .aurora-green {
-    color: hsl(var(--aurora-green));
-  }
+  .aurora-green { color: hsl(var(--aurora-green)); }
+  .aurora-green-light { color: hsl(var(--aurora-green-light)); }
+  .aurora-blue-light { color: hsl(var(--aurora-blue-light)); }
+  .aurora-purple { color: hsl(var(--aurora-purple)); }
 
-  .aurora-green-light {
-    color: hsl(var(--aurora-green-light));
-  }
-
-  .aurora-blue-light {
-    color: hsl(var(--aurora-blue-light));
-  }
-
-  .bg-aurora-green {
-    background-color: hsl(var(--aurora-green));
-  }
-
-  .bg-aurora-green-light {
-    background-color: hsl(var(--aurora-green-light));
-  }
-
-  .bg-aurora-blue-light {
-    background-color: hsl(var(--aurora-blue-light));
-  }
+  .bg-aurora-green { background-color: hsl(var(--aurora-green)); }
+  .bg-aurora-green-light { background-color: hsl(var(--aurora-green-light)); }
+  .bg-aurora-blue-light { background-color: hsl(var(--aurora-blue-light)); }
   
   @keyframes aurora-sweep {
     0% { left: -100%; }
@@ -226,67 +210,69 @@
   }
 
   @keyframes aurora-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.02); }
   }
 
   .animate-aurora-pulse {
-    animation: aurora-pulse 2s ease-in-out infinite;
+    animation: aurora-pulse 3s ease-in-out infinite;
   }
 
-  /* Neobrutalist Utilities */
-  .neo-border {
-    border: var(--neo-border-width) solid hsl(var(--neo-border-color));
+  /* Glassmorphism Utilities */
+  .glass-card {
+    @apply rounded-3xl overflow-hidden transition-all duration-300;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
 
-  .neo-shadow {
-    box-shadow: var(--neo-shadow-offset) var(--neo-shadow-offset) 0px 0px hsl(var(--neo-border-color));
+  .glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   }
 
-  .neo-brutal {
-    @apply neo-border neo-shadow;
-    transition: all 0.2s ease;
+  .glass-button {
+    @apply rounded-2xl font-semibold py-2 px-6 flex items-center justify-center gap-2 transition-all duration-200 active:scale-95;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
   }
 
-  .neo-brutal:hover {
-    transform: translate(-1px, -1px);
-    box-shadow: calc(var(--neo-shadow-offset) + 2px) calc(var(--neo-shadow-offset) + 2px) 0px 0px hsl(var(--neo-border-color));
+  .glass-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
-  .neo-brutal:active {
-    transform: translate(calc(var(--neo-shadow-offset) - 1px), calc(var(--neo-shadow-offset) - 1px));
-    box-shadow: 1px 1px 0px 0px hsl(var(--neo-border-color));
+  .glass-button-primary {
+    @apply glass-button text-white;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.4) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
   }
 
-  .neo-card {
-    @apply neo-brutal bg-white dark:bg-slate-900 overflow-hidden;
+  .glass-button-primary:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.4) 0%, rgba(5, 150, 105, 0.5) 100%);
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
   }
 
-  .neo-button {
-    @apply neo-brutal font-bold py-2 px-6 flex items-center justify-center gap-2;
+  .glass-input {
+    @apply rounded-2xl px-4 py-2 bg-slate-900/40 backdrop-blur-md border border-white/10 outline-none transition-all focus:border-aurora-green/50 focus:ring-4 ring-aurora-green/10 text-white;
   }
 
-  .neo-button-primary {
-    @apply neo-button bg-aurora-green text-white;
+  .glass-header {
+    @apply sticky top-0 z-50 px-4 py-3 border-b border-white/10 backdrop-blur-xl bg-slate-950/60;
   }
 
-  .neo-button-yellow {
-    @apply neo-button bg-[#facc15] text-black;
+  /* Legacy Compat (To be removed after component migration) */
+  .neo-brutal, .neo-card, .neo-button, .neo-input, .neo-header, .neo-sidebar {
+    @apply glass-card; /* Alias to glass for immediate visual impact */
   }
-
-  .neo-button-purple {
-    @apply neo-button bg-aurora-purple text-white;
-  }
-
-  .neo-input {
-    @apply neo-border neo-shadow px-4 py-2 bg-white dark:bg-slate-900 outline-none focus:ring-2 ring-aurora-green/20;
-  }
-
-  .neo-header {
-    @apply neo-border bg-white dark:bg-slate-900 p-4 mb-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
-  }
-
-  .neo-sidebar {
-    @apply neo-border bg-white dark:bg-slate-900 h-full shadow-[4px_0px_0px_0px_rgba(0,0,0,1)];
-  }
+  
+  .neo-button { @apply glass-button; }
+  .neo-border { border: 1px solid rgba(255, 255, 255, 0.1); }
+  .neo-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
 }
