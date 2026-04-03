@@ -185,7 +185,7 @@ export const DeepDiveAnalysis = () => {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(val) => \`\${val} \${provider === 'Solar' ? 'kW' : 'kWh'}\`}
+                      tickFormatter={(val) => `${val} ${provider === 'Solar' ? 'kW' : 'kWh'}`}
                     />
                     <Tooltip 
                       contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid #475569', borderRadius: '8px' }}
@@ -285,7 +285,7 @@ export const DeepDiveAnalysis = () => {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(val) => \`\${val}\`}
+                      tickFormatter={(val) => `${val}`}
                     />
                     <Tooltip 
                       contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: '1px solid #475569', borderRadius: '8px' }}
@@ -329,7 +329,7 @@ export const DeepDiveAnalysis = () => {
                   <h4 className="text-rose-400 font-medium tracking-tight mb-1">Anomaly Report</h4>
                   <p className="text-slate-300 text-sm leading-relaxed">
                     {sentinelData.filter(d => d.anomaly !== null).length > 0 
-                      ? \`Sentinel detected \${sentinelData.filter(d => d.anomaly !== null).length} anomalous usage point(s) that deviate strongly from your established energy baseline. Inspect devices active during these spikes.\`
+                      ? `Sentinel detected ${sentinelData.filter(d => d.anomaly !== null).length} anomalous usage point(s) that deviate strongly from your established energy baseline. Inspect devices active during these spikes.`
                       : 'No significant anomalies detected in the current time frame. Your consumption remains within normal expected bounds.'}
                   </p>
                 </div>
