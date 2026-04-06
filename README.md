@@ -40,7 +40,7 @@ The smart meter simulator is a static HTML file that can be easily deployed to N
    ```javascript
    const AURORA_CONFIG = {
      // ... other config
-     proxyUrl: 'https://your-proxy-server.onrender.com/proxy/supabase-function' // Update this URL
+     proxyUrl: 'https://url.onrender.com/proxy/supabase-function' // Update this URL
    };
    ```
 
