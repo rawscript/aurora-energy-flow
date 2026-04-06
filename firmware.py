@@ -1,169 +1,204 @@
-import machine
-import network
-import time
-import math
-import urequests
-import ujson
-import gc
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
+#include <math.h>
 
-# ================= DEVICE INFO =================
-WIFI_SSID     = "Jase"
-WIFI_PASSWORD = "Tungsten12#"
-BACKEND_URL   = "https://auroraenergy.app/api/smart-meter/data"
+// ================= DEVICE INFO =================
+const String SMART_METER_ID = "44106278820";
+const String DEVICE_NAME   = "Aurora Smart Meter v1.0 - ACS712 POC";
 
-SMART_METER_ID = "4410627882"
-DEVICE_NAME   = "Aurora Smart Meter POC"
+// ================= WIFI ================= 
+const char* WIFI_SSID     = "Jase";
+const char* WIFI_PASSWORD = "Tungsten12#";
 
-# ================= GPIO =================
-# ESP8266 GPIO Map: D1=5, D2=4
-LED_GREEN = machine.Pin(5, machine.Pin.OUT)
-LED_WHITE = machine.Pin(4, machine.Pin.OUT)
-ADC_PIN   = machine.ADC(0)
+// ================= SUPABASE =================
+const String SUPABASE_URL = "https://rcthtxwzsqvwivritzln.supabase.co";
+const String SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjdGh0eHd6c3F2d2l2cml0emxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NzM2MjAsImV4cCI6MjA2ODI0OTYyMH0._bSOH4oY3Ug1l-NY7OPnXQr4Mt5mD7WgugNKjlwWAkM";
+const String BACKEND_URL  = SUPABASE_URL + "/functions/v1/smart-meter-webhook";
+const String USER_ID      = "c98883f0-8b2c-454e-a48a-781a939f0072";
 
-# ================= MEASUREMENT =================
-USE_DUMMY_VOLTAGE = True
-DUMMY_VOLTAGE     = 230.0   # Volts (simulated)
+// ================= TIMING =================
+const unsigned long DATA_SEND_INTERVAL = 30000; // 30 seconds
+const unsigned long LOOP_DELAY_MS      = 200;
 
-ACS_OFFSET  = 2.50          # Calibrate later (Center of ACS output)
-ACS_SENS    = 0.100         # ACS712-20A: 100mV/A
-ADC_REF     = 1.0           # ESP8266 A0 raw = 0-1V (usually)
+// ================= LED PINS =================
+const int LED_GREEN = 14;   // GPIO14 (D5) - WiFi / system status
+const int LED_WHITE = 12;   // GPIO12 (D6) - Sampling / activity
 
-SAMPLE_COUNT = 200
-SEND_INTERVAL_MS = 10000    # Report every 10 seconds
+// ================= ADC =================
+const float ADC_REF_VOLT   = 3.3;
+const float ADC_MAX_COUNTS = 1023.0;
+const int SAMPLE_COUNT = 300;
 
-# ================= GLOBALS =================
-wlan = network.WLAN(network.STA_IF)
-energy_kwh = 0.0
-last_send_time = 0
-last_energy_calc_time = time.ticks_ms()
+// ================= ACS712 (DIRECT, POC) =================
+const float ACS_OFFSET = 2.50;     // 0 A output voltage
+const float ACS_SENS   = 0.100;    // V/A (20A version)
 
-# ================= FUNCTIONS =================
+// ================= POC DUMMY VOLTAGE =================
+const bool USE_DUMMY_VOLTAGE = true;
+const float DUMMY_VOLTAGE_BASE = 230.0;
+const float DUMMY_VOLTAGE_VARIATION = 10.0;
+const unsigned long DUMMY_VOLTAGE_PERIOD = 60000;   // 1-minute full sine cycle
 
-def connect_wifi():
-    print("Connecting to WiFi...", end="")
-    wlan.active(True)
-    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
-    
-    timeout = 30
-    while not wlan.isconnected() and timeout > 0:
-        time.sleep(1)
-        print(".", end="")
-        timeout -= 1
-    
-    if wlan.isconnected():
-        print("\nWiFi Connected! IP:", wlan.ifconfig()[0])
-        LED_GREEN.on()
-    else:
-        print("\nWiFi Connection Failed.")
-        LED_GREEN.off()
+// ================= GLOBALS =================
+float Irms = 0.0;
+float Vrms = 0.0;
+bool wifiConnected = false;
+unsigned long lastSendTime = 0;
+unsigned long startTime = 0;
 
-def read_current_rms():
-    """Calculates RMS current by sampling the ACS712 on ADC(0)"""
-    sum_sq = 0
-    count = 0
-    
-    LED_WHITE.on()
-    for _ in range(SAMPLE_COUNT):
-        raw = ADC_PIN.read() # 0-1024
-        voltage = (raw / 1024.0) * ADC_REF
-        
-        # current = (voltage - offset) / sensitivity
-        # Note: If voltage divider is present on board, adjust ADC_REF or formulae.
-        current = (voltage - ACS_OFFSET) / ACS_SENS
-        sum_sq += current * current
-        count += 1
-        time.sleep_us(500) # Slightly slower sampling for stability in Python
-    LED_WHITE.off()
-    
-    return math.sqrt(sum_sq / count)
+// =====================================================
+void setup() {
+  Serial.begin(9600);
+  delay(300);
 
-def send_data_to_backend(v_rms, i_rms, power, energy):
-    if not wlan.isconnected():
-        print("WiFi disconnected. Skipping report.")
-        LED_GREEN.off()
-        return False
+  pinMode(LED_GREEN, OUTPUT);
+  pinMode(LED_WHITE, OUTPUT);
 
-    # Perform garbage collection before memory-intensive HTTP operation
-    gc.collect()
+  Serial.println();
+  Serial.println("====================================");
+  Serial.println(" Aurora Smart Meter – ACS712 POC ");
+  Serial.println(" Display: Serial Monitor ");
+  Serial.println("====================================");
 
-    try:
-        # Build nested payload matching Supabase function expectation
-        payload = {
-            "meter_id": SMART_METER_ID,
-            "device_name": DEVICE_NAME,
-            "timestamp": time.time(), # Unix timestamp
-            "readings": {
-                "voltage_rms": v_rms,
-                "current_rms": i_rms,
-                "power": power,
-                "energy": energy,
-                "temperature": 0.0 # Placeholder
-            },
-            "metadata": {
-                "simulated_voltage": USE_DUMMY_VOLTAGE,
-                "heap_free": gc.mem_free(),
-                "wifi_rssi": wlan.status('rssi') if hasattr(wlan, 'status') else -1
-            }
-        }
+  connectToWiFi();
+  startTime = millis();
+}
 
-        print("Sending payload...")
-        headers = {'Content-Type': 'application/json'}
-        response = urequests.post(BACKEND_URL, data=ujson.dumps(payload), headers=headers)
-        
-        print("HTTP Status Code:", response.status_code)
-        print("Response:", response.text)
-        response.close()
-        
-        LED_GREEN.on()
-        return True
-    except Exception as e:
-        print("Error sending data:", e)
-        LED_GREEN.off()
-        return False
+// =====================================================
+void loop() {
+  unsigned long now = millis();
 
-# ================= MAIN LOOP =================
+  // ===== READ CURRENT =====
+  digitalWrite(LED_WHITE, HIGH); // indicate sampling
+  Irms = readCurrentRMS();
+  digitalWrite(LED_WHITE, LOW);
 
-def main():
-    global last_send_time, last_energy_calc_time, energy_kwh
-    
-    LED_GREEN.off()
-    LED_WHITE.off()
-    
-    connect_wifi()
-    
-    print("Starting Aurora Smart Meter loop...")
-    
-    while True:
-        # 1. Take measurements
-        irms = read_current_rms()
-        vrms = DUMMY_VOLTAGE if USE_DUMMY_VOLTAGE else 0.0
-        power = vrms * irms
-        
-        # 2. Accumulate Energy (kWh)
-        now = time.ticks_ms()
-        delta_seconds = time.ticks_diff(now, last_energy_calc_time) / 1000.0
-        # Energy (kWh) = (Power (W) * time (s)) / (3600 * 1000)
-        energy_kwh += (power * delta_seconds) / 3600000.0
-        last_energy_calc_time = now
-        
-        print("V: {:.1f}V | I: {:.3f}A | P: {:.2f}W | E: {:.6f}kWh".format(vrms, irms, power, energy_kwh))
-        
-        # 3. Periodically send data
-        if time.ticks_diff(now, last_send_time) >= SEND_INTERVAL_MS:
-            send_data_to_backend(vrms, irms, power, energy_kwh)
-            last_send_time = now
-            
-        time.sleep(1) # Frequency of measurements
+  // ===== SIMULATE TIME-VARYING VOLTAGE =====
+  if (USE_DUMMY_VOLTAGE) {
+    float elapsed = (float)((now - startTime) % DUMMY_VOLTAGE_PERIOD);
+    float angle = (elapsed / (float)DUMMY_VOLTAGE_PERIOD) * 2.0 * PI;
+    Vrms = DUMMY_VOLTAGE_BASE + DUMMY_VOLTAGE_VARIATION * sin(angle);
+  } else {
+    Vrms = 0.0;
+  }
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Stopped by user.")
+  // ===== SERIAL OUTPUT =====
+  Serial.print("Irms: ");
+  Serial.print(Irms, 4);
+  Serial.print(" A | Vrms: ");
+  Serial.print(Vrms, 1);
+  Serial.print(" V | WiFi: ");
+  Serial.print(wifiConnected ? "OK" : "DOWN");
+  Serial.print(" | RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
 
+  // ===== SEND DATA =====
+  if (wifiConnected && (now - lastSendTime >= DATA_SEND_INTERVAL)) {
+    sendDataToBackend();
+    lastSendTime = now;
+  }
 
+  delay(LOOP_DELAY_MS);
+}
 
+// ================= CURRENT RMS =================
+float readCurrentRMS() {
+  double sumSq = 0.0;
 
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    float voltage = (float)analogRead(A0) * ADC_REF_VOLT / ADC_MAX_COUNTS;
+    float current = (voltage - ACS_OFFSET) / ACS_SENS;
+    sumSq += (double)(current * current);
+    delayMicroseconds(200);
+  }
 
+  return (float)sqrt(sumSq / (double)SAMPLE_COUNT);
+}
 
+// ================= WIFI =================
+void connectToWiFi() {
+  Serial.print("Connecting to WiFi");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - start < 15000)) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiConnected = true;
+    digitalWrite(LED_GREEN, HIGH);
+    Serial.println("\nWiFi CONNECTED");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    wifiConnected = false;
+    digitalWrite(LED_GREEN, LOW);
+    Serial.println("\nWiFi FAILED");
+  }
+}
+
+// ================= BACKEND =================
+void sendDataToBackend() {
+  if (WiFi.status() != WL_CONNECTED) {
+    wifiConnected = false;
+    digitalWrite(LED_GREEN, LOW);
+    Serial.println("WiFi lost. Data not sent.");
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  
+  HTTPClient http;
+  http.setTimeout(5000);
+  
+  if (!http.begin(client, BACKEND_URL)) {
+    Serial.println("HTTP begin failed");
+    return;
+  }
+  
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", "Bearer " + SUPABASE_ANON_KEY);
+  http.addHeader("x-user-id", USER_ID);
+
+  // ===== BUILD JSON PAYLOAD =====
+  DynamicJsonDocument doc(512);
+
+  doc["meter_id"] = SMART_METER_ID;
+  doc["device_name"] = DEVICE_NAME;
+
+  JsonObject readings = doc.createNestedObject("readings");
+  readings["voltage_rms"] = Vrms;
+  readings["current_rms"] = Irms;
+  
+  if (USE_DUMMY_VOLTAGE) {
+    readings["power"] = Vrms * Irms;
+  }
+
+  JsonObject status = doc.createNestedObject("status");
+  status["measurement_mode"] = "POC";
+  status["voltage_available"] = !USE_DUMMY_VOLTAGE;
+  status["voltage_simulated"] = USE_DUMMY_VOLTAGE;
+  status["current_available"] = true;
+
+  JsonObject metadata = doc.createNestedObject("metadata");
+  metadata["wifi_rssi"] = WiFi.RSSI();
+  metadata["uptime_ms"] = millis();
+
+  String payload;
+  serializeJson(doc, payload);
+
+  Serial.print("Sending JSON: ");
+  Serial.println(payload);
+
+  int httpCode = http.POST(payload);
+  Serial.print("HTTP Response: ");
+  Serial.println(httpCode);
+
+  http.end();
+}

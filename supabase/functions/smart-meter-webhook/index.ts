@@ -45,26 +45,48 @@ serve(async (req) => {
       if (payload.meter_id && payload.readings) {
         // Smart meter format
         meter_number = payload.meter_id;
-        kwh_consumed = payload.readings.energy || payload.readings.power || 0; // Use energy or power as fallback
-        // Extract user_id from authorization header or default
-        user_id = req.headers.get('x-user-id') || 'default-user';
-        console.log('Processing smart meter data format');
+        kwh_consumed = payload.readings.energy ?? payload.readings.power ?? 0; // Use energy or power as fallback
+        // Extract user_id from authorization header, payload, or default
+        user_id = req.headers.get('x-user-id') || payload.user_id || 'default-user';
+        console.log('Processing smart meter data format for meter:', meter_number);
       } else {
         // Legacy format
         meter_number = payload.meter_number;
         kwh_consumed = payload.kwh_consumed;
         user_id = payload.user_id;
         cost_per_kwh = payload.cost_per_kwh || 25.0;
-        console.log('Processing legacy data format');
+        console.log('Processing legacy data format for meter:', meter_number);
       }
 
-      // Validate required fields
-      if (!meter_number || kwh_consumed === undefined || !user_id) {
-        console.error('Missing required fields:', { meter_number, kwh_consumed, user_id })
+      // Validate required fields with descriptive error messages
+      const missingFields = [];
+      if (!meter_number) missingFields.push('meter_number/meter_id');
+      if (kwh_consumed === undefined || kwh_consumed === null) missingFields.push('kwh_consumed/readings.power');
+      if (!user_id || user_id === 'default-user') missingFields.push('user_id (valid UUID required)');
+
+      if (missingFields.length > 0) {
+        console.error('Missing required fields:', missingFields.join(', '), { 
+          has_meter: !!meter_number, 
+          kwh: kwh_consumed, 
+          user: user_id 
+        })
         return new Response(JSON.stringify({
           error: 'Missing required fields',
-          message: 'meter_number, kwh_consumed, and user_id are required',
+          message: `The following fields are required: ${missingFields.join(', ')}`,
           received: { meter_number, kwh_consumed, user_id }
+        }), {
+          status: 400,
+          headers: corsHeaders
+        })
+      }
+
+      // Basic UUID validation to prevent DB errors
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(user_id)) {
+        console.error('Invalid user_id format:', user_id);
+        return new Response(JSON.stringify({
+          error: 'Invalid user_id',
+          message: 'The user_id must be a valid UUID'
         }), {
           status: 400,
           headers: corsHeaders
