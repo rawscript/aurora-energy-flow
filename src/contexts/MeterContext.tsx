@@ -98,14 +98,14 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
     setError(null);
 
     try {
-      // Update profile with new meter number
+      // Use upsert to ensure the profile exists and the meter is linked
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ 
+        .upsert({ 
+          id: user.id,
           meter_number: newMeterNumber,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
+        }, { onConflict: 'id' });
 
       if (updateError) {
         console.error('Error connecting meter:', updateError);
@@ -139,14 +139,14 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
     if (!user) return;
 
     try {
-      // Clear meter number from profile
+      // Clear meter number from profile using upsert to be safe
       const { error } = await supabase
         .from('profiles')
-        .update({ 
+        .upsert({ 
+          id: user.id,
           meter_number: null,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
+        }, { onConflict: 'id' });
 
       if (error) {
         console.error('Error disconnecting meter:', error);
@@ -172,12 +172,15 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
     await checkConnection();
   }, [checkConnection]);
 
-  // Initialize connection check when user changes, but preserve connection state
+  // Initialize connection check when user changes
   useEffect(() => {
-    if (user && status === 'checking') {
+    if (user) {
       checkConnection();
+    } else {
+      setStatus('disconnected');
+      setMeterNumber(null);
     }
-  }, [user, checkConnection]);
+  }, [user?.id, checkConnection]);
 
   // Periodic connection health check (every 30 seconds) but don't reset connected state
   useEffect(() => {

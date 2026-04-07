@@ -65,6 +65,28 @@ const EnergyDashboard = () => {
   const { profile } = useProfile();
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);
+  const [liveReadings, setLiveReadings] = React.useState<any[]>([]);
+
+  // Capture MQTT data for the live chart
+  useEffect(() => {
+    if (mqttData && mqttConnected && mqttData.timestamp) {
+      setLiveReadings(prev => {
+        // Avoid duplicate timestamps
+        if (prev.some(r => r.reading_date === mqttData.timestamp)) return prev;
+        
+        const newReading = {
+          id: `mqtt-${mqttData.timestamp}`,
+          kwh_consumed: mqttData.readings.power, // Using power for the real-time line
+          reading_date: mqttData.timestamp,
+          total_cost: dbEnergyData.daily_cost, // Placeholder cost
+          source: 'mqtt'
+        };
+        
+        // Keep only the last 20 live readings to avoid memory bloat
+        return [newReading, ...prev].slice(0, 20);
+      });
+    }
+  }, [mqttData, mqttConnected, dbEnergyData.daily_cost]);
 
   // Merge MQTT data with DB data for truly real-time stats
   const energyData = React.useMemo(() => {
@@ -109,8 +131,12 @@ const EnergyDashboard = () => {
         }));
       }
 
-      return recentReadings
-        .slice(0, isMobile ? 8 : 12)
+      // Combine DB readings and Live MQTT readings
+      const combinedReadings = [...liveReadings, ...recentReadings]
+        .sort((a, b) => new Date(b.reading_date).getTime() - new Date(a.reading_date).getTime());
+
+      return combinedReadings
+        .slice(0, isMobile ? 12 : 20)
         .reverse()
         .map(reading => {
           try {

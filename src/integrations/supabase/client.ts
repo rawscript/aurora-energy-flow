@@ -82,13 +82,47 @@ class SupabaseError extends Error {
   }
 }
 
+const originalRpc = supabase.rpc.bind(supabase);
+supabase.rpc = function<T extends string & keyof Database['public']['Functions']>(fn: T, args?: any, options?: any) {
+  const result = (originalRpc as any)(fn, args, options);
+
+  // Wrap the then method to add error handling
+  const originalThen = result.then;
+  result.then = function(onFulfilled: any, onRejected: any) {
+    return originalThen.call(
+      this,
+      (result: any) => {
+        if (result.error) {
+          const errorContext = {
+            method: 'rpc',
+            fn: fn,
+            args: args,
+            error: result.error
+          };
+          console.error(`Supabase RPC error for ${fn}:`, errorContext);
+          if (onFulfilled) {
+            return onFulfilled({
+              ...result,
+              error: new SupabaseError(result.error.message, result.error.code, errorContext, result.error)
+            });
+          }
+        }
+        return onFulfilled ? onFulfilled(result) : result;
+      },
+      onRejected
+    );
+  };
+
+  return result;
+} as any;
+
 // Enhanced query builder with better error handling and transaction support
-const originalFrom = supabase.from;
-supabase.from = function(table) {
-  const query = originalFrom.call(this, table);
+const originalFrom = supabase.from.bind(supabase);
+supabase.from = function<T extends string & keyof Database['public']['Tables']>(table: T) {
+  const query = (originalFrom as any)(table);
 
   // Add error handling to all query types
-  const methodsToWrap = ['select', 'insert', 'update', 'upsert', 'delete', 'rpc'];
+  const methodsToWrap = ['select', 'insert', 'update', 'upsert', 'delete'];
 
   methodsToWrap.forEach(method => {
     if (query[method]) {

@@ -18,6 +18,7 @@ interface MqttData {
     wifi_rssi: number;
     uptime: number;
   };
+  timestamp?: string;
 }
 
 export const useMqtt = () => {
@@ -79,6 +80,7 @@ export const useMqtt = () => {
         // The firmware sends { readings: { voltage_rms, current_rms, power } }
         const mappedData: MqttData = {
             ...payload,
+            timestamp: new Date().toISOString(),
             readings: {
                 ...payload.readings,
                 current_usage: payload.readings.current_rms // Mapping for UI consistency
