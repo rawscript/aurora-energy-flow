@@ -84,7 +84,7 @@ class SupabaseError extends Error {
 
 const originalRpc = supabase.rpc.bind(supabase);
 // @ts-ignore - Preserve original generic signature for consumers
-supabase.rpc = function<T extends string & keyof Database['public']['Functions']>(fn: T, args?: any, options?: any): any {
+supabase.rpc = (function<T extends string & keyof Database['public']['Functions']>(fn: T, args?: any, options?: any) {
   const result = (originalRpc as any)(fn, args, options);
 
   // Wrap the then method to add error handling
@@ -115,12 +115,12 @@ supabase.rpc = function<T extends string & keyof Database['public']['Functions']
   };
 
   return result;
-};
+} as typeof supabase.rpc);
 
 // Enhanced query builder with better error handling and transaction support
 const originalFrom = supabase.from.bind(supabase);
 // @ts-ignore - Preserve original generic signature for consumers
-supabase.from = function<T extends string & keyof Database['public']['Tables']>(table: T): any {
+supabase.from = (function<T extends string & keyof Database['public']['Tables']>(table: T) {
   const query = originalFrom(table);
 
   // Add error handling to all query types
@@ -182,7 +182,7 @@ supabase.from = function<T extends string & keyof Database['public']['Tables']>(
   });
 
   return query;
-};
+} as typeof supabase.from);
 
 // Type for safe_update_profile parameters with enhanced validation
 type SafeUpdateProfileParams = {
