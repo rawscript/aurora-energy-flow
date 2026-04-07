@@ -457,29 +457,15 @@ export const useRealTimeEnergy = (energyProvider: string = 'KPLC') => {
         console.log('Using recent reading from database:', recentReading);
         energyReading = recentReading;
       } else {
-        // Request new reading from smart meter via webhook
-        console.log('Requesting new reading from smart meter webhook');
-
-        const { data: webhookData, error: webhookError } = await supabase.functions.invoke('smart-meter-webhook', {
-          body: {
-            action: 'fetch_reading',
-            meter_number: currentMeterNumber,
-            user_id: userId,
-            energy_provider: energyProvider
-          }
-        });
-
-        if (webhookError) {
-          console.error('Smart meter webhook error:', webhookError);
-          throw new Error(webhookError.message || 'Failed to fetch data from smart meter');
+        // We no longer call the webhook manually to "fetch" data, 
+        // as the MQTT bridge handles real-time ingestion.
+        // Use the most recent database reading available.
+        if (existingReadings && existingReadings.length > 0) {
+          energyReading = existingReadings[0];
+          console.log('Using latest available reading from database:', energyReading);
+        } else {
+          throw new Error('No smart meter data available yet. Please ensure your device is connected.');
         }
-
-        if (!webhookData.success) {
-          throw new Error(webhookData.error || 'Smart meter request failed');
-        }
-
-        energyReading = webhookData.data;
-        console.log('New reading from smart meter:', energyReading);
       }
 
       // Transform the reading data to energy data format
