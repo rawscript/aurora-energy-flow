@@ -37,12 +37,11 @@ export const useMqtt = () => {
       return;
     }
 
-    // HiveMQ Cloud WebSocket URL
-    // Format: wss://<cluster-url>:8884/mqtt
     const clusterUrl = '50a08402532e40caaee237591bf35b7e.s1.eu.hivemq.cloud';
     const brokerUrl = `wss://${clusterUrl}:8884/mqtt`;
+    const topic = `aurora/meters/${meterNumber}/data`;
 
-    console.log(`Connecting to MQTT Broker: ${brokerUrl} for meter: ${meterNumber}`);
+    console.log(`[MQTT] Connecting to ${brokerUrl} for meter: ${meterNumber}`);
 
     const options: mqtt.IClientOptions = {
         // Use environment variables for credentials
@@ -58,18 +57,17 @@ export const useMqtt = () => {
     clientRef.current = client;
 
     client.on('connect', () => {
-      console.log('MQTT Connected to HiveMQ (WSS)');
+      console.log('[MQTT] Connected successfully to HiveMQ');
       setIsConnected(true);
       setError(null);
       
       // Subscribe to this specific meter's data
-      const topic = `aurora/meters/${meterNumber}/data`;
       client.subscribe(topic, (err) => {
         if (err) {
-          console.error('MQTT Subscription Error:', err);
+          console.error('[MQTT] Subscription Error:', err);
           setError('Failed to subscribe to meter data');
         } else {
-          console.log(`Subscribed to topic: ${topic}`);
+          console.log(`[MQTT] Subscribed to meter: ${meterNumber}`);
         }
       });
     });

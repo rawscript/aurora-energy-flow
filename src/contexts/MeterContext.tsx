@@ -114,9 +114,10 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
         return false;
       }
 
-      // Update state
-      setStatus('connected');
+      // Update state immediately
+      console.log(`Meter ${newMeterNumber} connected successfully for user ${user.id}`);
       setMeterNumber(newMeterNumber);
+      setStatus('connected');
       setLastChecked(new Date());
       
       // Dispatch custom event for components that need to react

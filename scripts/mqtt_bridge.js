@@ -69,35 +69,42 @@ client.on('message', async (topic, message) => {
       return;
     }
 
-    // Resolve user_id from database based on meter_number
-    console.log(`Resolving owner for Meter: ${meter_id}...`);
-    const { data: profile, error: profileError } = await supabase
+    // Resolve all users who "own" this meter based on meter_number
+    console.log(`Resolving owners for Meter: ${meter_id}...`);
+    const { data: profiles, error: profileError } = await supabase
       .from('profiles')
       .select('id')
-      .eq('meter_number', meter_id)
-      .single();
+      .eq('meter_number', meter_id);
 
-    if (profileError || !profile) {
-      console.warn(`Could not find owner for Meter ${meter_id}. Error: ${profileError?.message || 'Not found'}`);
-      // Fallback to default if necessary, but ideally we skip
+    if (profileError) {
+      console.error(`Error fetching owners for Meter ${meter_id}:`, profileError.message);
       return;
     }
 
-    const user_id = profile.id;
-    console.log(`Processing reading for Meter: ${meter_id}, Power: ${power}, User: ${user_id}`);
+    if (!profiles || profiles.length === 0) {
+      console.warn(`No registered owners found for Meter ${meter_id}. Skipping.`);
+      return;
+    }
 
-    // Call Supabase RPC
-    const { data: result, error } = await supabase.rpc('insert_energy_reading_improved', {
-      p_user_id: user_id,
-      p_meter_number: meter_id,
-      p_kwh_consumed: power, // Mapping power to consumption for POC
-      p_cost_per_kwh: 25.0
-    });
+    console.log(`Found ${profiles.length} owner(s) for Meter ${meter_id}. Inserting readings...`);
 
-    if (error) {
-      console.error('Supabase RPC Error:', error.message);
-    } else {
-      console.log('Supabase insertion successful:', result);
+    // Insert reading for EACH owner (necessary for User RLS visibility)
+    for (const profile of profiles) {
+      const user_id = profile.id;
+      console.log(`- Inserting reading for User: ${user_id}`);
+
+      const { data: result, error } = await supabase.rpc('insert_energy_reading_improved', {
+        p_user_id: user_id,
+        p_meter_number: meter_id,
+        p_kwh_consumed: power, // Mapping power to consumption for POC
+        p_cost_per_kwh: 25.0
+      });
+
+      if (error) {
+        console.error(`  Supabase RPC Error for User ${user_id}:`, error.message);
+      } else {
+        console.log(`  Supabase insertion successful for User ${user_id}`);
+      }
     }
   } catch (err) {
     console.error('Error parsing JSON payload:', err.message);
