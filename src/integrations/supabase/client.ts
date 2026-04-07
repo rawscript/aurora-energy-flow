@@ -83,6 +83,7 @@ class SupabaseError extends Error {
 }
 
 const originalRpc = supabase.rpc.bind(supabase);
+// @ts-ignore - Preserve original generic signature for consumers
 supabase.rpc = function<T extends string & keyof Database['public']['Functions']>(fn: T, args?: any, options?: any) {
   const result = (originalRpc as any)(fn, args, options);
 
@@ -114,10 +115,11 @@ supabase.rpc = function<T extends string & keyof Database['public']['Functions']
   };
 
   return result;
-} as any;
+};
 
 // Enhanced query builder with better error handling and transaction support
 const originalFrom = supabase.from.bind(supabase);
+// @ts-ignore - Preserve original generic signature for consumers
 supabase.from = function<T extends string & keyof Database['public']['Tables']>(table: T) {
   const query = (originalFrom as any)(table);
 
@@ -125,9 +127,9 @@ supabase.from = function<T extends string & keyof Database['public']['Tables']>(
   const methodsToWrap = ['select', 'insert', 'update', 'upsert', 'delete'];
 
   methodsToWrap.forEach(method => {
-    if (query[method]) {
-      const originalMethod = query[method];
-      query[method] = function(...args) {
+    if ((query as any)[method]) {
+      const originalMethod = (query as any)[method];
+      (query as any)[method] = function(...args: any[]) {
         const result = originalMethod.apply(this, args);
 
         // Wrap the then method to add error handling

@@ -65,13 +65,21 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
         .from('profiles')
         .select('meter_number')
         .eq('id', user.id)
-        .maybeSingle();
+        .maybeSingle() as any;
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error checking meter connection:', error);
-        setStatus('error');
-        setError('Failed to check meter connection');
-      } else if (data?.meter_number) {
+      if (error) {
+        if (error.code !== 'PGRST116') {
+          console.error('Error checking meter connection:', error);
+          setStatus('error');
+          setError('Failed to check meter connection');
+        } else {
+          setStatus('disconnected');
+          setMeterNumber(null);
+        }
+        return;
+      }
+
+      if (data && data.meter_number) {
         setStatus('connected');
         setMeterNumber(data.meter_number);
       } else {
