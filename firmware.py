@@ -90,6 +90,7 @@ void setup() {
   // Configure MQTT
   espClient.setInsecure(); // Optional: use setTrustAnchors for better security
   client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setBufferSize(512); // Increase buffer for large JSON payloads
   
   startTime = millis();
 }
@@ -215,12 +216,15 @@ void publishData() {
 
   Serial.print("Publishing to ");
   Serial.print(MQTT_TOPIC);
-  Serial.print(": ");
-  Serial.println(payload);
+  Serial.print(" (len: ");
+  Serial.print(payload.length());
+  Serial.print(")... ");
 
   if (client.publish(MQTT_TOPIC, payload.c_str())) {
-    Serial.println("Publish success");
+    Serial.println("SUCCESS");
   } else {
-    Serial.println("Publish failed");
+    Serial.print("FAILED (state: ");
+    Serial.print(client.state());
+    Serial.println(")");
   }
 }
