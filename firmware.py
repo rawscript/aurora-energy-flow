@@ -22,7 +22,7 @@ const String USER_ID      = "c98883f0-8b2c-454e-a48a-781a939f0072";
 const char* MQTT_SERVER   = "50a08402532e40caaee237591bf35b7e.s1.eu.hivemq.cloud";
 const int   MQTT_PORT     = 8883;
 const char* MQTT_USER     = "aurora_device"; // Set this in HiveMQ Console
-const char* MQTT_PASS     = "Aurora123#";   // Set this in HiveMQ Console
+const char* MQTT_PASS     = "AuroraR12#";   // Updated to match HiveMQ Console
 const char* MQTT_TOPIC    = "aurora/meters/44106278820/data";
 const char* MQTT_STATUS   = "aurora/meters/44106278820/status";
 

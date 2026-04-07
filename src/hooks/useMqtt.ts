@@ -45,10 +45,9 @@ export const useMqtt = () => {
     console.log(`Connecting to MQTT Broker: ${brokerUrl} for meter: ${meterNumber}`);
 
     const options: mqtt.IClientOptions = {
-        // Use the same credentials as device for now, 
-        // but in production these should be unique read-only users.
-        username: 'aurora_device', 
-        password: 'Aurora123#',
+        // Use environment variables for credentials
+        username: import.meta.env.VITE_MQTT_USERNAME || 'aurora_device', 
+        password: import.meta.env.VITE_MQTT_PASSWORD || 'AuroraR12#',
         clientId: `aurora_web_${Math.random().toString(16).slice(2, 10)}`,
         clean: true,
         connectTimeout: 4000,
