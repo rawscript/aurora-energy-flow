@@ -84,7 +84,7 @@ class SupabaseError extends Error {
 
 const originalRpc = supabase.rpc.bind(supabase);
 // @ts-ignore - Preserve original generic signature for consumers
-supabase.rpc = function<T extends string & keyof Database['public']['Functions']>(fn: T, args?: any, options?: any) {
+supabase.rpc = function<T extends string & keyof Database['public']['Functions']>(fn: T, args?: any, options?: any): any {
   const result = (originalRpc as any)(fn, args, options);
 
   // Wrap the then method to add error handling
@@ -120,8 +120,8 @@ supabase.rpc = function<T extends string & keyof Database['public']['Functions']
 // Enhanced query builder with better error handling and transaction support
 const originalFrom = supabase.from.bind(supabase);
 // @ts-ignore - Preserve original generic signature for consumers
-supabase.from = function<T extends string & keyof Database['public']['Tables']>(table: T) {
-  const query = (originalFrom as any)(table);
+supabase.from = function<T extends string & keyof Database['public']['Tables']>(table: T): any {
+  const query = originalFrom(table);
 
   // Add error handling to all query types
   const methodsToWrap = ['select', 'insert', 'update', 'upsert', 'delete'];
@@ -207,7 +207,7 @@ type SafeUpdateProfileParams = {
 // Add transaction support using the new execute_transaction endpoint
 supabase.transaction = async function<T>(operations: Array<{ query: string; params: any }>, user_id: string): Promise<any> {
   try {
-    const { data, error } = await supabase.rpc('execute_transaction', {
+    const { data, error } = await originalRpc('execute_transaction', {
       p_operations: operations,
       p_user_id: user_id,
     });
@@ -238,7 +238,7 @@ supabase.energy = {
     phone_number?: string;
   }) {
     try {
-      const { data, error } = await supabase.rpc('purchase_tokens_improved', {
+      const { data, error } = await originalRpc('purchase_tokens_improved', {
         p_user_id: params.user_id,
         p_meter_number: params.meter_number,
         p_amount: params.amount,
@@ -264,7 +264,7 @@ supabase.energy = {
    */
   getTokenAnalytics: async function(user_id: string, forceRefresh = false) {
     try {
-      const { data, error } = await supabase.rpc('get_token_analytics_improved', {
+      const { data, error } = await originalRpc('get_token_analytics_improved', {
         p_user_id: user_id,
         p_force_refresh: forceRefresh
       });
@@ -286,7 +286,7 @@ supabase.energy = {
    */
   updateProfile: async function(params: SafeUpdateProfileParams) {
     try {
-      const { data, error } = await supabase.rpc('safe_update_profile', params);
+      const { data, error } = await originalRpc('safe_update_profile', params);
 
       if (error) throw error;
       return data;
@@ -310,7 +310,7 @@ supabase.energy = {
     cost_per_kwh?: number;
   }) {
     try {
-      const { data, error } = await supabase.rpc('insert_energy_reading_improved', {
+      const { data, error } = await originalRpc('insert_energy_reading_improved', {
         p_user_id: params.user_id,
         p_meter_number: params.meter_number,
         p_kwh_consumed: params.kwh_consumed,
@@ -337,7 +337,7 @@ supabase.notifications = {
    */
   processQueue: async function(limit = 10) {
     try {
-      const { data, error } = await supabase.rpc('process_notification_queue', {
+      const { data, error } = await originalRpc('process_notification_queue', {
         p_limit: limit
       });
 
@@ -358,7 +358,7 @@ supabase.notifications = {
    */
   getHistory: async function(user_id: string, limit = 10) {
     try {
-      const { data, error } = await supabase.rpc('get_energy_settings_history', {
+      const { data, error } = await originalRpc('get_energy_settings_history', {
         p_user_id: user_id,
         p_limit: limit
       });
@@ -380,7 +380,7 @@ supabase.notifications = {
    */
   revertSettings: async function(user_id: string, version: number) {
     try {
-      const { data, error } = await supabase.rpc('revert_energy_settings', {
+      const { data, error } = await originalRpc('revert_energy_settings', {
         p_user_id: user_id,
         p_version: version
       });

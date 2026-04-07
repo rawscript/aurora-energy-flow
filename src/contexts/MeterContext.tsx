@@ -107,8 +107,7 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
 
     try {
       // Use upsert to ensure the profile exists and the meter is linked
-      const { error: updateError } = await supabase
-        .from('profiles')
+      const { error: updateError } = await (supabase.from('profiles' as any) as any)
         .upsert({ 
           id: user.id,
           meter_number: newMeterNumber,
@@ -148,8 +147,7 @@ export const MeterProvider: React.FC<MeterProviderProps> = ({ children }) => {
 
     try {
       // Clear meter number from profile using upsert to be safe
-      const { error } = await supabase
-        .from('profiles')
+      const { error } = await (supabase.from('profiles' as any) as any)
         .upsert({ 
           id: user.id,
           meter_number: null,
