@@ -12,6 +12,7 @@ import { useMeter } from '@/contexts/MeterContext'; // Import meter context
 import { format } from 'date-fns';
 import { useIsMobile } from '@/hooks/use-mobile';
 import RealTimeInsights from './RealTimeInsights';
+import { useMqtt } from '@/hooks/useMqtt';
 // Remove the SolarDashboard import since it's no longer used here
 
 // Memoized components for better mobile performance
@@ -59,10 +60,28 @@ interface EnergyDashboardProps {
 const EnergyDashboard = () => {
   const { provider: energyProvider, providerConfig } = useEnergyProvider();
   const { status: meterStatus, deviceType, meterNumber } = useMeter(); // Get meter status from context
-  const { energyData, recentReadings, analytics, loading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(energyProvider || 'KPLC'); // Pass energy provider to hook
+  const { energyData: dbEnergyData, recentReadings, analytics, loading: dbLoading, getNewReading, hasMeterConnected, meterConnectionChecked, refreshData } = useRealTimeEnergy(energyProvider || 'KPLC'); // Pass energy provider to hook
+  const { latestData: mqttData, isConnected: mqttConnected } = useMqtt();
   const { profile } = useProfile();
   const isMobile = useIsMobile();
   const [showAllDevices, setShowAllDevices] = React.useState(false);
+
+  // Merge MQTT data with DB data for truly real-time stats
+  const energyData = React.useMemo(() => {
+    if (mqttData && mqttConnected) {
+      return {
+        ...dbEnergyData,
+        current_usage: mqttData.readings.current_usage,
+        daily_total: mqttData.readings.power > 0 ? (dbEnergyData.daily_total || 0) : dbEnergyData.daily_total, // Simplified logic
+        daily_cost: dbEnergyData.daily_cost,
+        last_updated: new Date().toISOString(),
+        source: 'mqtt' as const
+      };
+    }
+    return dbEnergyData;
+  }, [dbEnergyData, mqttData, mqttConnected]);
+
+  const loading = dbLoading && !mqttConnected;
 
   // Note: Data fetching is now demand-driven only - no automatic API calls
 
@@ -462,10 +481,10 @@ const EnergyDashboard = () => {
                     <span 
                       className="text-sm font-bold uppercase tracking-wide text-white"
                     >
-                      {hasMeterConnected ? `LIVE CONNECTION: ${providerConfig.name}` : (meterStatus === 'disconnected' ? `${providerConfig.name} OFFLINE` : `LINKING ${providerConfig.name}...`)}
+                      {hasMeterConnected ? `LIVE CONNECTION: ${providerConfig.name} ${mqttConnected ? '(REAL-TIME)' : '(POLLING)'}` : (meterStatus === 'disconnected' ? `${providerConfig.name} OFFLINE` : `LINKING ${providerConfig.name}...`)}
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">
-                      {hasMeterConnected ? 'SYSTEM ARMED & OPERATIONAL' : (meterStatus === 'disconnected' ? 'MANUAL MODE ACTIVE' : 'ESTABLISHING SECURE PROTOCOLS')}
+                      {mqttConnected ? 'STREAMING VIA HIVEMQ CLOUD' : (hasMeterConnected ? 'SYSTEM ARMED & OPERATIONAL' : (meterStatus === 'disconnected' ? 'MANUAL MODE ACTIVE' : 'ESTABLISHING SECURE PROTOCOLS'))}
                     </span>
                   </div>
                   {safeEnergyData.daily_total === 0 && hasMeterConnected && (

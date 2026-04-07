@@ -64,11 +64,26 @@ client.on('message', async (topic, message) => {
     const meter_id = data.meter_id;
     const power = data.readings?.power || 0;
     
-    // In our project, user_id is often stored in the metadata or hardcoded during setup.
-    // For this bridge, we'll try to find the user associated with this meter or use a default.
-    // Ideally, the device includes its assigned user_id.
-    const user_id = data.user_id || 'c98883f0-8b2c-454e-a48a-781a939f0072'; // Default POC user
+    if (!meter_id) {
+      console.warn('Received message without meter_id, skipping.');
+      return;
+    }
 
+    // Resolve user_id from database based on meter_number
+    console.log(`Resolving owner for Meter: ${meter_id}...`);
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('meter_number', meter_id)
+      .single();
+
+    if (profileError || !profile) {
+      console.warn(`Could not find owner for Meter ${meter_id}. Error: ${profileError?.message || 'Not found'}`);
+      // Fallback to default if necessary, but ideally we skip
+      return;
+    }
+
+    const user_id = profile.id;
     console.log(`Processing reading for Meter: ${meter_id}, Power: ${power}, User: ${user_id}`);
 
     // Call Supabase RPC
