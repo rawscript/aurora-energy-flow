@@ -63,6 +63,7 @@ export type Database = {
           kplc_meter_type?: string | null;
           low_balance_threshold?: number | null;
         };
+        Relationships: [];
       };
       kplc_bills: {
         Row: {
@@ -131,6 +132,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       energy_readings: {
         Row: {
@@ -190,6 +192,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       energy_insights: {
         Row: {
@@ -240,6 +243,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: {
