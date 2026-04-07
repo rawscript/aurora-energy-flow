@@ -172,8 +172,8 @@ void connectToWiFi() {
 // ================= MQTT =================
 bool reconnect() {
   Serial.print("Attempting MQTT connection...");
-  // Create a random client ID
-  String clientId = "AuroraMeter-";
+  // Create a shortened Client ID (max 23 chars for most libraries)
+  String clientId = "AM-"; // "AuroraMeter-" was too long
   clientId += String(SMART_METER_ID);
 
   // Attempt to connect with LWT (Last Will and Testament)
