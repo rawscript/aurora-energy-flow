@@ -1,8 +1,7 @@
-const mqtt = require('mqtt');
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config({ path: '../.env.local' });
-
-// Configuration
+import mqtt from 'mqtt';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });// Configuration
 const MQTT_URL = process.env.MQTT_URL;
 const MQTT_USERNAME = process.env.MQTT_USERNAME;
 const MQTT_PASSWORD = process.env.MQTT_PASSWORD;
