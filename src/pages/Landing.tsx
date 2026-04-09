@@ -5,8 +5,28 @@ import { OrbitControls, Text, Box, Sphere, Environment, Float, Html } from '@rea
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
-import { Zap, TrendingDown, Shield, Brain, ArrowRight, Play, Loader2, Sun } from 'lucide-react';
+import { Zap, TrendingDown, Shield, Brain, ArrowRight, Play, Loader2, Sun, Globe, BarChart3, Cpu, Database } from 'lucide-react';
 import * as THREE from 'three';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+
+const fadeIn: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { duration: 0.6, ease: "easeOut" }
+  }
+};
+
+const staggerContainer: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.2
+    }
+  }
+};
 
 // Error Boundary interfaces
 interface ErrorBoundaryState {
@@ -206,33 +226,52 @@ const Landing = () => {
         
         {/* Glassmorphism Overlay Hero Content */}
         <div className="relative z-10 w-full max-w-5xl mx-auto px-6 pt-20">
-          <div className="glass-card p-10 sm:p-16 mb-8 text-center border-white/5 bg-slate-950/40">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card border-aurora-green/30 text-aurora-green-light text-xs font-bold uppercase tracking-widest mb-8">
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="glass-card p-10 sm:p-16 mb-8 text-center border-white/5 bg-slate-950/40 relative overflow-hidden prestige-glow"
+          >
+            <motion.div 
+              variants={fadeIn}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card border-aurora-green/30 text-aurora-green-light text-xs font-bold uppercase tracking-widest mb-8"
+            >
               <span className="w-2 h-2 rounded-full bg-aurora-green animate-pulse"></span>
-              Platform Status: Optimal
-            </div>
-            <h1 className="text-5xl md:text-7xl font-black mb-6 bg-gradient-to-br from-white via-slate-200 to-aurora-green/80 bg-clip-text text-transparent tracking-tight shadow-aurora-green/10">
-              Enterprise-Grade <br className="hidden md:block" /> Energy Intelligence
-            </h1>
-            <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 font-medium leading-relaxed">
-              Modernize your power tracking. Seamlessly integrate your existing smart meters or solar inverters with our analytics platform to forecast expenses, detect anomalies, and optimize efficiency.
-            </p>
+              Next-Gen Energy Infrastructure
+            </motion.div>
             
-            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+            <motion.h1 
+              variants={fadeIn}
+              className="text-5xl md:text-8xl font-black mb-6 bg-gradient-to-br from-white via-slate-200 to-aurora-green/80 bg-clip-text text-transparent tracking-tighter leading-[0.9] shadow-aurora-green/10"
+            >
+              The Future of <br className="hidden md:block" /> Smart Grid Intelligence
+            </motion.h1>
+            
+            <motion.p 
+              variants={fadeIn}
+              className="text-lg md:text-2xl text-slate-400 max-w-2xl mx-auto mb-10 font-medium leading-relaxed"
+            >
+              Decentralizing power management through military-grade telemetry and AI forecast engines. Scalable infrastructure for the modern energy landscape.
+            </motion.p>
+            
+            <motion.div 
+              variants={fadeIn}
+              className="flex flex-col sm:flex-row gap-5 justify-center items-center"
+            >
               <Link to="/auth">
-                <Button className="glass-button-primary h-14 px-10 text-lg font-bold">
-                  Get Started <ArrowRight className="ml-2 h-5 w-5" />
+                <Button className="glass-button-primary h-16 px-12 text-xl font-bold group">
+                  Deploy Platform <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
               <Button 
                 variant="outline" 
-                className="glass-button h-14 px-10 text-lg uppercase tracking-widest font-bold text-slate-300 hover:text-white"
+                className="glass-button h-16 px-12 text-lg uppercase tracking-widest font-bold text-slate-300 hover:text-white border-white/10"
                 onClick={() => setShowMeterGuide(true)}
               >
-                <Play className="mr-2 h-5 w-5 text-aurora-blue-light" /> Hardware Preview
+                <Play className="mr-2 h-5 w-5 text-aurora-blue-light" /> System Specs
               </Button>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
           
           {!threeDLoaded && (
             <div className="text-sm font-bold tracking-widest uppercase text-slate-500 text-center">
@@ -299,7 +338,34 @@ const Landing = () => {
         </section>
       )}
 
-      {/* Bento Box Layout replacing generic features grid */}
+      {/* Investor Metrics Section */}
+      <section className="py-20 relative z-10 bg-slate-950/50 border-y border-white/5 backdrop-blur-3xl">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { label: "Active Nodes", value: "12,400+", icon: Globe, color: "text-aurora-blue-light" },
+              { label: "Data Integrity", value: "99.99%", icon: Shield, color: "text-aurora-green-light" },
+              { label: "Cost Savings", value: "$4.2M+", icon: BarChart3, color: "text-yellow-500" },
+              { label: "Grid Latency", value: "<250ms", icon: Zap, color: "text-aurora-purple" }
+            ].map((stat, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="text-center group"
+              >
+                <div className="w-12 h-12 glass-card border-white/10 flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                  <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                </div>
+                <div className="text-3xl font-black text-white mb-1 tracking-tighter">{stat.value}</div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
       <section className="py-24 px-6 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-20">
@@ -312,94 +378,196 @@ const Landing = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[minmax(300px,auto)]">
-             {/* Bento Item 1: Prophet Engine (Large, spans 2 columns) */}
-             <div className="md:col-span-2 glass-card p-8 border-white/5 bg-gradient-to-br from-aurora-blue-light/5 to-transparent relative group overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-aurora-blue-light/10 blur-[100px] rounded-full group-hover:bg-aurora-blue-light/20 transition-all duration-700"></div>
-                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Predictive Analytics</h3>
-                <p className="text-slate-400 font-medium mb-8 max-w-md">Our algorithm predicts your exact month-end bill based on historical micro-patterns and current grid tariffs.</p>
-                
-                {/* Telemetry Mockup */}
-                <div className="glass-card border-white/10 p-4 bg-slate-950/80 transform group-hover:-translate-y-2 transition-transform duration-500 shadow-2xl mt-auto">
-                   <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">7-Day Projection</span>
-                      <span className="text-[10px] font-bold text-aurora-green bg-aurora-green/10 px-2 py-0.5 rounded">98% CONFIDENCE</span>
-                   </div>
-                   <div className="h-20 w-full flex items-end gap-2 px-2">
-                       {[35, 45, 30, 60, 80, 50, 40].map((h, i) => (
-                           <div key={i} className="flex-1 bg-gradient-to-t from-aurora-blue-light/20 to-aurora-blue-light/60 rounded-t-sm" style={{ height: `${h}%` }}></div>
-                       ))}
-                   </div>
+             {/* Bento Item 1: Prophet Engine */}
+             <motion.div 
+               whileHover={{ y: -5 }}
+               initial={{ opacity: 0, y: 20 }}
+               whileInView={{ opacity: 1, y: 0 }}
+               viewport={{ once: true }}
+               className="md:col-span-2 glass-card border-white/5 bg-gradient-to-br from-aurora-blue-light/5 to-transparent relative group overflow-hidden prestige-glow"
+             >
+                <div className="bento-inner p-8">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-aurora-blue-light/10 blur-[100px] rounded-full group-hover:bg-aurora-blue-light/20 transition-all duration-700"></div>
+                  <h3 className="text-3xl font-black text-white mb-2 tracking-tighter">Predictive Analytics</h3>
+                  <p className="text-slate-400 font-medium mb-8 max-w-md">Our algorithm predicts month-end expenses based on historical micro-patterns and current grid tariffs with 98% accuracy.</p>
+                  
+                  {/* Telemetry Mockup */}
+                  <div className="glass-card border-white/10 p-4 bg-slate-950/80 transform group-hover:scale-[1.02] transition-transform duration-500 shadow-2xl mt-auto">
+                     <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-2">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">7-Day Projection</span>
+                        <div className="flex items-center gap-2">
+                           <span className="w-1.5 h-1.5 rounded-full bg-aurora-green animate-pulse"></span>
+                           <span className="text-[10px] font-bold text-aurora-green bg-aurora-green/10 px-2 py-0.5 rounded">LIVE ENGINE</span>
+                        </div>
+                     </div>
+                     <div className="h-24 w-full flex items-end gap-2 px-2">
+                         {[35, 45, 30, 60, 80, 50, 40, 65, 55, 75].map((h, i) => (
+                             <motion.div 
+                               key={i} 
+                               initial={{ height: 0 }}
+                               whileInView={{ height: `${h}%` }}
+                               transition={{ delay: i * 0.05, duration: 0.5 }}
+                               className="flex-1 bg-gradient-to-t from-aurora-blue-light/20 to-aurora-blue-light/60 rounded-t-sm"
+                             ></motion.div>
+                         ))}
+                     </div>
+                  </div>
                 </div>
-             </div>
+             </motion.div>
 
              {/* Bento Item 2: Sentinel Alerts */}
-             <div className="glass-card p-8 border-white/5 bg-gradient-to-br from-red-500/5 to-transparent relative overflow-hidden group">
-                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-red-500/10 blur-[60px] rounded-full group-hover:bg-red-500/20 transition-all"></div>
-                <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Anomaly Detection</h3>
-                <p className="text-slate-400 font-medium text-sm mb-6">Real-time usage monitoring. We alert you instantly if specific appliances begin consuming unusual power amounts.</p>
-                
-                <div className="space-y-3 mt-auto relative z-10">
-                   <div className="glass-card p-3 border-red-500/20 bg-red-500/5 flex items-start gap-3">
-                      <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse shrink-0"></div>
-                      <div>
-                         <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Spike Detected</p>
-                         <p className="text-xs text-slate-300 font-medium">HVAC load +45% above normal.</p>
-                      </div>
-                   </div>
+             <motion.div 
+               whileHover={{ y: -5 }}
+               initial={{ opacity: 0, y: 20 }}
+               whileInView={{ opacity: 1, y: 0 }}
+               viewport={{ once: true }}
+               transition={{ delay: 0.1 }}
+               className="glass-card border-white/5 bg-gradient-to-br from-red-500/5 to-transparent relative overflow-hidden group prestige-glow"
+             >
+                <div className="bento-inner p-8">
+                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-red-500/10 blur-[60px] rounded-full group-hover:bg-red-500/20 transition-all"></div>
+                  <h3 className="text-3xl font-black text-white mb-2 tracking-tighter">Anomaly Detection</h3>
+                  <p className="text-slate-400 font-medium text-sm mb-6 leading-relaxed">System-wide monitoring. Instant alerts for appliance degradation and unusual power spikes.</p>
+                  
+                  <div className="space-y-3 mt-auto relative z-10">
+                     <motion.div 
+                       initial={{ x: -20, opacity: 0 }}
+                       whileInView={{ x: 0, opacity: 1 }}
+                       className="glass-card p-3 border-red-500/20 bg-red-500/5 flex items-start gap-3"
+                     >
+                        <div className="w-2 h-2 rounded-full bg-red-500 mt-1.5 animate-pulse shrink-0"></div>
+                        <div>
+                           <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Spike Detected</p>
+                           <p className="text-xs text-slate-300 font-medium">Capacitor Load +45% threshold.</p>
+                        </div>
+                     </motion.div>
+                  </div>
                 </div>
-             </div>
+             </motion.div>
 
              {/* Bento Item 3: Hardware Agnostic */}
-             <div className="glass-card p-8 border-white/5 bg-gradient-to-br from-yellow-500/5 to-transparent flex flex-col justify-between group overflow-hidden">
-                <div>
-                  <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Hardware Agnostic</h3>
-                  <p className="text-slate-400 font-medium text-sm mb-4">Seamlessly connect regardless of infrastructure. From standard KPLC prepaid nodes to complex Solar Inverter gateways.</p>
+             <motion.div 
+               whileHover={{ y: -5 }}
+               initial={{ opacity: 0, y: 20 }}
+               whileInView={{ opacity: 1, y: 0 }}
+               viewport={{ once: true }}
+               transition={{ delay: 0.2 }}
+               className="glass-card border-white/5 bg-gradient-to-br from-yellow-500/5 to-transparent group overflow-hidden prestige-glow"
+             >
+                <div className="bento-inner p-8 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-3xl font-black text-white mb-2 tracking-tighter">Unified Nodes</h3>
+                    <p className="text-slate-400 font-medium text-sm mb-4 leading-relaxed">Compatible with standard prepaid meters, off-grid solar arrays, and industrial 3-phase gateways.</p>
+                  </div>
+                  <div className="flex gap-4">
+                     <div className="flex-1 glass-card p-4 border-white/5 text-center bg-slate-900/50 group-hover:bg-slate-800/80 transition-colors">
+                        <Zap className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Grid Smart</span>
+                     </div>
+                     <div className="flex-1 glass-card p-4 border-white/5 text-center bg-slate-900/50 group-hover:bg-slate-800/80 transition-colors">
+                        <Sun className="h-6 w-6 text-aurora-green-light mx-auto mb-2" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Solar Arrays</span>
+                     </div>
+                  </div>
                 </div>
-                <div className="flex gap-4">
-                   <div className="flex-1 glass-card p-3 border-white/5 text-center bg-slate-900/50">
-                      <Zap className="h-6 w-6 text-yellow-500 mx-auto mb-2" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">KPLC Smart</span>
-                   </div>
-                   <div className="flex-1 glass-card p-3 border-white/5 text-center bg-slate-900/50">
-                      <Sun className="h-6 w-6 text-aurora-green-light mx-auto mb-2" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Solar Arrays</span>
-                   </div>
-                </div>
-             </div>
+             </motion.div>
 
              {/* Bento Item 4: Encryption */}
-             <div className="md:col-span-2 glass-card p-8 border-white/5 bg-gradient-to-l from-slate-800/50 to-transparent flex items-center justify-between">
-                <div>
-                   <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Enterprise Security</h3>
-                   <p className="text-slate-400 font-medium max-w-md">Your consumption signatures are locked behind AES-256 protocols. Your data never leaves your personal sovereign vault without explicit consent.</p>
+             <motion.div 
+               whileHover={{ y: -5 }}
+               initial={{ opacity: 0, y: 20 }}
+               whileInView={{ opacity: 1, y: 0 }}
+               viewport={{ once: true }}
+               transition={{ delay: 0.3 }}
+               className="md:col-span-2 glass-card border-white/5 bg-gradient-to-l from-slate-800/50 to-transparent prestige-glow group"
+             >
+                <div className="bento-inner p-8 flex items-center justify-between gap-8">
+                  <div>
+                     <h3 className="text-3xl font-black text-white mb-2 tracking-tighter">Sovereign Data</h3>
+                     <p className="text-slate-400 font-medium max-w-md leading-relaxed">Enterprise-grade isolation. Consumer data signatures are AES-256 encrypted at the hardware level before cloud ingestion.</p>
+                  </div>
+                  <div className="hidden sm:flex w-28 h-28 rounded-full border-2 border-aurora-green/20 items-center justify-center relative shrink-0">
+                     <motion.div 
+                       animate={{ rotate: 360 }}
+                       transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                       className="absolute inset-2 border-2 border-dashed border-aurora-green/40 rounded-full"
+                     ></motion.div>
+                     <Shield className="h-10 w-10 text-aurora-green text-glow" />
+                  </div>
                 </div>
-                <div className="hidden sm:flex w-24 h-24 rounded-full border border-aurora-green/20 items-center justify-center relative">
-                   <div className="absolute inset-2 border border-dashed border-aurora-green/40 rounded-full animate-[spin_10s_linear_infinite]"></div>
-                   <Shield className="h-8 w-8 text-aurora-green" />
-                </div>
-             </div>
+             </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Technical Pipeline Visualization */}
+      <section className="py-32 px-6 relative z-10 overflow-hidden">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row gap-16 items-center">
+            <div className="flex-1">
+              <h2 className="text-4xl md:text-6xl font-black mb-8 text-white tracking-tighter leading-none">
+                The Aurora <br className="hidden md:block"/> <span className="text-aurora-green">Neural Stack</span>
+              </h2>
+              <div className="space-y-6">
+                 {[
+                   { title: "Edge Telemetry", desc: "Proprietary MQTT-bridge for zero-loss consumption streaming.", icon: Cpu },
+                   { title: "Sovereign Vault", desc: "AES-256 encrypted Supabase backend with role-based isolation.", icon: Database },
+                   { title: "Forecast Engine", desc: "Machine learning models trained on millions of grid signatures.", icon: Brain }
+                 ].map((item, i) => (
+                   <div key={i} className="flex gap-4 p-4 rounded-2xl border border-white/5 hover:bg-white/5 transition-colors">
+                      <div className="w-10 h-10 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                        <item.icon className="h-5 w-5 text-aurora-green" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white tracking-tight">{item.title}</h4>
+                        <p className="text-sm text-slate-400 font-medium">{item.desc}</p>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+            </div>
+            <div className="flex-1 w-full aspect-square glass-card border-white/10 bg-slate-950/60 p-8 flex items-center justify-center relative overflow-hidden bento-inner">
+               <div className="absolute inset-0 opacity-20 mesh-gradient"></div>
+               <div className="relative z-10 w-full h-full flex items-center justify-center">
+                  {/* Schematic Mockup */}
+                  <div className="relative w-48 h-48 border-2 border-aurora-green/20 rounded-full flex items-center justify-center animate-aurora-pulse">
+                     <div className="w-32 h-32 border-2 border-aurora-blue-light/20 rounded-full flex items-center justify-center animate-[spin_10s_linear_infinite]">
+                        <Zap className="h-12 w-12 text-aurora-green text-glow" />
+                     </div>
+                     <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 border border-white/10 rounded text-[8px] font-bold text-slate-500 tracking-widest">INGESTION</div>
+                     <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 border border-white/10 rounded text-[8px] font-bold text-slate-500 tracking-widest">ANALYSIS</div>
+                  </div>
+               </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Action Section */}
       <section className="py-32 px-6">
-        <div className="max-w-4xl mx-auto text-center glass-card p-12 sm:p-20 border-white/10 bg-slate-900/40 relative overflow-hidden">
+        <motion.div 
+          initial={{ opacity: 0, y: 100 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="max-w-4xl mx-auto text-center glass-card p-12 sm:p-20 border-white/10 bg-slate-900/40 relative overflow-hidden prestige-glow"
+        >
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-aurora-green/10 to-aurora-blue-light/10 blur-[120px] rounded-full pointer-events-none"></div>
           
-          <h2 className="text-4xl md:text-6xl font-black mb-8 text-white tracking-tight relative z-10">
-            Take Control of Your <br/> <span className="text-aurora-green">Energy Operations</span>
+          <h2 className="text-5xl md:text-7xl font-black mb-8 text-white tracking-tighter leading-none relative z-10">
+            Scale Your <br className="hidden md:block" /> Energy <span className="text-aurora-green">Ecosystem</span>
           </h2>
           <p className="text-xl font-medium text-slate-400 mb-12 max-w-xl mx-auto relative z-10">
-            Join thousands of modern households and businesses optimizing their power consumption across Kenya.
+            Ready to integrate with the standard in energy telemetry? Join the transition to a smarter, decentralized grid.
           </p>
           
-          <Link to="/auth" className="relative z-10 inline-block">
-            <Button className="glass-button-primary h-16 px-12 text-xl font-bold shadow-2xl shadow-aurora-green/20">
-              Create Free Account
-            </Button>
-          </Link>
-        </div>
+          <div className="flex flex-col sm:flex-row gap-5 justify-center relative z-10">
+            <Link to="/auth">
+              <Button className="glass-button-primary h-18 px-14 text-2xl font-black shadow-2xl shadow-aurora-green/20 uppercase tracking-tighter">
+                Register Platform
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
       </section>
 
       {/* Minimal Tech Footer */}
