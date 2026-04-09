@@ -266,4 +266,47 @@
   .glass-header {
     @apply sticky top-0 z-50 px-4 py-3 border-b border-white/10 backdrop-blur-xl bg-slate-950/60;
   }
+
+  /* Premium Investor Styles */
+  .prestige-glow {
+    @apply relative overflow-hidden;
+  }
+  .prestige-glow::after {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none;
+    background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(16, 115, 255, 0.1), transparent 80%);
+  }
+  .prestige-glow:hover::after {
+    @apply opacity-100;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+
+  .bento-inner {
+    @apply h-full w-full rounded-[inherit] border border-white/5 bg-slate-950/20 backdrop-blur-sm transition-all duration-500 group-hover:border-white/20 group-hover:bg-slate-900/40;
+  }
+
+  .mesh-gradient {
+    background: 
+      radial-gradient(at 0% 0%, hsla(142, 76%, 36%, 0.15) 0, transparent 50%), 
+      radial-gradient(at 50% 0%, hsla(220, 100%, 70%, 0.1) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(262, 83%, 57%, 0.1) 0, transparent 50%);
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .border-gradient {
+    border: 1px solid transparent;
+    background: linear-gradient(to right, #0f172a, #0f172a) padding-box,
+                linear-gradient(to right, rgba(16, 185, 129, 0.5), rgba(59, 130, 246, 0.5)) border-box;
+  }
 }

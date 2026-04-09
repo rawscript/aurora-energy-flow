@@ -55,6 +55,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.1",
     "embla-carousel-react": "^8.3.0",
+    "framer-motion": "^12.38.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "ml-matrix": "^6.12.1",
