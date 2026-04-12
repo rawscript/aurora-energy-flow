@@ -17,21 +17,21 @@ const Documentation = () => {
     {
       title: "Hardware Integration",
       icon: Cpu,
-      content: "Technical specifications for ESP8266 and ESP32 smart meter integrations. Step-by-step firmware deployment guide and telemetry protocol documentation.",
+      content: "General overview of connecting smart meters to the Aurora network. Learn about our certification process and how to get your hardware onboarded.",
       color: "text-emerald-400",
       url: "/documentation/hardware"
     },
     {
       title: "System Architecture",
       icon: Layers,
-      content: "A deep dive into Aurora's distributed infrastructure, focusing on low-latency MQTT message brokering and event-driven data processing.",
+      content: "A high-level overview of Aurora's distributed cloud infrastructure, designed for low-latency telemetry and enterprise-grade resilience.",
       color: "text-purple-400",
       url: "/documentation/architecture"
     },
     {
       title: "Data Schemas",
       icon: Database,
-      content: "Explaining the energy consumption data models, multi-tenant isolation strategies, and the logic behind our AI forecasting engine.",
+      content: "Understanding the data integrity standards and privacy isolation strategies that protect sensitive energy telemetry across our platform.",
       color: "text-amber-400",
       url: "/documentation/schemas"
     }
