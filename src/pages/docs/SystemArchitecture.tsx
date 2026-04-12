@@ -41,41 +41,15 @@ const SystemArchitecture = () => {
             </p>
           </motion.div>
 
-          {/* Architecture Chart (Visual Representation) */}
-          <div className="glass-card p-12 mb-20 relative overflow-hidden">
-             <div className="absolute inset-0 opacity-5 mesh-glow" />
-             <div className="relative z-10 flex flex-col items-center gap-8">
-                <div className="flex gap-4 items-center">
-                   <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center w-32">
-                      <Cpu className="h-6 w-6 text-primary mx-auto mb-2" />
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Edge Layer</span>
-                   </div>
-                   <div className="w-8 h-px bg-white/20" />
-                   <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-center w-32">
-                      <Layers className="h-6 w-6 text-blue-400 mx-auto mb-2" />
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Ingress</span>
-                   </div>
-                   <div className="w-8 h-px bg-white/20" />
-                   <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center w-32">
-                      <Database className="h-6 w-6 text-primary mx-auto mb-2" />
-                      <span className="text-[10px] uppercase font-bold text-slate-500">Core Engine</span>
-                   </div>
-                </div>
-                <p className="text-sm text-slate-400 font-medium text-center max-w-lg">
-                   Our stream-processing data pipeline handles millions of concurrent MQTT connections with sub-200ms end-to-end latency.
-                </p>
-             </div>
-          </div>
-
           <div className="space-y-20">
              <section>
                 <div className="flex items-center gap-4 mb-8 text-primary">
                    <Server className="h-8 w-8" />
-                   <h2 className="text-3xl font-black tracking-tight text-white uppercase">Distributed Broker</h2>
+                   <h2 className="text-3xl font-black tracking-tight text-white uppercase">Cloud Ingress Layer</h2>
                 </div>
                 <div className="prose prose-invert max-w-none text-slate-400">
                    <p className="text-lg font-medium leading-relaxed">
-                      Utilizing a globally distributed MQTT broker cluster, Aurora ensures high availability even during regional network instability. Our custom edge-link protocol optimizes data transmission for low-bandwidth environments.
+                      Utilizing a globally distributed data ingress layer, Aurora ensures high availability even during regional network instability. Our legacy-compatible telemetry gateway optimizes data transmission for low-bandwidth environments without revealing network topology.
                    </p>
                 </div>
              </section>

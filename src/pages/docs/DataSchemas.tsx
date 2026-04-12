@@ -45,41 +45,42 @@ const DataSchemas = () => {
              <section>
                 <div className="flex items-center gap-4 mb-8 text-primary">
                    <Table className="h-8 w-8" />
-                   <h2 className="text-3xl font-black tracking-tight text-white uppercase">Consumption Schema</h2>
+                   <h2 className="text-3xl font-black tracking-tight text-white uppercase">Data Integrity</h2>
                 </div>
-                <div className="glass-card p-0 overflow-hidden border-white/10">
-                   <div className="bg-white/5 p-4 border-b border-white/10 grid grid-cols-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                      <span>Field Name</span>
-                      <span>Type / Description</span>
-                   </div>
-                   {[
-                      { field: "meter_id", val: "UUID (Primary Key)" },
-                      { field: "reading_kwh", val: "DECIMAL (Current meter value)" },
-                      { field: "load_rate", val: "FLOAT (Instantaneous power draw)" },
-                      { field: "captured_at", val: "TIMESTAMP (UTC)" }
-                   ].map((item) => (
-                      <div key={item.field} className="p-4 border-b border-white/5 grid grid-cols-2 text-sm">
-                         <code className="text-primary">{item.field}</code>
-                         <span className="text-slate-400">{item.val}</span>
+                <div className="prose prose-invert max-w-none text-slate-400">
+                   <p className="text-lg leading-relaxed mb-6">
+                      Aurora maintains strict data integrity protocols to ensure that energy telemetry is accurate, immutable, and verifiable. Our data warehouse architecture is designed for high-availability and extreme durability.
+                   </p>
+                   <div className="grid md:grid-cols-2 gap-6">
+                      <div className="p-8 rounded-2xl bg-white/5 border border-white/5">
+                         <h4 className="font-bold text-white mb-2">Immutable Audit Logs</h4>
+                         <p className="text-sm">Every data point ingestion is timestamped and cryptographically signed at the source.</p>
                       </div>
-                   ))}
+                      <div className="p-8 rounded-2xl bg-white/5 border border-white/5">
+                         <h4 className="font-bold text-white mb-2">Periodic Validation</h4>
+                         <p className="text-sm">Automated reconciliation between edge meter readings and cloud dashboard state.</p>
+                      </div>
+                   </div>
                 </div>
              </section>
 
              <section>
                 <div className="flex items-center gap-4 mb-8 text-primary">
                    <Shield className="h-8 w-8" />
-                   <h2 className="text-3xl font-black tracking-tight text-white uppercase">Tenant Isolation</h2>
+                   <h2 className="text-3xl font-black tracking-tight text-white uppercase">Privacy & Isolation</h2>
                 </div>
                 <div className="prose prose-invert max-w-none text-slate-400">
                    <p className="text-lg leading-relaxed mb-6">
-                      Data isolation is enforced at the database level using Row-Level Security (RLS). Every query is scoped to the `org_id` context of the authenticated user.
+                      User data isolation is a core pillar of the Aurora platform. We utilize advanced multi-tenant virtualization techniques to ensure that sensitive consumption patterns are strictly siloed.
                    </p>
-                   <div className="bg-black p-6 rounded-2xl border border-white/5 font-mono text-sm">
-                      <p className="text-blue-400">CREATE POLICY</p> 
-                      <p className="text-white">tenant_isolation_policy ON telemetry</p>
-                      <p className="text-blue-400">USING</p> 
-                      <p className="text-white">(org_id = current_setting('app.org_id'));</p>
+                   <div className="p-10 rounded-3xl bg-primary/5 border border-primary/10 flex items-center justify-between gap-8">
+                      <div className="flex-1">
+                         <h3 className="text-xl font-black text-white mb-2">Corporate Data Policy</h3>
+                         <p className="text-sm text-slate-400">Detailed schema architectures and internal database policies are proprietary information available only to certified compliance auditors.</p>
+                      </div>
+                      <Link to="/privacy/compliance">
+                         <Button variant="link" className="text-primary font-bold p-0">View Compliance Overview</Button>
+                      </Link>
                    </div>
                 </div>
              </section>
