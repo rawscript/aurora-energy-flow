@@ -105,7 +105,7 @@ const Documentation = () => {
                 <h3 className="text-2xl font-black mb-2 text-white">Need developer support?</h3>
                 <p className="text-slate-400 font-medium">Join our community or contact our engineering team directly.</p>
              </div>
-             <a href="mailto:engineering@auroraenergy.app">
+             <a href="mailto:auroraenerg3@gmail.com">
                 <Button className="premium-button h-14 px-8">Contact Engineering</Button>
              </a>
           </div>
