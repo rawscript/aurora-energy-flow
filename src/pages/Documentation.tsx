@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Zap, Book, Code, Terminal, Layers, ShieldCheck, Database, Cpu, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import Footer from '@/components/Footer';
 
 const Documentation = () => {
   const sections = [
@@ -105,12 +106,7 @@ const Documentation = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-10 border-t border-white/5 opacity-50 text-center">
-         <p className="text-xs font-medium text-slate-600">
-            © {new Date().getFullYear()} Aurora Smart Meter Solutions. Documentation v1.2.0
-         </p>
-      </footer>
+      <Footer />
     </div>
   );
 };
