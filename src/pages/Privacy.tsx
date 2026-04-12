@@ -112,11 +112,16 @@ const Privacy = () => {
              </div>
              <h3 className="text-2xl font-black mb-4 text-white">Trust is our currency.</h3>
              <p className="text-slate-400 max-w-xl mb-8 font-medium">
-                We provide full transparency into how your data is handled. Download our technical whitepaper on energy data security.
+                Our infrastructure is built on the principles of transparency and security. Feel free to review our technical protocols.
              </p>
-             <Button variant="outline" className="h-14 px-8 border-white/10 hover:bg-white/5 text-white font-bold">
-                Download Whitepaper (PDF)
-             </Button>
+             <div className="flex gap-4">
+                <Button className="h-14 px-8 premium-button font-bold">
+                   Security Whitepaper
+                </Button>
+                <Button variant="outline" className="h-14 px-8 border-white/10 hover:bg-white/5 text-white font-bold">
+                   Compliance Audit
+                </Button>
+             </div>
           </div>
         </div>
       </main>

@@ -71,10 +71,11 @@ const Documentation = () => {
             {sections.map((section, i) => (
               <motion.div
                 key={i}
+                id={section.title.toLowerCase().replace(/\s+/g, '-')}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="glass-card p-8 group hover:border-primary/20 transition-all"
+                className="glass-card p-8 group hover:border-primary/20 transition-all scroll-mt-24"
               >
                 <div className="flex gap-6 items-start">
                   <div className={`w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5 group-hover:bg-primary/5 transition-colors`}>
@@ -83,9 +84,11 @@ const Documentation = () => {
                   <div>
                     <h3 className="text-2xl font-black mb-3 tracking-tight text-white">{section.title}</h3>
                     <p className="text-slate-400 font-medium leading-relaxed">{section.content}</p>
-                    <Button variant="link" className="mt-4 p-0 text-primary font-bold h-auto">
-                      Explore Section <Book className="ml-2 h-4 w-4" />
-                    </Button>
+                    <a href={`#${section.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                      <Button variant="link" className="mt-4 p-0 text-primary font-bold h-auto">
+                        Explore Section <Book className="ml-2 h-4 w-4" />
+                      </Button>
+                    </a>
                   </div>
                 </div>
               </motion.div>
