@@ -128,7 +128,12 @@ const Whitepaper = () => {
           </div>
 
           <div className="mt-20 pt-16 border-t border-white/5 flex flex-col items-center">
-             <Button className="premium-button h-16 px-10 text-lg">
+             <Button 
+               className="premium-button h-16 px-10 text-lg"
+               onClick={() => {
+                 window.print();
+               }}
+             >
                 Download PDF Version (v2.4)
              </Button>
              <p className="mt-4 text-xs text-slate-500">Last updated: April 2026</p>
@@ -137,6 +142,16 @@ const Whitepaper = () => {
       </main>
 
       <Footer />
+      <style>{`
+        @media print {
+          nav, footer, .premium-button, .badge-premium { display: none !important; }
+          main { padding-top: 0 !important; }
+          .glass-card { border: 1px solid #eee !important; background: transparent !important; color: black !important; }
+          .text-gradient { background: none !important; color: black !important; -webkit-text-fill-color: initial !important; }
+          body { background: white !important; color: black !important; }
+          .text-slate-400, .text-slate-300 { color: #666 !important; }
+        }
+      `}</style>
     </div>
   );
 };
