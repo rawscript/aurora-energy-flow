@@ -77,7 +77,7 @@ const HardwareIntegration = () => {
                    <p className="text-slate-400 font-medium leading-relaxed max-w-2xl mx-auto mb-8">
                       For security reasons, hardware specifications and integration protocols are provided exclusively to onboarded partners. Reach out to our engineering team to begin the certification process.
                    </p>
-                   <a href="mailto:engineering@auroraenergy.app">
+                   <a href="mailto:auroraenerg3@gmail.com">
                       <Button className="premium-button h-16 px-10 text-lg">Contact Engineering to Get Onboarded</Button>
                    </a>
                 </div>

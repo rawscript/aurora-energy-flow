@@ -118,7 +118,7 @@ const Compliance = () => {
                     >
                        View 2025 Report
                    </Button>
-                   <a href="mailto:privacy@auroraenergy.app">
+                   <a href="mailto:auroraenerg3@gmail.com">
                       <Button variant="ghost" className="h-14 px-8 text-primary font-bold">
                          Privacy Inquiries <Info className="ml-2 h-4 w-4" />
                       </Button>
