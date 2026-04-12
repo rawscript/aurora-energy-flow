@@ -25,6 +25,8 @@ const Landing = lazy(() => import("./pages/Landing"));
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Documentation = lazy(() => import("./pages/Documentation"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 const TestEnv = lazy(() => import("./test-env"));
 
 
@@ -80,6 +82,8 @@ const AppContent = () => (
                 <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/auth" element={<Auth />} />
+                  <Route path="/documentation" element={<Documentation />} />
+                  <Route path="/privacy" element={<Privacy />} />
                   <Route
                     path="/dashboard"
                     element={

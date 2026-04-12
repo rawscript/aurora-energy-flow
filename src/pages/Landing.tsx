@@ -396,8 +396,8 @@ const Landing = () => {
           </div>
 
           <div className="flex items-center gap-8">
-             <a href="#" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Documentation</a>
-             <a href="#" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Privacy Infrastructure</a>
+             <Link to="/documentation" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Documentation</Link>
+             <Link to="/privacy" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Privacy Infrastructure</Link>
              <a href="#" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">SLA Status</a>
           </div>
 
