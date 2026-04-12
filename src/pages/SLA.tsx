@@ -9,7 +9,7 @@ const SLA = () => {
   const systems = [
     { name: "Core Telemetry Hub", status: "Operational", uptime: "99.99%", load: "Low" },
     { name: "AI Forecasting Engine", status: "Operational", uptime: "99.95%", load: "Normal" },
-    { name: "MQTT Broker Cluster", status: "Operational", uptime: "99.99%", load: "Stable" },
+    { name: "Unified Telemetry Mesh", status: "Operational", uptime: "99.99%", load: "Stable" },
     { name: "API Gateway", status: "Operational", uptime: "100%", load: "Low" }
   ];
 

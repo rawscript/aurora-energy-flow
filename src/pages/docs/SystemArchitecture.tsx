@@ -63,13 +63,13 @@ const SystemArchitecture = () => {
                    <div className="p-8 rounded-3xl bg-white/5 border border-white/5">
                       <h4 className="text-xl font-bold text-white mb-4">Anomaly Detection</h4>
                       <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                         Tensorflow-based models analyze incoming data streams to identify unauthorized consumption and equipment fatigue in real-time.
+                         Proprietary neural architectures analyze incoming data streams to identify unauthorized consumption and equipment fatigue in real-time.
                       </p>
                    </div>
                    <div className="p-8 rounded-3xl bg-white/5 border border-white/5">
                       <h4 className="text-xl font-bold text-white mb-4">Predictive Analytics</h4>
                       <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                         Recurrent Neural Networks (RNN) process historical usage to generate highly accurate billing forecasts for Kenyan households.
+                         Aurora's custom deep-learning models process historical usage to generate highly accurate billing forecasts for Kenyan households.
                       </p>
                    </div>
                 </div>
@@ -81,7 +81,7 @@ const SystemArchitecture = () => {
                    <h2 className="text-3xl font-black tracking-tight text-white uppercase">Infrastructure Security</h2>
                 </div>
                 <p className="text-lg text-slate-400 leading-relaxed max-w-2xl">
-                   Each architectural layer is isolated via private VPCs, with cross-layer communication strictly governed by mTLS and automated security group policies.
+                   Each architectural layer is isolated via multi-layer virtualization, with cross-layer communication strictly governed by proprietary encryption handshakes and automated zero-trust policies.
                 </p>
              </section>
           </div>

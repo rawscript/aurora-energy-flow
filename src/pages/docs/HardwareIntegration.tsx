@@ -37,7 +37,7 @@ const HardwareIntegration = () => {
               Hardware <br /> Integration.
             </h1>
             <p className="text-xl text-slate-400 mb-16 font-medium leading-relaxed">
-              Technical specifications for connecting physical smart meters to the Aurora cloud network using ESP8266 and ESP32 microcontrollers.
+              Technical specifications for connecting physical smart meters to the Aurora cloud network using our proprietary edge processing architecture.
             </p>
           </motion.div>
 

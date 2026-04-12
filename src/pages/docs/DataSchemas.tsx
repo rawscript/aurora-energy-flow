@@ -91,7 +91,7 @@ const DataSchemas = () => {
                    <h2 className="text-3xl font-black tracking-tight text-white uppercase">Indexing Strategy</h2>
                 </div>
                 <p className="text-lg text-slate-400 leading-relaxed max-w-2xl">
-                   We utilize hyper-table partitioning for time-series data, ensuring that even with billions of records, query performance for real-time dashboards remains optimal.
+                   We utilize proprietary high-velocity indexing for time-series data, ensuring that even with billions of records, query performance for real-time dashboards remains optimal.
                 </p>
              </section>
           </div>
