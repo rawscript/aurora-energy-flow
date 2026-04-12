@@ -12,28 +12,28 @@ const Documentation = () => {
       icon: Terminal,
       content: "Complete documentation for the Aurora Energy REST and GraphQL APIs. Understand how to programmatically access real-time meter data and historical consumption trends.",
       color: "text-blue-400",
-      url: "#api-reference"
+      url: "/documentation/api"
     },
     {
       title: "Hardware Integration",
       icon: Cpu,
       content: "Technical specifications for ESP8266 and ESP32 smart meter integrations. Step-by-step firmware deployment guide and telemetry protocol documentation.",
       color: "text-emerald-400",
-      url: "#hardware-integration"
+      url: "/documentation/hardware"
     },
     {
       title: "System Architecture",
       icon: Layers,
       content: "A deep dive into Aurora's distributed infrastructure, focusing on low-latency MQTT message brokering and event-driven data processing.",
       color: "text-purple-400",
-      url: "#system-architecture"
+      url: "/documentation/architecture"
     },
     {
       title: "Data Schemas",
       icon: Database,
       content: "Explaining the energy consumption data models, multi-tenant isolation strategies, and the logic behind our AI forecasting engine.",
       color: "text-amber-400",
-      url: "#data-schemas"
+      url: "/documentation/schemas"
     }
   ];
 
