@@ -29,6 +29,7 @@ const Documentation = lazy(() => import("./pages/Documentation"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Whitepaper = lazy(() => import("./pages/Whitepaper"));
 const Compliance = lazy(() => import("./pages/Compliance"));
+const SLA = lazy(() => import("./pages/SLA"));
 const TestEnv = lazy(() => import("./test-env"));
 
 
@@ -88,6 +89,7 @@ const AppContent = () => (
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/privacy/whitepaper" element={<Whitepaper />} />
                   <Route path="/privacy/compliance" element={<Compliance />} />
+                  <Route path="/sla" element={<SLA />} />
                   <Route
                     path="/dashboard"
                     element={
