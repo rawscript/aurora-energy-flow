@@ -116,12 +116,16 @@ const Privacy = () => {
                 Our infrastructure is built on the principles of transparency and security. Feel free to review our technical protocols.
              </p>
              <div className="flex gap-4">
-                <Button className="h-14 px-8 premium-button font-bold">
-                   Security Whitepaper
-                </Button>
-                <Button variant="outline" className="h-14 px-8 border-white/10 hover:bg-white/5 text-white font-bold">
-                   Compliance Audit
-                </Button>
+                <Link to="/privacy/whitepaper">
+                   <Button className="h-14 px-8 premium-button font-bold">
+                      Security Whitepaper
+                   </Button>
+                </Link>
+                <Link to="/privacy/compliance">
+                   <Button variant="outline" className="h-14 px-8 border-white/10 hover:bg-white/5 text-white font-bold">
+                      Compliance Audit
+                   </Button>
+                </Link>
              </div>
           </div>
         </div>
