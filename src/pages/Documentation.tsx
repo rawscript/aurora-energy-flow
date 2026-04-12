@@ -11,25 +11,29 @@ const Documentation = () => {
       title: "API Reference",
       icon: Terminal,
       content: "Complete documentation for the Aurora Energy REST and GraphQL APIs. Understand how to programmatically access real-time meter data and historical consumption trends.",
-      color: "text-blue-400"
+      color: "text-blue-400",
+      url: "https://docs.aurora-energy.co.ke/v1/api"
     },
     {
       title: "Hardware Integration",
       icon: Cpu,
       content: "Technical specifications for ESP8266 and ESP32 smart meter integrations. Step-by-step firmware deployment guide and telemetry protocol documentation.",
-      color: "text-emerald-400"
+      color: "text-emerald-400",
+      url: "https://docs.aurora-energy.co.ke/v1/hardware"
     },
     {
       title: "System Architecture",
       icon: Layers,
       content: "A deep dive into Aurora's distributed infrastructure, focusing on low-latency MQTT message brokering and event-driven data processing.",
-      color: "text-purple-400"
+      color: "text-purple-400",
+      url: "https://docs.aurora-energy.co.ke/v1/architecture"
     },
     {
       title: "Data Schemas",
       icon: Database,
       content: "Explaining the energy consumption data models, multi-tenant isolation strategies, and the logic behind our AI forecasting engine.",
-      color: "text-amber-400"
+      color: "text-amber-400",
+      url: "https://docs.aurora-energy.co.ke/v1/schemas"
     }
   ];
 
@@ -85,7 +89,7 @@ const Documentation = () => {
                   <div>
                     <h3 className="text-2xl font-black mb-3 tracking-tight text-white">{section.title}</h3>
                     <p className="text-slate-400 font-medium leading-relaxed">{section.content}</p>
-                    <a href={`#${section.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                    <a href={section.url} target="_blank" rel="noopener noreferrer">
                       <Button variant="link" className="mt-4 p-0 text-primary font-bold h-auto">
                         Explore Section <Book className="ml-2 h-4 w-4" />
                       </Button>
@@ -101,7 +105,9 @@ const Documentation = () => {
                 <h3 className="text-2xl font-black mb-2 text-white">Need developer support?</h3>
                 <p className="text-slate-400 font-medium">Join our community or contact our engineering team directly.</p>
              </div>
-             <Button className="premium-button h-14 px-8">Contact Engineering</Button>
+             <a href="mailto:engineering@aurora-energy.co.ke">
+                <Button className="premium-button h-14 px-8">Contact Engineering</Button>
+             </a>
           </div>
         </div>
       </main>
