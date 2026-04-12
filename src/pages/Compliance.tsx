@@ -111,12 +111,18 @@ const Compliance = () => {
                    We believe in radical transparency. Our annual transparency report outlines our data processing activities, government requests, and infrastructure updates.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                   <Button variant="outline" className="h-14 px-8 border-white/10 hover:bg-white/5 text-white font-bold">
-                      View 2025 Report
+                   <Button 
+                      variant="outline" 
+                      className="h-14 px-8 border-white/10 hover:bg-white/5 text-white font-bold"
+                      onClick={() => window.print()}
+                    >
+                       View 2025 Report
                    </Button>
-                   <Button variant="ghost" className="h-14 px-8 text-primary font-bold">
-                      Privacy Inquiries <Info className="ml-2 h-4 w-4" />
-                   </Button>
+                   <a href="mailto:privacy@auroraenergy.app">
+                      <Button variant="ghost" className="h-14 px-8 text-primary font-bold">
+                         Privacy Inquiries <Info className="ml-2 h-4 w-4" />
+                      </Button>
+                   </a>
                 </div>
              </div>
           </div>
@@ -124,6 +130,16 @@ const Compliance = () => {
       </main>
 
       <Footer />
+      <style>{`
+        @media print {
+          nav, footer, .premium-button, .badge-premium, .framework-status { display: none !important; }
+          main { padding-top: 0 !important; }
+          .glass-card { border: 1px solid #eee !important; background: transparent !important; color: black !important; }
+          .text-gradient { background: none !important; color: black !important; -webkit-text-fill-color: initial !important; }
+          body { background: white !important; color: black !important; }
+          .text-slate-400, .text-slate-300 { color: #666 !important; }
+        }
+      `}</style>
     </div>
   );
 };
