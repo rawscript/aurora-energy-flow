@@ -27,6 +27,8 @@ const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Documentation = lazy(() => import("./pages/Documentation"));
 const Privacy = lazy(() => import("./pages/Privacy"));
+const Whitepaper = lazy(() => import("./pages/Whitepaper"));
+const Compliance = lazy(() => import("./pages/Compliance"));
 const TestEnv = lazy(() => import("./test-env"));
 
 
@@ -84,6 +86,8 @@ const AppContent = () => (
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/documentation" element={<Documentation />} />
                   <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/privacy/whitepaper" element={<Whitepaper />} />
+                  <Route path="/privacy/compliance" element={<Compliance />} />
                   <Route
                     path="/dashboard"
                     element={
