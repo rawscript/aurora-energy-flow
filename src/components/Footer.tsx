@@ -19,7 +19,7 @@ const Footer = () => {
         <div className="flex items-center gap-8">
            <Link to="/documentation" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Documentation</Link>
            <Link to="/privacy" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Privacy Infrastructure</Link>
-           <a href="#" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">SLA Status</a>
+           <Link to="/sla" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">SLA Status</Link>
         </div>
 
         <p className="text-xs font-medium text-slate-600">
