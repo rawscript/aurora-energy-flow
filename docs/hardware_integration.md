@@ -1,19 +1,29 @@
 # Hardware Integration
 
-Technical specifications for connecting physical smart meters to the Aurora cloud network using our proprietary edge processing architecture.
+Aurora's edge devices are primarily based on low-cost, high-efficiency microcontrollers running native C++ firmware (`firmware.py` / `.cpp`). The reference hardware stack utilizes the ESP8266 NodeMCU framework.
 
-## Integration Process
+## Components & Wiring
 
-Aurora provides a seamless integration path for energy utilities and residential smart meters. Our proprietary gateway technology ensures secure, low-latency telemetry without exposing internal grid configurations.
+The reference smart meter integrates the following components:
+- **MCU**: ESP8266 NodeMCU
+- **Current Sensor**: ACS712 (connected via A0, running with `ACS_OFFSET = 2.50V` and sensitivity `0.100V/A`)
+- **Status Indicators**:
+    - `LED_GREEN` (GPIO14/D5): System and WiFi connectivity status
+    - `LED_WHITE` (GPIO12/D6): Pulse indicator for sampling activity.
 
-1. **Consultation**: Our engineering team reviews your existing hardware infrastructure.
-2. **Gateway Setup**: Secure deployment of Aurora software onto compatible meter gateways.
-3. **Validation**: End-to-end testing of data integrity and encryption handshake.
+*Note on Voltage*: In the continuous MVP iteration, grid voltage is simulated as a time-varying sine wave based on a constant 230V reference, avoiding direct mains exposure during laboratory benchmarking.
 
-## Onboarding
+## Firmware Data Loop
 
-For security reasons, hardware specifications and integration protocols are provided exclusively to onboarded partners. Reach out to our engineering team to begin the certification process.
+The device maintains a secure TLS connection via `WiFiClientSecure` to HiveMQ Cloud.
+Data is read via an intensive 300-sample RMS calculation loop:
+```cpp
+for (int i = 0; i < SAMPLE_COUNT; i++) {
+  float voltage = (float)analogRead(A0) * ADC_REF_VOLT / ADC_MAX_COUNTS;
+  float current = (voltage - ACS_OFFSET) / ACS_SENS;
+  sumSq += (double)(current * current);
+  delayMicroseconds(200);
+}
+```
 
-## Mobile SDK Access 
-
-Request access to the Aurora Mobile SDK to build native iOS and Android experiences on top of our secure data mesh.
+Publishing occurs every 5 seconds (to adhere to optimal MQTT pub/sub traffic flows) formatted strictly into the required JSON payload. The meter implements Last Will and Testament (LWT) by registering an `offline` payload on its status topic during the connection handshake.
