@@ -29,7 +29,10 @@ const Documentation = lazy(() => import("./pages/Documentation"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const SLA = lazy(() => import("./pages/SLA"));
-const TestEnv = lazy(() => import("./test-env"));
+const DashboardGuide = lazy(() => import("./pages/guide/DashboardGuide"));
+const AIForecasts = lazy(() => import("./pages/guide/AIForecasts"));
+const AlertsGuide = lazy(() => import("./pages/guide/AlertsGuide"));
+const USSDGuide = lazy(() => import("./pages/guide/USSDGuide"));
 
 
 
@@ -85,6 +88,10 @@ const AppContent = () => (
                   <Route path="/" element={<Landing />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/documentation" element={<Documentation />} />
+                  <Route path="/guide/dashboard" element={<DashboardGuide />} />
+                  <Route path="/guide/ai" element={<AIForecasts />} />
+                  <Route path="/guide/alerts" element={<AlertsGuide />} />
+                  <Route path="/guide/ussd" element={<USSDGuide />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/privacy/compliance" element={<Compliance />} />
                   <Route path="/sla" element={<SLA />} />

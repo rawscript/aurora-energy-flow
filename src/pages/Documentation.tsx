@@ -12,28 +12,28 @@ const Documentation = () => {
       icon: Activity,
       content: "Learn how to read your real-time energy consumption graphs and decipher daily usage metrics to spot inefficiencies.",
       color: "text-blue-400",
-      url: "#dashboard-guide"
+      url: "/guide/dashboard"
     },
     {
       title: "AI Forecasts & Tips",
       icon: Lightbulb,
       content: "Discover how Aurora's AI predicts your next month's bill and generates personalized recommendations to save you money.",
       color: "text-emerald-400",
-      url: "#ai-guide"
+      url: "/guide/ai"
     },
     {
       title: "Alerts & Notifications",
       icon: Bell,
       content: "Set up SMS or email alerts to be notified immediately when your household surpasses predefined power limits.",
       color: "text-purple-400",
-      url: "#alerts-guide"
+      url: "/guide/alerts"
     },
     {
       title: "USSD Code Directory",
       icon: Phone,
       content: "Access your energy data offline using our shortcodes. Check your balance or make prepayments directly from your feature phone.",
       color: "text-amber-400",
-      url: "#ussd-guide"
+      url: "/guide/ussd"
     }
   ];
 

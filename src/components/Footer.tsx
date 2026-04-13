@@ -17,8 +17,8 @@ const Footer = () => {
         </div>
 
         <div className="flex items-center gap-8">
-           <Link to="/documentation" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Documentation</Link>
-           <Link to="/privacy" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Privacy Infrastructure</Link>
+           <Link to="/documentation" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Help Center</Link>
+           <Link to="/privacy" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">Privacy Policy</Link>
            <Link to="/sla" className="text-xs font-bold text-slate-500 hover:text-white uppercase tracking-widest transition-colors">SLA Status</Link>
         </div>
 
