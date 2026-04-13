@@ -82,6 +82,10 @@ class EnhancedAIService {
   private readonly GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
   private readonly GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+  // NVIDIA Nemo configuration
+  private readonly NEMO_API_KEY = import.meta.env.VITE_NVIDIA_NEMO_API_KEY || '';
+  private readonly NEMO_ENDPOINT = import.meta.env.VITE_NVIDIA_NEMO_URL || 'https://integrate.api.nvidia.com/v1/chat/completions';
+
   // Hugging Face configuration
   private readonly HF_API_KEY = import.meta.env.VITE_HUGGINGFACE_API_KEY || '';
   private readonly HF_ENDPOINT = 'https://api-inference.huggingface.co/models/';
@@ -181,8 +185,11 @@ class EnhancedAIService {
 
   private async makeAIRequest(userMessage: string): Promise<AIResponse> {
     try {
-      // First try Gemini if available
-      if (this.GEMINI_API_KEY) {
+      // First try NVIDIA Nemo
+      if (this.NEMO_API_KEY) {
+        return await this.makeNemoRequest(userMessage);
+      } else if (this.GEMINI_API_KEY) {
+        // Fall back to Gemini
         return await this.makeGeminiRequest(userMessage);
       } else if (this.HF_API_KEY) {
         // Fall back to Hugging Face
@@ -200,6 +207,64 @@ class EnhancedAIService {
         timestamp: new Date(),
         error: error instanceof Error ? error.message : 'AI request failed'
       };
+    }
+  }
+
+  private async makeNemoRequest(userMessage: string): Promise<AIResponse> {
+    try {
+      const response = await fetch(this.NEMO_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.NEMO_API_KEY}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: import.meta.env.VITE_NVIDIA_NEMO_MODEL || "meta/llama-3.1-405b-instruct",
+          messages: [
+            {
+              role: "system",
+              content: "You are Aurora, a smart energy assistant for Kenya. Respond to this user query with helpful, actionable advice about energy management, Kenya Power services, or electricity savings based on their smart meter data."
+            },
+            {
+              role: "user",
+              content: userMessage
+            }
+          ],
+          temperature: 0.2,
+          top_p: 0.7,
+          max_tokens: 1024
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`NVIDIA Nemo request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const aiMessage = data?.choices?.[0]?.message?.content;
+
+      if (!aiMessage) {
+        throw new Error('No response body from NVIDIA Nemo service');
+      }
+
+      // Cache the response
+      this.cacheResponse(userMessage, aiMessage);
+
+      return {
+        success: true,
+        message: aiMessage,
+        source: 'ai',
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error('NVIDIA Nemo request failed:', error);
+      // Fall back to lower priority APIs
+      if (this.GEMINI_API_KEY) {
+        return await this.makeGeminiRequest(userMessage);
+      } else {
+        throw error;
+      }
     }
   }
 

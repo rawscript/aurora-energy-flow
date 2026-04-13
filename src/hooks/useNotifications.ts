@@ -5,12 +5,12 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 // Constants for consistent timing and rate limiting - OPTIMIZED
-const API_CALL_DEBOUNCE = 5000; // 5 seconds between API calls (increased from 2)
-const RETRY_DELAYS = [2000, 5000, 10000]; // Longer exponential backoff delays
-const UPDATE_THROTTLE = 3000; // 3 seconds throttle for real-time updates (increased from 1.5)
-const MAX_NOTIFICATIONS = 50; // Reduced to prevent memory issues
-const MIN_REFRESH_INTERVAL = 30000; // Minimum 30 seconds between refreshes
-const MAX_CONCURRENT_REQUESTS = 2; // Limit concurrent requests
+const API_CALL_DEBOUNCE = 500; // Drastically reduced from 5000 to enable instant fetches on mount
+const RETRY_DELAYS = [1000, 2000, 4000]; // Faster exponential backoff delays
+const UPDATE_THROTTLE = 500; // Drastically reduced from 3000 to allow real-time responsiveness
+const MAX_NOTIFICATIONS = 50; // Prevent memory issues
+const MIN_REFRESH_INTERVAL = 2000; // Reduced from 30000ms
+const MAX_CONCURRENT_REQUESTS = 5; // Allow more requests for complex tabs
 
 
 
@@ -581,15 +581,18 @@ export const useNotifications = () => {
           if (payload.eventType === 'UPDATE' && payload.old && payload.new) {
             const hasActualChange = JSON.stringify(payload.old) !== JSON.stringify(payload.new);
             if (!hasActualChange) {
-              console.log('Ignoring duplicate update event');
+              console.log('[useNotifications] Ignoring duplicate update event');
               return;
             }
           }
           
           lastUpdateTime.current = now;
 
+          console.log(`[useNotifications] Postgres Change event fired: ${payload.eventType}`);
+
           try {
             if (payload.eventType === 'INSERT' && payload.new) {
+              console.log('[useNotifications] Processing INSERT payload:', payload.new);
               const newNotification: Notification = {
                 id: payload.new.id,
                 title: payload.new.title,
@@ -623,6 +626,7 @@ export const useNotifications = () => {
                 }
               }
             } else if (payload.eventType === 'UPDATE' && payload.new) {
+              console.log('[useNotifications] Processing UPDATE payload:', payload.new);
               setNotifications(prev =>
                 prev.map(n => n.id === payload.new.id 
                   ? { ...n, isRead: payload.new.is_read, updatedAt: payload.new.updated_at }
@@ -630,13 +634,14 @@ export const useNotifications = () => {
                 )
               );
             } else if (payload.eventType === 'DELETE' && payload.old) {
+              console.log('[useNotifications] Processing DELETE payload:', payload.old);
               setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
               if (!payload.old.is_read) {
                 setUnreadCount(prev => Math.max(0, prev - 1));
               }
             }
           } catch (error) {
-            console.error('Error processing real-time notification update:', error);
+            console.error('[useNotifications] Error processing real-time notification update:', error);
           }
         })
         .subscribe((status) => {
