@@ -13,7 +13,7 @@ interface Message {
   text: string;
   isBot: boolean;
   timestamp: Date;
-  source?: 'ai' | 'fallback' | 'cache';
+  source?: 'ai' | 'fallback' | 'cache' | 'huggingface';
 }
 
 const Chatbot = () => {
@@ -21,7 +21,7 @@ const Chatbot = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Jambo! I'm Aurora, your smart energy assistant for Kenya. I can help you understand your electricity usage, save on bills, and navigate Kenya Power services. What would you like to know?",
+      text: "I'm Aurora, your smart energy assistant. I can help you understand your electricity usage, reduce your bills, and navigate Kenya Power services. What would you like to know?",
       isBot: true,
       timestamp: new Date(),
       source: 'ai'
@@ -197,7 +197,7 @@ const Chatbot = () => {
       <CardHeader className="flex flex-row items-center justify-between p-4 bg-aurora-gradient">
         <CardTitle className="text-white font-medium flex items-center gap-2">
           <Bot className="h-5 w-5" />
-          Aurora Assistant 🇰🇪
+          Aurora Assistant
         </CardTitle>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">

@@ -371,19 +371,19 @@ class EnhancedAIService {
           success: true,
           message: `Here are proven ways to reduce your electricity bill in Kenya:
 
-💡 Immediate Actions:
-• Switch to LED bulbs (save up to 80% on lighting)
-• Unplug devices when not in use
-• Use natural light during the day
-• Set water heater to 60°C maximum
+Immediate Actions:
+- Switch to LED bulbs (save up to 80% on lighting)
+- Unplug devices when not in use
+- Use natural light during the day
+- Set water heater to 60 degrees Celsius maximum
 
-🏠 Home Efficiency:
-• Use fans instead of AC when possible
-• Iron clothes in batches
-• Use pressure cookers for faster cooking
-• Maintain your fridge at 4°C
+Home Efficiency:
+- Use fans instead of AC when possible
+- Iron clothes in batches
+- Use pressure cookers for faster cooking
+- Maintain your fridge at 4 degrees Celsius
 
-With these tips, you could save 20-30% monthly!`,
+With these tips, you could save 20-30% monthly.`,
           source: 'ai',
           timestamp: new Date()
         };
@@ -392,16 +392,16 @@ With these tips, you could save 20-30% monthly!`,
       if (message.includes('usage') || message.includes('consumption') || message.includes('current')) {
         return {
           success: true,
-          message: `📈 Energy Usage Tips:
+          message: `Energy Usage Tips:
 
-🔋 Monitor your daily consumption patterns
-💰 Track your costs to identify savings opportunities
-⚡ Check for unusual spikes in usage
-🎯 Aim for consistent, efficient usage
+- Monitor your daily consumption patterns
+- Track your costs to identify savings opportunities
+- Check for unusual spikes in usage
+- Aim for consistent, efficient usage
 
-Connect your smart meter for personalized insights!
+Connect your smart meter for personalized insights.
 
-Kenya Power Average: 150-300 kWh/month for typical households`,
+Kenya Power Average: 150-300 kWh per month for typical households.`,
           source: 'ai',
           timestamp: new Date()
         };
@@ -462,32 +462,32 @@ Kenya Power Average: 150-300 kWh/month for typical households`,
     if (message.includes('reduce') || message.includes('save') || message.includes('lower') || message.includes('bill')) {
       return `Here are proven ways to reduce your electricity bill in Kenya:
 
-💡 Immediate Actions:
-• Switch to LED bulbs (save up to 80% on lighting)
-• Unplug devices when not in use
-• Use natural light during the day
-• Set water heater to 60°C maximum
+Immediate Actions:
+- Switch to LED bulbs (save up to 80% on lighting)
+- Unplug devices when not in use
+- Use natural light during the day
+- Set water heater to 60 degrees Celsius maximum
 
-🏠 Home Efficiency:
-• Use fans instead of AC when possible
-• Iron clothes in batches
-• Use pressure cookers for faster cooking
-• Maintain your fridge at 4°C
+Home Efficiency:
+- Use fans instead of AC when possible
+- Iron clothes in batches
+- Use pressure cookers for faster cooking
+- Maintain your fridge at 4 degrees Celsius
 
-With these tips, you could save 20-30% monthly!`;
+With these tips, you could save 20-30% monthly.`;
     }
     
     if (message.includes('usage') || message.includes('consumption') || message.includes('current')) {
-      return `📈 Energy Usage Tips:
+      return `Energy Usage Tips:
 
-🔋 Monitor your daily consumption patterns
-💰 Track your costs to identify savings opportunities
-⚡ Check for unusual spikes in usage
-🎯 Aim for consistent, efficient usage
+- Monitor your daily consumption patterns
+- Track your costs to identify savings opportunities
+- Check for unusual spikes in usage
+- Aim for consistent, efficient usage
 
-Connect your smart meter for personalized insights!
+Connect your smart meter for personalized insights.
 
-Kenya Power Average: 150-300 kWh/month for typical households`;
+Kenya Power Average: 150-300 kWh per month for typical households.`;
     }
     
     if (message.includes('tariff') || message.includes('rate') || message.includes('cost') || message.includes('price')) {
@@ -510,50 +510,50 @@ Kenya Power Average: 150-300 kWh/month for typical households`;
     }
     
     if (message.includes('contact') || message.includes('kenya power') || message.includes('support') || message.includes('help')) {
-      return `📞 Kenya Power Customer Support:
+      return `Kenya Power Customer Support:
 
-🆘 Emergency & Outages:
-• Toll-Free: 95551
-• Mobile: 0711 070 000
-• WhatsApp: 0711 070 000
+Emergency and Outages:
+- Toll-Free: 95551
+- Mobile: 0711 070 000
+- WhatsApp: 0711 070 000
 
-💬 Customer Service:
-• Email: info@kplc.co.ke
-• Website: www.kplc.co.ke
-• MyPower App (bill payments)
+Customer Service:
+- Email: info@kplc.co.ke
+- Website: www.kplc.co.ke
+- MyPower App (bill payments)
 
-🏢 Regional Offices:
-• Nairobi: Stima Plaza, Kolobot Road
-• Mombasa: Elektra House, Haile Selassie Road
-• Kisumu: KPLC Building, Oginga Odinga Road
+Regional Offices:
+- Nairobi: Stima Plaza, Kolobot Road
+- Mombasa: Elektra House, Haile Selassie Road
+- Kisumu: KPLC Building, Oginga Odinga Road
 
-⏰ Hours: Monday-Friday 8AM-5PM`;
+Hours: Monday-Friday 8AM-5PM`;
     }
     
     if (message.includes('hello') || message.includes('hi') || message.includes('jambo') || message.includes('habari')) {
-      return `Jambo! 🇰🇪
+      return `Hello.
 
 I'm Aurora, your energy assistant. I can help you with:
 
-⚡ Energy Management:
-• Understanding electricity usage
-• Bill calculation and estimation
-• Energy-saving strategies
+Energy Management:
+- Understanding electricity usage
+- Bill calculation and estimation
+- Energy-saving strategies
 
-📊 Smart Features:
-• Real-time usage monitoring
-• Custom alerts and notifications
-• Efficiency recommendations
+Smart Features:
+- Real-time usage monitoring
+- Custom alerts and notifications
+- Efficiency recommendations
 
-🏠 Kenya-Specific Help:
-• Kenya Power services and contacts
-• Local energy-saving tips
-• Tariff information and updates
+Kenya-Specific Help:
+- Kenya Power services and contacts
+- Local energy-saving tips
+- Tariff information and updates
 
 What would you like to explore today?`;
     }
     
-    return `I'm here to help you manage your energy consumption and save money on electricity bills! 🇰🇪\n\nI can assist with:\n• 📊 Energy usage analysis\n• 💰 Bill reduction strategies\n• ⚙️ Smart meter setup\n• 📞 Kenya Power information\n• 🏠 Home efficiency tips\n\nPopular Questions:\n• "How can I reduce my electricity bill?"\n• "What are Kenya Power tariff rates?"\n• "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
+    return `I'm here to help you manage your energy consumption and save money on electricity bills.\n\nI can assist with:\n- Energy usage analysis\n- Bill reduction strategies\n- Smart meter setup\n- Kenya Power information\n- Home efficiency tips\n\nPopular Questions:\n- "How can I reduce my electricity bill?"\n- "What are Kenya Power tariff rates?"\n- "Energy saving tips for Kenyan homes"\n\nWhat specific topic would you like to discuss?`;
   }
 
   public async sendMessage(userMessage: string): Promise<AIResponse> {
@@ -1183,3 +1183,5 @@ What would you like to explore today?`;
 
 // Export singleton instance
 export const enhancedAIService = new EnhancedAIService();
+// Alias for backwards-compatible imports
+export const aiService = enhancedAIService;
