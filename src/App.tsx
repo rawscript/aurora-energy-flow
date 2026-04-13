@@ -27,13 +27,8 @@ const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Documentation = lazy(() => import("./pages/Documentation"));
 const Privacy = lazy(() => import("./pages/Privacy"));
-const Whitepaper = lazy(() => import("./pages/Whitepaper"));
 const Compliance = lazy(() => import("./pages/Compliance"));
 const SLA = lazy(() => import("./pages/SLA"));
-const ApiReference = lazy(() => import("./pages/docs/ApiReference"));
-const HardwareIntegration = lazy(() => import("./pages/docs/HardwareIntegration"));
-const SystemArchitecture = lazy(() => import("./pages/docs/SystemArchitecture"));
-const DataSchemas = lazy(() => import("./pages/docs/DataSchemas"));
 const TestEnv = lazy(() => import("./test-env"));
 
 
@@ -91,13 +86,8 @@ const AppContent = () => (
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/documentation" element={<Documentation />} />
                   <Route path="/privacy" element={<Privacy />} />
-                  <Route path="/privacy/whitepaper" element={<Whitepaper />} />
                   <Route path="/privacy/compliance" element={<Compliance />} />
                   <Route path="/sla" element={<SLA />} />
-                  <Route path="/documentation/api" element={<ApiReference />} />
-                  <Route path="/documentation/hardware" element={<HardwareIntegration />} />
-                  <Route path="/documentation/architecture" element={<SystemArchitecture />} />
-                  <Route path="/documentation/schemas" element={<DataSchemas />} />
                   <Route
                     path="/dashboard"
                     element={

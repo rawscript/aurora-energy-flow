@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Book, Code, Terminal, Layers, ShieldCheck, Database, Cpu, ArrowLeft } from 'lucide-react';
+import { Zap, Book, Phone, Activity, Lightbulb, Bell, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import Footer from '@/components/Footer';
@@ -8,32 +8,32 @@ import Footer from '@/components/Footer';
 const Documentation = () => {
   const sections = [
     {
-      title: "API Reference",
-      icon: Terminal,
-      content: "Complete documentation for the Aurora Energy REST and GraphQL APIs. Understand how to programmatically access real-time meter data and historical consumption trends.",
+      title: "Understanding Your Dashboard",
+      icon: Activity,
+      content: "Learn how to read your real-time energy consumption graphs and decipher daily usage metrics to spot inefficiencies.",
       color: "text-blue-400",
-      url: "/documentation/api"
+      url: "#dashboard-guide"
     },
     {
-      title: "Hardware Integration",
-      icon: Cpu,
-      content: "General overview of connecting smart meters to the Aurora network. Learn about our certification process and how to get your hardware onboarded.",
+      title: "AI Forecasts & Tips",
+      icon: Lightbulb,
+      content: "Discover how Aurora's AI predicts your next month's bill and generates personalized recommendations to save you money.",
       color: "text-emerald-400",
-      url: "/documentation/hardware"
+      url: "#ai-guide"
     },
     {
-      title: "System Architecture",
-      icon: Layers,
-      content: "A high-level overview of Aurora's distributed cloud infrastructure, designed for low-latency telemetry and enterprise-grade resilience.",
+      title: "Alerts & Notifications",
+      icon: Bell,
+      content: "Set up SMS or email alerts to be notified immediately when your household surpasses predefined power limits.",
       color: "text-purple-400",
-      url: "/documentation/architecture"
+      url: "#alerts-guide"
     },
     {
-      title: "Data Schemas",
-      icon: Database,
-      content: "Understanding the data integrity standards and privacy isolation strategies that protect sensitive energy telemetry across our platform.",
+      title: "USSD Code Directory",
+      icon: Phone,
+      content: "Access your energy data offline using our shortcodes. Check your balance or make prepayments directly from your feature phone.",
       color: "text-amber-400",
-      url: "/documentation/schemas"
+      url: "#ussd-guide"
     }
   ];
 
@@ -63,12 +63,12 @@ const Documentation = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="badge-premium mb-6 inline-block">Platform Resources</div>
+            <div className="badge-premium mb-6 inline-block">Help Center</div>
             <h1 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter text-gradient">
-              Documentation.
+              User Guide.
             </h1>
             <p className="text-xl text-slate-400 mb-16 font-medium leading-relaxed">
-              Everything you need to integrate with Aurora's smart grid infrastructure and build energy-aware applications.
+              Everything you need to master your energy consumption and make the most out of the Aurora platform.
             </p>
           </motion.div>
 
@@ -91,7 +91,7 @@ const Documentation = () => {
                     <p className="text-slate-400 font-medium leading-relaxed">{section.content}</p>
                     <a href={section.url}>
                       <Button variant="link" className="mt-4 p-0 text-primary font-bold h-auto">
-                        Explore Section <Book className="ml-2 h-4 w-4" />
+                        Read Guide <Book className="ml-2 h-4 w-4" />
                       </Button>
                     </a>
                   </div>
@@ -102,11 +102,11 @@ const Documentation = () => {
 
           <div className="mt-20 p-10 rounded-3xl bg-primary/5 border border-primary/10 flex flex-col md:flex-row items-center justify-between gap-8">
              <div>
-                <h3 className="text-2xl font-black mb-2 text-white">Need developer support?</h3>
-                <p className="text-slate-400 font-medium">Join our community or contact our engineering team directly.</p>
+                <h3 className="text-2xl font-black mb-2 text-white">Need deeper assistance?</h3>
+                <p className="text-slate-400 font-medium">For developer integration and technical architecture, please refer to our internal GitHub repository.</p>
              </div>
              <a href="mailto:auroraenerg3@gmail.com">
-                <Button className="premium-button h-14 px-8">Contact Engineering</Button>
+                <Button className="premium-button h-14 px-8">Contact Support</Button>
              </a>
           </div>
         </div>
