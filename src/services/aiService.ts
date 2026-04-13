@@ -1,3 +1,2 @@
-// Re-export everything from the enhanced AI service
+// Re-export everything from the enhanced AI service (includes aiService alias)
 export * from './EnhancedAIService';
-export { aiService } from './EnhancedAIService';
