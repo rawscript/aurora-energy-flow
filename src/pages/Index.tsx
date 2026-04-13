@@ -15,9 +15,8 @@ const SolarRealTimeDashboard = lazy(() => import("@/components/SolarRealTimeDash
 const PayAsYouGoDashboard = lazy(() => import("@/components/PayAsYouGoDashboard"));
 const EnergyInsights = lazy(() => import("@/components/EnergyInsights"));
 const BillCalculator = lazy(() => import("@/components/BillCalculator"));
-// Temporarily removed chat components due to build issues
-// const ChatInterface = lazy(() => import("@/components/ChatInterface"));
-// const Chatbot = lazy(() => import("@/components/Chatbot"));
+// Chatbot widget - renders as a floating overlay across all tabs
+const Chatbot = lazy(() => import("@/components/Chatbot"));
 const Settings = lazy(() => import("@/components/Settings"));
 const SmartMeterStatus = lazy(() => import("@/components/SmartMeterStatus"));
 const MeterSetup = lazy(() => import("@/components/MeterSetup"));
@@ -399,6 +398,11 @@ const Index = () => {
           ))}
         </Tabs>
       </div>
+
+      {/* Floating Chatbot Widget - always accessible across all tabs */}
+      <Suspense fallback={null}>
+        <Chatbot />
+      </Suspense>
     </div>
   );
 };
