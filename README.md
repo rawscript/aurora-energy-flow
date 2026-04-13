@@ -4,7 +4,7 @@
 
 **Aurora Energy** is an enterprise-grade, AI-powered energy management and optimization platform. Designed for scalability and resilience, it provides real-time energy monitoring, predictive analytics, and automated billing features suitable for residential and commercial deployments across Kenya and beyond.
 
-## 🚀 Key Capabilities
+## Key Capabilities
 
 - **Real-Time IoT Data Ingestion:** High-speed MQTT integration supporting thousands of concurrent ESP8266/ESP32 smart meter nodes with microsecond precision.
 - **AI-Driven Forecasting:** Machine learning models predict usage patterns to optimize grid load and reduce energy expenditures.
@@ -12,7 +12,7 @@
 - **Universal Accessibility:** Fully functional SMS and USSD integrations ensuring access for users without smart devices.
 - **Security & Compliance:** SOC 2 Type II compliant architecture, ISO 27001 data protection standards, and strict role-based access control (RBAC).
 
-## 🏗️ Architecture
+## Architecture
 
 The platform is designed with a modern decoupled architecture:
 
@@ -21,9 +21,9 @@ The platform is designed with a modern decoupled architecture:
 - **IoT Messaging:** Scalable MQTT broker handling telemetry data (Voltage, Current, Power)
 - **Deployment:** Vercel (Frontend), Supabase Cloud (Backend)
 
-For deeper architectural details, hardware integration schemas, and data dictionary documentation, please refer to the `docs/` internal directory or navigate to the live documentation portal at `/docs/architecture`.
+For deeper architectural details, hardware integration schemas, AI and ML infrastructure, and data dictionary documentation, please refer to the internal `docs/` repository directory.
 
-## ⚙️ Quick Start
+## Quick Start
 
 1. **Clone the repository**
    ```bash
@@ -48,19 +48,18 @@ For deeper architectural details, hardware integration schemas, and data diction
    npm run dev
    ```
 
-## 📚 Documentation & Legal
+## Documentation & Legal
 
-- **API Documentation**: Available at `/docs/api`
-- **Data Schemas**: Available at `/docs/schemas`
-- **Hardware Integration**: Available at `/docs/hardware`
 - **SLA & Uptime**: Available at `/sla`
 - **Security Whitepaper**: Available at `/whitepaper`
 - **Privacy & Compliance**: Available at `/privacy` and `/compliance`
 
-## ⚠️ Legacy Simulator
+Internal engineering documentation including System Architecture, API details, Hardware Setup, and Data Schemas have been moved to the `docs/` folder in the repository instead of the live web view.
+
+## Legacy Simulator Note
 
 The `simulator`, `smart-meter`, and `proxy-deployment` directories contain legacy testing infrastructure from early prototyping phases. For modern development, we recommend using the new live MQTT integration layer.
 
-## 📜 License
+## License
 
 This project is proprietary and confidential. Unauthorized copying of files via any medium is strictly prohibited.
