@@ -27,12 +27,9 @@ Aurora Energy Flow operates on a highly available, decoupled modern stack:
 
 ## Live Web Documentation
 
-For user-facing and external developer documentation, please start the app and navigate to the integrated dashboard docs:
-- `/docs/architecture`
-- `/docs/api`
-- `/docs/schemas`
-- `/docs/hardware`
-- `/whitepaper`
+For non-technical, user-facing guides (Understanding the Dashboard, USSD, Alerts, AI Forecasts), please start the app and navigate to the integrated User Guide at `/documentation` and `/guide/*`.
+
+Internal engineering architecture constraints and API structures are documented natively within this `docs/` repository directly.
 
 ## Directory Structure
 
