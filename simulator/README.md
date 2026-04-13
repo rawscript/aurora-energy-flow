@@ -1,5 +1,10 @@
 # Aurora Smart Meter Simulator
 
+> [!WARNING]
+> **LEGACY INFRASTRUCTURE**
+> This simulator was used during early iterations of the Aurora project. It is preserved for historical context but is no longer actively maintained. For modern testing, please use the live MQTT integration.
+
+
 This directory contains the Aurora Smart Meter Simulator, a web-based tool for simulating energy meter readings and sending data to the Aurora system.
 
 ## Files

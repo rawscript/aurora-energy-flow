@@ -1,66 +1,51 @@
-# Aurora Energy Flow - Documentation
+# Aurora Platform - Internal Documentation
 
-This folder contains consolidated documentation for the Aurora Energy Flow project.
+This directory contains consolidated internal backend and operational documentation for the Aurora Energy Flow project.
 
-## Project Overview
+## Architecture & Infrastructure
 
-Aurora Energy Flow is a comprehensive energy management system for Kenya, supporting both KPLC (Kenya Power) and solar energy systems.
+Aurora Energy Flow operates on a highly available, decoupled modern stack:
 
-## Key Features
+### Layer 1: Edge & Presentation (Frontend)
+- **Framework**: React 18 + Vite
+- **Language**: TypeScript (`strict` mode)
+- **Styling**: Tailwind CSS, `clsx`, `tailwind-merge`
+- **Visualizations**: D3 / Recharts / Three.js
+- **Hosting**: Vercel Edge Network
 
-- Real-time energy monitoring
-- SMS/USSD integration for KPLC
-- Solar system tracking
-- Energy insights and analytics
-- Mobile-responsive dashboard
-- Multi-provider support (KPLC, Solar, Hybrid)
+### Layer 2: Core API & Data Layer (Backend)
+- **Provider**: Supabase 
+- **Database**: PostgreSQL 15+
+- **APIs**: PostgREST endpoints + Edge Functions (Deno)
+- **Real-Time**: Supabase Realtime Channels (WebSockets)
+- **Auth**: Supabase Auth (JWT, RBAC)
 
-## Architecture
+### Layer 3: IoT Ingestion & Hardware
+- **Bridge**: External MQTT Broker (Node MQTT proxy `scripts/mqtt_bridge.js`)
+- **Firmware**: MicroPython/C++ on ESP8266/ESP32 devices (`firmware.py`)
+- **Protocol**: Raw MQTT telemetry mapping mapped into the `energy_readings` table
 
-- **Frontend**: React + TypeScript + Vite
-- **Backend**: Supabase (PostgreSQL + Edge Functions)
-- **Authentication**: Supabase Auth
-- **Real-time**: Supabase Realtime
-- **Deployment**: Vercel (Frontend) + Supabase (Backend)
+## Live Web Documentation
 
-## Quick Start
+For user-facing and external developer documentation, please start the app and navigate to the integrated dashboard docs:
+- `/docs/architecture`
+- `/docs/api`
+- `/docs/schemas`
+- `/docs/hardware`
+- `/whitepaper`
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Set up environment variables (see `.env.example`)
-4. Run migrations: `supabase db push`
-5. Start development server: `npm run dev`
+## Directory Structure
 
-## Project Structure
-
-```
+```text
 src/
-├── components/     # Reusable UI components
-├── contexts/       # React contexts (Auth, etc.)
-├── hooks/          # Custom React hooks
-├── pages/          # Page components
-├── services/       # API services
-├── types/          # TypeScript type definitions
-└── utils/          # Utility functions
-
-supabase/
-├── functions/      # Edge functions
-└── migrations/     # Database migrations
+├── components/     # High-fidelity UI components & layout elements
+├── contexts/       # Application state (MeterContext, AuthContext)
+├── hooks/          # Complex logic (useRealTimeEnergy, useMQTT)
+├── integrations/   # Supabase typings and init logic
+├── pages/          # App routes, landing pages, and documentation pages
+├── ...
 ```
 
-## Development
+## Legacy Folders Warning
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `supabase start` - Start local Supabase
-- `supabase db push` - Apply migrations
-
-## Deployment
-
-The project is configured for deployment on:
-- **Frontend**: Vercel
-- **Backend**: Supabase Cloud
-- **Proxy**: Render/Railway (for KPLC integration)
-
-See individual deployment guides in this docs folder for detailed instructions.
+Folders such as `simulator`, `proxy-deployment`, and `smart-meter` represent older iterations of the project when a mock web-simulator was used for generating data. They are preserved for historical context but are no longer maintained as part of the production Aurora Platform architecture. For modern IoT testing, direct MQTT integration is required.

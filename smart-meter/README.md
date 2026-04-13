@@ -1,5 +1,10 @@
 # Aurora Smart Meter
 
+> [!WARNING]
+> **LEGACY C++ FIRMWARE**
+> This document details the legacy iteration of C++ firmware which used HTTP POST. The current hardware stack utilizes MicroPython with direct MQTT bridging via `firmware.py`. This document remains for historical reference.
+
+
 ESP8266-based smart meter that communicates with Aurora's backend system.
 
 ## Features

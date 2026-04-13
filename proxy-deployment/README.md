@@ -1,5 +1,10 @@
 # Aurora Smart Meter Proxy Server Deployment
 
+> [!WARNING]
+> **LEGACY INFRASTRUCTURE**
+> This proxy server deployment was designed for early HTTP-based prototyping. The modern Aurora platform utilizes an Edge Function & MQTT Bridge architecture. This directory is preserved for historical reference only.
+
+
 This directory contains all the necessary files to deploy the Aurora Smart Meter Proxy Server.
 
 ## Files
