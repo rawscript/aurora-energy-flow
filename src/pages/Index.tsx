@@ -24,6 +24,7 @@ const KPLCTokenDashboard = lazy(() => import("@/components/KPLCTokenDashboard"))
 const NotificationCenter = lazy(() => import("@/components/NotificationCenter"));
 const MobileDashboard = lazy(() => import("@/components/MobileDashboard"));
 const AccountProfile = lazy(() => import("@/components/AccountProfile").then(m => ({ default: m.AccountProfile })));
+const KPLCBillDashboard = lazy(() => import("@/components/KPLCBillDashboard"));
 
 // Loading component for tab content
 const TabLoadingSpinner = () => (
@@ -102,31 +103,46 @@ const Index = () => {
         label: isMobile ? "Profile" : "My Account",
         component: AccountProfile,
         visible: true
+      },
+      insights: {
+        label: isMobile ? "Insights" : "Energy Insights",
+        component: EnergyInsights,
+        visible: true
+      },
+      demandData: {
+        label: isMobile ? "SMS" : "SMS Data",
+        component: EnergyInsightsDashboard,
+        visible: (safeProvider || 'KPLC') !== 'Solar'
+      },
+      billing: {
+        label: isMobile ? "Bills" : "Bill Status",
+        component: KPLCBillDashboard,
+        visible: (safeProvider || 'KPLC') !== 'Solar'
       }
     };
 
     // Add Pay as You Go tab for solar providers
-    // if (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar') {
-    //   config.paygo = {
-    //     label: "Pay as You Go",
-    //     component: PayAsYouGoDashboard,
-    //     visible: true
-    //   };
-    // }
+    if (safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar') {
+      config.paygo = {
+        label: "Pay as You Go",
+        component: PayAsYouGoDashboard,
+        visible: true
+      };
+    }
 
     // Add tokens/credits tab based on provider capabilities
-    // if (providerConfig?.settings?.supportsTokens || providerConfig?.settings?.supportsPayAsYouGo) {
-    //   // Don't show tokens tab for solar providers since we have Pay as You Go tab
-    //   if (!(safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar')) {
-    //     config.tokens = {
-    //       label: isMobile
-    //         ? (providerConfig?.terminology?.credits === 'credits' ? "Credits" : "Tokens")
-    //         : (providerConfig?.terminology?.dashboard || "Tokens"),
-    //       component: KPLCTokenDashboard,
-    //       visible: true
-    //     };
-    //   }
-    // }
+    if (providerConfig?.settings?.supportsTokens || providerConfig?.settings?.supportsPayAsYouGo) {
+      // Don't show tokens tab for solar providers since we have Pay as You Go tab
+      if (!(safeProvider === 'Solar' || safeProvider === 'SunCulture' || safeProvider === 'M-KOPA Solar')) {
+        config.tokens = {
+          label: isMobile
+            ? (providerConfig?.terminology?.credits === 'credits' ? "Credits" : "Tokens")
+            : (providerConfig?.terminology?.dashboard || "Tokens"),
+          component: KPLCTokenDashboard,
+          visible: true
+        };
+      }
+    }
 
     return config;
   }, [isMobile, provider, providerConfig]);
@@ -239,6 +255,12 @@ const Index = () => {
         break;
       case 'paygo':
         content = <PayAsYouGoDashboard energyProvider={provider || 'KPLC'} />;
+        break;
+      case 'demandData':
+        content = <EnergyInsightsDashboard meterNumber={meterNumber || ''} />;
+        break;
+      case 'billing':
+        content = <KPLCBillDashboard />;
         break;
       default:
         const Component = config.component;

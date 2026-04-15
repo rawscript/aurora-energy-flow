@@ -17,6 +17,7 @@ import {
   TrendingDown 
 } from 'lucide-react';
 import { useKPLCPuppeteer } from '../hooks/useKPLCPuppeteer';
+import { useProfile } from '../hooks/useProfile';
 import { format, formatDistanceToNow } from 'date-fns';
 
 const KPLCBillDashboard: React.FC = () => {
@@ -32,11 +33,14 @@ const KPLCBillDashboard: React.FC = () => {
   const { profile, loading: profileLoading } = useProfile();
   const { toast } = useToast();
   const [isFetching, setIsFetching] = useState(false);
+  const [meterNumber, setMeterNumber] = useState(profile?.meter_number || '');
+  const [idNumber, setIdNumber] = useState('');
 
   // Load latest bill data when profile is available
   useEffect(() => {
     if (profile?.meter_number) {
       getLatestBillData(profile.meter_number);
+      if (!meterNumber) setMeterNumber(profile.meter_number);
     }
   }, [profile, getLatestBillData]);
 
