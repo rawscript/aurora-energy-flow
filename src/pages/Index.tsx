@@ -104,11 +104,6 @@ const Index = () => {
         component: AccountProfile,
         visible: true
       },
-      insights: {
-        label: isMobile ? "Insights" : "Energy Insights",
-        component: EnergyInsights,
-        visible: true
-      },
       demandData: {
         label: isMobile ? "SMS" : "SMS Data",
         component: EnergyInsightsDashboard,
