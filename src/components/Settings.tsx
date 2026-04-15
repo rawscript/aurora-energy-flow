@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Zap, DollarSign, BatteryCharging, Building, Factory, CheckCircle, Wifi, Copy, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Sun, Battery, Loader2, AlertTriangle, Zap, DollarSign, BatteryCharging, Building, Factory, CheckCircle, Wifi, Copy, Check, Phone } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEnergyProvider, PROVIDER_CONFIGS } from '@/contexts/EnergyProviderContext';
@@ -18,6 +18,7 @@ const Settings = () => {
   const [notifications, setNotifications] = useState(true);
   const [autoOptimize, setAutoOptimize] = useState(false);
   const [rate, setRate] = useState('0.15');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [batteryCount, setBatteryCount] = useState('0');
   const [isSaving, setIsSaving] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -52,6 +53,7 @@ const Settings = () => {
       setNotifications(profile.notifications_enabled ?? true);
       setAutoOptimize(profile.auto_optimize ?? false);
       setRate(profile.energy_rate ? profile.energy_rate.toString() : providerConfig.settings.defaultRate.toString());
+      setPhoneNumber(profile.phone_number || '');
       setBatteryCount(profile.battery_count ? profile.battery_count.toString() : '0');
 
       // Initialize notification preferences
@@ -146,6 +148,7 @@ const Settings = () => {
         notifications_enabled: notifications,
         auto_optimize: autoOptimize,
         energy_rate: rateValue,
+        phone_number: phoneNumber,
         notification_preferences: notificationPreferences,
         ...(providerConfig.settings.supportsBatteries && { battery_count: batteryCountValue })
       };
@@ -392,6 +395,24 @@ const Settings = () => {
               />
               <p className="text-xs text-muted-foreground">
                 Default rate for {providerConfig.name}: KSh {providerConfig.settings.defaultRate}/kWh
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number (for SMS Alerts)</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="bg-slate-800 border-aurora-green/30 pl-10"
+                  placeholder="+254712345678"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter your number to receive real-time SMS notifications and alerts
               </p>
             </div>
 

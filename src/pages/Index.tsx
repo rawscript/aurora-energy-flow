@@ -61,7 +61,7 @@ const Index = () => {
     // Use safe provider value to avoid initialization issues
     const safeProvider = provider || 'KPLC';
     
-    const config = {
+    const config: TabConfig = {
       dashboard: { 
         label: isMobile ? "Home" : "Dashboard", 
         component: isMobile ? MobileDashboard : 
@@ -103,11 +103,6 @@ const Index = () => {
         label: isMobile ? "Profile" : "My Account",
         component: AccountProfile,
         visible: true
-      },
-      demandData: {
-        label: isMobile ? "SMS" : "SMS Data",
-        component: EnergyInsightsDashboard,
-        visible: (safeProvider || 'KPLC') !== 'Solar'
       },
       billing: {
         label: isMobile ? "Bills" : "Bill Status",
@@ -250,9 +245,6 @@ const Index = () => {
         break;
       case 'paygo':
         content = <PayAsYouGoDashboard energyProvider={provider || 'KPLC'} />;
-        break;
-      case 'demandData':
-        content = <EnergyInsightsDashboard meterNumber={meterNumber || ''} />;
         break;
       case 'billing':
         content = <KPLCBillDashboard />;
