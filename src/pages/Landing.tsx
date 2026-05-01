@@ -98,6 +98,17 @@ const Navbar = () => {
 // --- Main Page ---
 
 const Landing = () => {
+  const [show3D, setShow3D] = useState(false);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setShow3D(window.innerWidth >= 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
       <Navbar />
@@ -106,12 +117,14 @@ const Landing = () => {
       <section className="relative pt-32 pb-20 overflow-hidden min-h-screen flex items-center">
         <div className="mesh-glow" />
         <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1/2 h-[600px] hidden lg:block opacity-60">
-          <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-            <ambientLight intensity={0.5} />
-            <pointLight position={[10, 10, 10]} intensity={1} />
-            <EnergySphere />
-            <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.5} />
-          </Canvas>
+          {show3D && (
+            <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+              <ambientLight intensity={0.5} />
+              <pointLight position={[10, 10, 10]} intensity={1} />
+              <EnergySphere />
+              <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.5} />
+            </Canvas>
+          )}
         </div>
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
