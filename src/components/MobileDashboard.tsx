@@ -56,6 +56,16 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
     }
   };
 
+  const safeEnergyData = {
+    current_usage: energyData?.current_usage || 0,
+    daily_total: energyData?.daily_total || 0,
+    daily_cost: energyData?.daily_cost || 0,
+    efficiency_score: energyData?.efficiency_score || 0,
+    weekly_average: energyData?.weekly_average || 0,
+    peak_usage_time: energyData?.peak_usage_time || '00:00',
+    cost_trend: energyData?.cost_trend || 'stable'
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -102,7 +112,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Current</p>
                 <p className="text-lg font-bold text-aurora-green-light">
-                  {energyData.current_usage.toFixed(1)} kW
+                  {safeEnergyData.current_usage.toFixed(1)} kW
                 </p>
               </div>
             </div>
@@ -116,7 +126,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Daily Total</p>
                 <p className="text-lg font-bold text-aurora-blue-light">
-                  {energyData.daily_total.toFixed(1)} kWh
+                  {safeEnergyData.daily_total.toFixed(1)} kWh
                 </p>
               </div>
             </div>
@@ -130,7 +140,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Cost Today</p>
                 <p className="text-lg font-bold text-aurora-purple-light">
-                  KSh {energyData.daily_cost.toFixed(0)}
+                  KSh {safeEnergyData.daily_cost.toFixed(0)}
                 </p>
               </div>
             </div>
@@ -144,7 +154,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
               <div>
                 <p className="text-xs text-muted-foreground">Efficiency</p>
                 <p className="text-lg font-bold text-emerald-400">
-                  {energyData.efficiency_score}%
+                  {safeEnergyData.efficiency_score}%
                 </p>
               </div>
             </div>
@@ -209,18 +219,18 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
                   })()}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {reading.kwh_consumed.toFixed(2)} kWh
+                  {(reading.kwh_consumed || 0).toFixed(2)} kWh
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-sm font-bold text-aurora-green-light">
-                  KSh {reading.total_cost.toFixed(2)}
+                  KSh {(reading.total_cost || 0).toFixed(2)}
                 </p>
                 <div className="flex items-center space-x-1">
-                  {index === 0 && energyData.cost_trend === 'up' && (
+                  {index === 0 && safeEnergyData.cost_trend === 'up' && (
                     <TrendingUp className="h-3 w-3 text-red-500" />
                   )}
-                  {index === 0 && energyData.cost_trend === 'down' && (
+                  {index === 0 && safeEnergyData.cost_trend === 'down' && (
                     <TrendingDown className="h-3 w-3 text-green-500" />
                   )}
                 </div>
@@ -239,19 +249,19 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-2xl font-bold text-aurora-green-light">
-                {energyData.weekly_average.toFixed(0)}
+                {safeEnergyData.weekly_average.toFixed(0)}
               </p>
               <p className="text-xs text-muted-foreground">kWh Avg</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-aurora-blue-light">
-                {energyData.peak_usage_time}
+                {safeEnergyData.peak_usage_time}
               </p>
               <p className="text-xs text-muted-foreground">Peak Time</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-emerald-400">
-                KSh {(energyData.weekly_average * 25).toFixed(0)}
+                KSh {(safeEnergyData.weekly_average * 25).toFixed(0)}
               </p>
               <p className="text-xs text-muted-foreground">Est. Cost</p>
             </div>
@@ -273,7 +283,7 @@ const MobileDashboard: React.FC<MobileDashboardProps> = ({ onNavigate }) => {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-300">
-            Your peak usage is at {energyData.peak_usage_time}. Consider shifting some activities to off-peak hours to save on costs.
+            Your peak usage is at {safeEnergyData.peak_usage_time}. Consider shifting some activities to off-peak hours to save on costs.
           </p>
           {useMockData && (
             <p className="text-xs text-amber-400 mt-2">
